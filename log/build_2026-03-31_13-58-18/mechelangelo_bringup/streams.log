@@ -1,0 +1,33 @@
+[0.127s] Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_bringup': /usr/bin/cmake /home/andy/git/MECHelangelo/src/mechelangelo_bringup -DCMAKE_INSTALL_PREFIX=/home/andy/git/MECHelangelo/install/mechelangelo_bringup
+[0.208s] -- The C compiler identification is GNU 11.4.0
+[0.263s] -- The CXX compiler identification is GNU 11.4.0
+[0.268s] -- Detecting C compiler ABI info
+[0.308s] -- Detecting C compiler ABI info - done
+[0.314s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.314s] -- Detecting C compile features
+[0.314s] -- Detecting C compile features - done
+[0.316s] -- Detecting CXX compiler ABI info
+[0.366s] -- Detecting CXX compiler ABI info - done
+[0.370s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[0.371s] -- Detecting CXX compile features
+[0.371s] -- Detecting CXX compile features - done
+[0.376s] [31mCMake Error at CMakeLists.txt:9 (find_package):
+[0.376s]   By not providing "Findament_cmake.cmake" in CMAKE_MODULE_PATH this project
+[0.376s]   has asked CMake to find a package configuration file provided by
+[0.376s]   "ament_cmake", but CMake did not find one.
+[0.376s] 
+[0.376s]   Could not find a package configuration file provided by "ament_cmake" with
+[0.376s]   any of the following names:
+[0.376s] 
+[0.376s]     ament_cmakeConfig.cmake
+[0.376s]     ament_cmake-config.cmake
+[0.376s] 
+[0.377s]   Add the installation prefix of "ament_cmake" to CMAKE_PREFIX_PATH or set
+[0.377s]   "ament_cmake_DIR" to a directory containing one of the above files.  If
+[0.377s]   "ament_cmake" provides a separate development package or SDK, be sure it
+[0.377s]   has been installed.
+[0.377s] 
+[0.377s] [0m
+[0.377s] -- Configuring incomplete, errors occurred!
+[0.377s] See also "/home/andy/git/MECHelangelo/build/mechelangelo_bringup/CMakeFiles/CMakeOutput.log".
+[0.379s] Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_bringup' returned '1': /usr/bin/cmake /home/andy/git/MECHelangelo/src/mechelangelo_bringup -DCMAKE_INSTALL_PREFIX=/home/andy/git/MECHelangelo/install/mechelangelo_bringup

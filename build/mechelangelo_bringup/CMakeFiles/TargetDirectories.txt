@@ -1,0 +1,9 @@
+/home/andy/git/MECHelangelo/build/mechelangelo_bringup/CMakeFiles/uninstall.dir
+/home/andy/git/MECHelangelo/build/mechelangelo_bringup/CMakeFiles/mechelangelo_bringup_uninstall.dir
+/home/andy/git/MECHelangelo/build/mechelangelo_bringup/CMakeFiles/test.dir
+/home/andy/git/MECHelangelo/build/mechelangelo_bringup/CMakeFiles/edit_cache.dir
+/home/andy/git/MECHelangelo/build/mechelangelo_bringup/CMakeFiles/rebuild_cache.dir
+/home/andy/git/MECHelangelo/build/mechelangelo_bringup/CMakeFiles/list_install_components.dir
+/home/andy/git/MECHelangelo/build/mechelangelo_bringup/CMakeFiles/install.dir
+/home/andy/git/MECHelangelo/build/mechelangelo_bringup/CMakeFiles/install/local.dir
+/home/andy/git/MECHelangelo/build/mechelangelo_bringup/CMakeFiles/install/strip.dir

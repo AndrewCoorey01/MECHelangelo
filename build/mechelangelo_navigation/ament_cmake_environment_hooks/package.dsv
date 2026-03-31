@@ -1,0 +1,4 @@
+source;share/mechelangelo_navigation/local_setup.bash
+source;share/mechelangelo_navigation/local_setup.dsv
+source;share/mechelangelo_navigation/local_setup.sh
+source;share/mechelangelo_navigation/local_setup.zsh

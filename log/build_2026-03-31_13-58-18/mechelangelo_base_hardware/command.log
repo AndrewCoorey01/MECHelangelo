@@ -1,0 +1,2 @@
+Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_base_hardware': /usr/bin/cmake /home/andy/git/MECHelangelo/src/mechelangelo_base_hardware -DCMAKE_INSTALL_PREFIX=/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware
+Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_base_hardware' returned '1': /usr/bin/cmake /home/andy/git/MECHelangelo/src/mechelangelo_base_hardware -DCMAKE_INSTALL_PREFIX=/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware
