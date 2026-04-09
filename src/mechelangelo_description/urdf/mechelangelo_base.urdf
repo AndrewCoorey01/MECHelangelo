@@ -8,14 +8,14 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/base/base.stl" scale=" 0.001 0.001 0.001"/>
+        <mesh filename="package://mechelangelo_description/meshes/base/base.dae" scale=" 1 1 1"/>
       </geometry>
     </visual>
 
     <collision>
       <origin xyz="0 0 0.10" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/base/base.stl" scale=" 0.001 0.001 0.001"/>
+        <mesh filename="package://mechelangelo_description/meshes/base/base.dae" scale=" 1 1 1"/>
       </geometry>
     </collision>
 
@@ -37,14 +37,14 @@
        ========================= -->
   <link name="left_wheel_link">
     <visual>
-      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <origin xyz="0.11091 0.20103 0.075" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/wheels/wheel.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="package://mechelangelo_description/meshes/wheels/wheel.dae" scale="1 1 1"/>
       </geometry>
     </visual>
 
     <collision>
-      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
         <cylinder radius="0.075" length="0.03"/>
       </geometry>
@@ -68,14 +68,14 @@
        ========================= -->
   <link name="right_wheel_link">
     <visual>
-      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <origin xyz="0.11091 -0.20103 0.075" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/wheels/wheel.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="package://mechelangelo_description/meshes/wheels/wheel.dae" scale="1 1 1"/>
       </geometry>
     </visual>
 
     <collision>
-      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
         <cylinder radius="0.075" length="0.03"/>
       </geometry>
@@ -100,14 +100,14 @@
   <joint name="left_wheel_joint" type="continuous">
     <parent link="base_link"/>
     <child link="left_wheel_link"/>
-    <origin xyz="0.11091 0.20103 0.075" rpy="0 0 0"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
     <axis xyz="0 1 0"/>
   </joint>
 
   <joint name="right_wheel_joint" type="continuous">
     <parent link="base_link"/>
     <child link="right_wheel_link"/>
-    <origin xyz="0.11091 -0.20103 0.075" rpy="0 0 0"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
     <axis xyz="0 1 0"/>
   </joint>
 
@@ -162,7 +162,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/sensors/lds.stl" scale="0.001 0.001 0.001"/>
+        <mesh filename="package://mechelangelo_description/meshes/sensors/lds.stl" scale="1 1 1"/>
       </geometry>
     </visual>
 

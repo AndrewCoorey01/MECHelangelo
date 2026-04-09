@@ -1,0 +1,662 @@
+[0.054s] DEBUG:colcon:Command line arguments: ['/usr/bin/colcon', 'build']
+[0.054s] DEBUG:colcon:Parsed command line arguments: Namespace(log_base=None, log_level=None, verb_name='build', build_base='build', install_base='install', merge_install=False, symlink_install=False, test_result_base=None, continue_on_error=False, executor='parallel', parallel_workers=32, event_handlers=None, ignore_user_meta=False, metas=['./colcon.meta'], base_paths=['.'], packages_ignore=None, packages_ignore_regex=None, paths=None, packages_up_to=None, packages_up_to_regex=None, packages_above=None, packages_above_and_dependencies=None, packages_above_depth=None, packages_select_by_dep=None, packages_skip_by_dep=None, packages_skip_up_to=None, packages_select_build_failed=False, packages_skip_build_finished=False, packages_select_test_failures=False, packages_skip_test_passed=False, packages_select=None, packages_skip=None, packages_select_regex=None, packages_skip_regex=None, packages_start=None, packages_end=None, allow_overriding=[], cmake_args=None, cmake_target=None, cmake_target_skip_unavailable=False, cmake_clean_cache=False, cmake_clean_first=False, cmake_force_configure=False, ament_cmake_args=None, catkin_cmake_args=None, catkin_skip_building_tests=False, mixin_files=None, mixin=None, verb_parser=<colcon_mixin.mixin.mixin_argument.MixinArgumentDecorator object at 0x78626ec63160>, verb_extension=<colcon_core.verb.build.BuildVerb object at 0x78626ec622c0>, main=<bound method BuildVerb.main of <colcon_core.verb.build.BuildVerb object at 0x78626ec622c0>>, mixin_verb=('build',))
+[0.129s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) check parameters
+[0.129s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) check parameters
+[0.129s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) check parameters
+[0.129s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) check parameters
+[0.129s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) discover
+[0.129s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) discover
+[0.129s] INFO:colcon.colcon_core.package_discovery:Crawling recursively for packages in '/home/andy/git/MECHelangelo'
+[0.129s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ignore', 'ignore_ament_install']
+[0.129s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore'
+[0.129s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore_ament_install'
+[0.129s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_pkg']
+[0.129s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_pkg'
+[0.129s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_meta']
+[0.129s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_meta'
+[0.129s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ros']
+[0.129s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ros'
+[0.134s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['cmake', 'python']
+[0.134s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'cmake'
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python'
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['python_setup_py']
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python_setup_py'
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extensions ['ignore', 'ignore_ament_install']
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extension 'ignore'
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(build) ignored
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extensions ['ignore', 'ignore_ament_install']
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extension 'ignore'
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(install) ignored
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extensions ['ignore', 'ignore_ament_install']
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extension 'ignore'
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(log) ignored
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['ignore', 'ignore_ament_install']
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'ignore'
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'ignore_ament_install'
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['colcon_pkg']
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'colcon_pkg'
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['colcon_meta']
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'colcon_meta'
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['ros']
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'ros'
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['cmake', 'python']
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'cmake'
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'python'
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['python_setup_py']
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'python_setup_py'
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_arm_control) by extensions ['ignore', 'ignore_ament_install']
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_arm_control) by extension 'ignore'
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_arm_control) by extension 'ignore_ament_install'
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_arm_control) by extensions ['colcon_pkg']
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_arm_control) by extension 'colcon_pkg'
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_arm_control) by extensions ['colcon_meta']
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_arm_control) by extension 'colcon_meta'
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_arm_control) by extensions ['ros']
+[0.135s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_arm_control) by extension 'ros'
+[0.137s] DEBUG:colcon.colcon_core.package_identification:Package 'src/mechelangelo_arm_control' with type 'ros.ament_python' and name 'mechelangelo_arm_control'
+[0.137s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_base_hardware) by extensions ['ignore', 'ignore_ament_install']
+[0.137s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_base_hardware) by extension 'ignore'
+[0.137s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_base_hardware) by extension 'ignore_ament_install'
+[0.137s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_base_hardware) by extensions ['colcon_pkg']
+[0.137s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_base_hardware) by extension 'colcon_pkg'
+[0.137s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_base_hardware) by extensions ['colcon_meta']
+[0.137s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_base_hardware) by extension 'colcon_meta'
+[0.137s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_base_hardware) by extensions ['ros']
+[0.137s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_base_hardware) by extension 'ros'
+[0.137s] DEBUG:colcon.colcon_core.package_identification:Package 'src/mechelangelo_base_hardware' with type 'ros.ament_cmake' and name 'mechelangelo_base_hardware'
+[0.137s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_base_sim) by extensions ['ignore', 'ignore_ament_install']
+[0.137s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_base_sim) by extension 'ignore'
+[0.137s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_base_sim) by extension 'ignore_ament_install'
+[0.137s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_base_sim) by extensions ['colcon_pkg']
+[0.137s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_base_sim) by extension 'colcon_pkg'
+[0.137s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_base_sim) by extensions ['colcon_meta']
+[0.137s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_base_sim) by extension 'colcon_meta'
+[0.137s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_base_sim) by extensions ['ros']
+[0.137s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_base_sim) by extension 'ros'
+[0.137s] DEBUG:colcon.colcon_core.package_identification:Package 'src/mechelangelo_base_sim' with type 'ros.ament_cmake' and name 'mechelangelo_base_sim'
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_behaviour) by extensions ['ignore', 'ignore_ament_install']
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_behaviour) by extension 'ignore'
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_behaviour) by extension 'ignore_ament_install'
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_behaviour) by extensions ['colcon_pkg']
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_behaviour) by extension 'colcon_pkg'
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_behaviour) by extensions ['colcon_meta']
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_behaviour) by extension 'colcon_meta'
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_behaviour) by extensions ['ros']
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_behaviour) by extension 'ros'
+[0.138s] DEBUG:colcon.colcon_core.package_identification:Package 'src/mechelangelo_behaviour' with type 'ros.ament_cmake' and name 'mechelangelo_behaviour'
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_bringup) by extensions ['ignore', 'ignore_ament_install']
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_bringup) by extension 'ignore'
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_bringup) by extension 'ignore_ament_install'
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_bringup) by extensions ['colcon_pkg']
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_bringup) by extension 'colcon_pkg'
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_bringup) by extensions ['colcon_meta']
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_bringup) by extension 'colcon_meta'
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_bringup) by extensions ['ros']
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_bringup) by extension 'ros'
+[0.138s] DEBUG:colcon.colcon_core.package_identification:Package 'src/mechelangelo_bringup' with type 'ros.ament_cmake' and name 'mechelangelo_bringup'
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_description) by extensions ['ignore', 'ignore_ament_install']
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_description) by extension 'ignore'
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_description) by extension 'ignore_ament_install'
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_description) by extensions ['colcon_pkg']
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_description) by extension 'colcon_pkg'
+[0.138s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_description) by extensions ['colcon_meta']
+[0.139s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_description) by extension 'colcon_meta'
+[0.139s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_description) by extensions ['ros']
+[0.139s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_description) by extension 'ros'
+[0.139s] DEBUG:colcon.colcon_core.package_identification:Package 'src/mechelangelo_description' with type 'ros.ament_cmake' and name 'mechelangelo_description'
+[0.139s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_gazebo) by extensions ['ignore', 'ignore_ament_install']
+[0.139s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_gazebo) by extension 'ignore'
+[0.139s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_gazebo) by extension 'ignore_ament_install'
+[0.139s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_gazebo) by extensions ['colcon_pkg']
+[0.139s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_gazebo) by extension 'colcon_pkg'
+[0.139s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_gazebo) by extensions ['colcon_meta']
+[0.139s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_gazebo) by extension 'colcon_meta'
+[0.139s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_gazebo) by extensions ['ros']
+[0.139s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_gazebo) by extension 'ros'
+[0.139s] DEBUG:colcon.colcon_core.package_identification:Package 'src/mechelangelo_gazebo' with type 'ros.ament_cmake' and name 'mechelangelo_gazebo'
+[0.139s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_navigation) by extensions ['ignore', 'ignore_ament_install']
+[0.139s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_navigation) by extension 'ignore'
+[0.139s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_navigation) by extension 'ignore_ament_install'
+[0.139s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_navigation) by extensions ['colcon_pkg']
+[0.139s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_navigation) by extension 'colcon_pkg'
+[0.139s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_navigation) by extensions ['colcon_meta']
+[0.139s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_navigation) by extension 'colcon_meta'
+[0.139s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_navigation) by extensions ['ros']
+[0.139s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_navigation) by extension 'ros'
+[0.140s] DEBUG:colcon.colcon_core.package_identification:Package 'src/mechelangelo_navigation' with type 'ros.ament_cmake' and name 'mechelangelo_navigation'
+[0.140s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_perception) by extensions ['ignore', 'ignore_ament_install']
+[0.140s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_perception) by extension 'ignore'
+[0.140s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_perception) by extension 'ignore_ament_install'
+[0.140s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_perception) by extensions ['colcon_pkg']
+[0.140s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_perception) by extension 'colcon_pkg'
+[0.140s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_perception) by extensions ['colcon_meta']
+[0.140s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_perception) by extension 'colcon_meta'
+[0.140s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_perception) by extensions ['ros']
+[0.140s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_perception) by extension 'ros'
+[0.140s] DEBUG:colcon.colcon_core.package_identification:Package 'src/mechelangelo_perception' with type 'ros.ament_python' and name 'mechelangelo_perception'
+[0.140s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_teleop) by extensions ['ignore', 'ignore_ament_install']
+[0.140s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_teleop) by extension 'ignore'
+[0.140s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_teleop) by extension 'ignore_ament_install'
+[0.140s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_teleop) by extensions ['colcon_pkg']
+[0.140s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_teleop) by extension 'colcon_pkg'
+[0.140s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_teleop) by extensions ['colcon_meta']
+[0.140s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_teleop) by extension 'colcon_meta'
+[0.140s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_teleop) by extensions ['ros']
+[0.140s] Level 1:colcon.colcon_core.package_identification:_identify(src/mechelangelo_teleop) by extension 'ros'
+[0.140s] DEBUG:colcon.colcon_core.package_identification:Package 'src/mechelangelo_teleop' with type 'ros.ament_python' and name 'mechelangelo_teleop'
+[0.140s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) using defaults
+[0.140s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) discover
+[0.140s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) using defaults
+[0.140s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) discover
+[0.140s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) using defaults
+[0.155s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) check parameters
+[0.155s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) discover
+[0.156s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 10 installed packages in /home/andy/git/MECHelangelo/install
+[0.156s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 0 installed packages in /home/andy/Walls_are_alive_ws/install
+[0.157s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 368 installed packages in /opt/ros/humble
+[0.158s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) using defaults
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_arm_control' build argument 'cmake_args' from command line to 'None'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_arm_control' build argument 'cmake_target' from command line to 'None'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_arm_control' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_arm_control' build argument 'cmake_clean_cache' from command line to 'False'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_arm_control' build argument 'cmake_clean_first' from command line to 'False'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_arm_control' build argument 'cmake_force_configure' from command line to 'False'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_arm_control' build argument 'ament_cmake_args' from command line to 'None'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_arm_control' build argument 'catkin_cmake_args' from command line to 'None'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_arm_control' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.175s] DEBUG:colcon.colcon_core.verb:Building package 'mechelangelo_arm_control' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/andy/git/MECHelangelo/build/mechelangelo_arm_control', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/andy/git/MECHelangelo/install/mechelangelo_arm_control', 'merge_install': False, 'path': '/home/andy/git/MECHelangelo/src/mechelangelo_arm_control', 'symlink_install': False, 'test_result_base': None}
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_base_hardware' build argument 'cmake_args' from command line to 'None'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_base_hardware' build argument 'cmake_target' from command line to 'None'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_base_hardware' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_base_hardware' build argument 'cmake_clean_cache' from command line to 'False'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_base_hardware' build argument 'cmake_clean_first' from command line to 'False'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_base_hardware' build argument 'cmake_force_configure' from command line to 'False'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_base_hardware' build argument 'ament_cmake_args' from command line to 'None'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_base_hardware' build argument 'catkin_cmake_args' from command line to 'None'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_base_hardware' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.175s] DEBUG:colcon.colcon_core.verb:Building package 'mechelangelo_base_hardware' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/andy/git/MECHelangelo/build/mechelangelo_base_hardware', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware', 'merge_install': False, 'path': '/home/andy/git/MECHelangelo/src/mechelangelo_base_hardware', 'symlink_install': False, 'test_result_base': None}
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_base_sim' build argument 'cmake_args' from command line to 'None'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_base_sim' build argument 'cmake_target' from command line to 'None'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_base_sim' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_base_sim' build argument 'cmake_clean_cache' from command line to 'False'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_base_sim' build argument 'cmake_clean_first' from command line to 'False'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_base_sim' build argument 'cmake_force_configure' from command line to 'False'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_base_sim' build argument 'ament_cmake_args' from command line to 'None'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_base_sim' build argument 'catkin_cmake_args' from command line to 'None'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_base_sim' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.175s] DEBUG:colcon.colcon_core.verb:Building package 'mechelangelo_base_sim' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/andy/git/MECHelangelo/build/mechelangelo_base_sim', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim', 'merge_install': False, 'path': '/home/andy/git/MECHelangelo/src/mechelangelo_base_sim', 'symlink_install': False, 'test_result_base': None}
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_behaviour' build argument 'cmake_args' from command line to 'None'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_behaviour' build argument 'cmake_target' from command line to 'None'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_behaviour' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_behaviour' build argument 'cmake_clean_cache' from command line to 'False'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_behaviour' build argument 'cmake_clean_first' from command line to 'False'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_behaviour' build argument 'cmake_force_configure' from command line to 'False'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_behaviour' build argument 'ament_cmake_args' from command line to 'None'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_behaviour' build argument 'catkin_cmake_args' from command line to 'None'
+[0.175s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_behaviour' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.175s] DEBUG:colcon.colcon_core.verb:Building package 'mechelangelo_behaviour' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/andy/git/MECHelangelo/build/mechelangelo_behaviour', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour', 'merge_install': False, 'path': '/home/andy/git/MECHelangelo/src/mechelangelo_behaviour', 'symlink_install': False, 'test_result_base': None}
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_description' build argument 'cmake_args' from command line to 'None'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_description' build argument 'cmake_target' from command line to 'None'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_description' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_description' build argument 'cmake_clean_cache' from command line to 'False'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_description' build argument 'cmake_clean_first' from command line to 'False'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_description' build argument 'cmake_force_configure' from command line to 'False'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_description' build argument 'ament_cmake_args' from command line to 'None'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_description' build argument 'catkin_cmake_args' from command line to 'None'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_description' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.176s] DEBUG:colcon.colcon_core.verb:Building package 'mechelangelo_description' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/andy/git/MECHelangelo/build/mechelangelo_description', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/andy/git/MECHelangelo/install/mechelangelo_description', 'merge_install': False, 'path': '/home/andy/git/MECHelangelo/src/mechelangelo_description', 'symlink_install': False, 'test_result_base': None}
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_gazebo' build argument 'cmake_args' from command line to 'None'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_gazebo' build argument 'cmake_target' from command line to 'None'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_gazebo' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_gazebo' build argument 'cmake_clean_cache' from command line to 'False'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_gazebo' build argument 'cmake_clean_first' from command line to 'False'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_gazebo' build argument 'cmake_force_configure' from command line to 'False'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_gazebo' build argument 'ament_cmake_args' from command line to 'None'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_gazebo' build argument 'catkin_cmake_args' from command line to 'None'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_gazebo' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.176s] DEBUG:colcon.colcon_core.verb:Building package 'mechelangelo_gazebo' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/andy/git/MECHelangelo/build/mechelangelo_gazebo', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo', 'merge_install': False, 'path': '/home/andy/git/MECHelangelo/src/mechelangelo_gazebo', 'symlink_install': False, 'test_result_base': None}
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_navigation' build argument 'cmake_args' from command line to 'None'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_navigation' build argument 'cmake_target' from command line to 'None'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_navigation' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_navigation' build argument 'cmake_clean_cache' from command line to 'False'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_navigation' build argument 'cmake_clean_first' from command line to 'False'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_navigation' build argument 'cmake_force_configure' from command line to 'False'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_navigation' build argument 'ament_cmake_args' from command line to 'None'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_navigation' build argument 'catkin_cmake_args' from command line to 'None'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_navigation' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.176s] DEBUG:colcon.colcon_core.verb:Building package 'mechelangelo_navigation' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/andy/git/MECHelangelo/build/mechelangelo_navigation', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/andy/git/MECHelangelo/install/mechelangelo_navigation', 'merge_install': False, 'path': '/home/andy/git/MECHelangelo/src/mechelangelo_navigation', 'symlink_install': False, 'test_result_base': None}
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_perception' build argument 'cmake_args' from command line to 'None'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_perception' build argument 'cmake_target' from command line to 'None'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_perception' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_perception' build argument 'cmake_clean_cache' from command line to 'False'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_perception' build argument 'cmake_clean_first' from command line to 'False'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_perception' build argument 'cmake_force_configure' from command line to 'False'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_perception' build argument 'ament_cmake_args' from command line to 'None'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_perception' build argument 'catkin_cmake_args' from command line to 'None'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_perception' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.176s] DEBUG:colcon.colcon_core.verb:Building package 'mechelangelo_perception' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/andy/git/MECHelangelo/build/mechelangelo_perception', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/andy/git/MECHelangelo/install/mechelangelo_perception', 'merge_install': False, 'path': '/home/andy/git/MECHelangelo/src/mechelangelo_perception', 'symlink_install': False, 'test_result_base': None}
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_teleop' build argument 'cmake_args' from command line to 'None'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_teleop' build argument 'cmake_target' from command line to 'None'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_teleop' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_teleop' build argument 'cmake_clean_cache' from command line to 'False'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_teleop' build argument 'cmake_clean_first' from command line to 'False'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_teleop' build argument 'cmake_force_configure' from command line to 'False'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_teleop' build argument 'ament_cmake_args' from command line to 'None'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_teleop' build argument 'catkin_cmake_args' from command line to 'None'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_teleop' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.176s] DEBUG:colcon.colcon_core.verb:Building package 'mechelangelo_teleop' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/andy/git/MECHelangelo/build/mechelangelo_teleop', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/andy/git/MECHelangelo/install/mechelangelo_teleop', 'merge_install': False, 'path': '/home/andy/git/MECHelangelo/src/mechelangelo_teleop', 'symlink_install': False, 'test_result_base': None}
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_bringup' build argument 'cmake_args' from command line to 'None'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_bringup' build argument 'cmake_target' from command line to 'None'
+[0.176s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_bringup' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.177s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_bringup' build argument 'cmake_clean_cache' from command line to 'False'
+[0.177s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_bringup' build argument 'cmake_clean_first' from command line to 'False'
+[0.177s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_bringup' build argument 'cmake_force_configure' from command line to 'False'
+[0.177s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_bringup' build argument 'ament_cmake_args' from command line to 'None'
+[0.177s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_bringup' build argument 'catkin_cmake_args' from command line to 'None'
+[0.177s] Level 5:colcon.colcon_core.verb:set package 'mechelangelo_bringup' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.177s] DEBUG:colcon.colcon_core.verb:Building package 'mechelangelo_bringup' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/andy/git/MECHelangelo/build/mechelangelo_bringup', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/andy/git/MECHelangelo/install/mechelangelo_bringup', 'merge_install': False, 'path': '/home/andy/git/MECHelangelo/src/mechelangelo_bringup', 'symlink_install': False, 'test_result_base': None}
+[0.177s] INFO:colcon.colcon_core.executor:Executing jobs using 'parallel' executor
+[0.178s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete
+[0.178s] INFO:colcon.colcon_ros.task.ament_cmake.build:Building ROS package in '/home/andy/git/MECHelangelo/src/mechelangelo_description' with build type 'ament_cmake'
+[0.178s] INFO:colcon.colcon_cmake.task.cmake.build:Building CMake package in '/home/andy/git/MECHelangelo/src/mechelangelo_description'
+[0.179s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_core.shell.bat': Not used on non-Windows systems
+[0.179s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.179s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[0.181s] INFO:colcon.colcon_ros.task.ament_python.build:Building ROS package in '/home/andy/git/MECHelangelo/src/mechelangelo_arm_control' with build type 'ament_python'
+[0.181s] Level 1:colcon.colcon_core.shell:create_environment_hook('mechelangelo_arm_control', 'ament_prefix_path')
+[0.181s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/share/mechelangelo_arm_control/hook/ament_prefix_path.ps1'
+[0.181s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/share/mechelangelo_arm_control/hook/ament_prefix_path.dsv'
+[0.181s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/share/mechelangelo_arm_control/hook/ament_prefix_path.sh'
+[0.182s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.182s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[0.183s] INFO:colcon.colcon_ros.task.ament_cmake.build:Building ROS package in '/home/andy/git/MECHelangelo/src/mechelangelo_base_hardware' with build type 'ament_cmake'
+[0.184s] INFO:colcon.colcon_cmake.task.cmake.build:Building CMake package in '/home/andy/git/MECHelangelo/src/mechelangelo_base_hardware'
+[0.184s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.184s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[0.186s] INFO:colcon.colcon_ros.task.ament_cmake.build:Building ROS package in '/home/andy/git/MECHelangelo/src/mechelangelo_base_sim' with build type 'ament_cmake'
+[0.186s] INFO:colcon.colcon_cmake.task.cmake.build:Building CMake package in '/home/andy/git/MECHelangelo/src/mechelangelo_base_sim'
+[0.186s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.186s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[0.187s] INFO:colcon.colcon_ros.task.ament_cmake.build:Building ROS package in '/home/andy/git/MECHelangelo/src/mechelangelo_behaviour' with build type 'ament_cmake'
+[0.187s] INFO:colcon.colcon_cmake.task.cmake.build:Building CMake package in '/home/andy/git/MECHelangelo/src/mechelangelo_behaviour'
+[0.187s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.187s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[0.190s] INFO:colcon.colcon_ros.task.ament_cmake.build:Building ROS package in '/home/andy/git/MECHelangelo/src/mechelangelo_gazebo' with build type 'ament_cmake'
+[0.190s] INFO:colcon.colcon_cmake.task.cmake.build:Building CMake package in '/home/andy/git/MECHelangelo/src/mechelangelo_gazebo'
+[0.190s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.190s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[0.191s] INFO:colcon.colcon_ros.task.ament_cmake.build:Building ROS package in '/home/andy/git/MECHelangelo/src/mechelangelo_navigation' with build type 'ament_cmake'
+[0.191s] INFO:colcon.colcon_cmake.task.cmake.build:Building CMake package in '/home/andy/git/MECHelangelo/src/mechelangelo_navigation'
+[0.191s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.191s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[0.193s] INFO:colcon.colcon_ros.task.ament_python.build:Building ROS package in '/home/andy/git/MECHelangelo/src/mechelangelo_perception' with build type 'ament_python'
+[0.193s] Level 1:colcon.colcon_core.shell:create_environment_hook('mechelangelo_perception', 'ament_prefix_path')
+[0.193s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_perception/share/mechelangelo_perception/hook/ament_prefix_path.ps1'
+[0.193s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_perception/share/mechelangelo_perception/hook/ament_prefix_path.dsv'
+[0.194s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_perception/share/mechelangelo_perception/hook/ament_prefix_path.sh'
+[0.194s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.194s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[0.196s] INFO:colcon.colcon_ros.task.ament_python.build:Building ROS package in '/home/andy/git/MECHelangelo/src/mechelangelo_teleop' with build type 'ament_python'
+[0.196s] Level 1:colcon.colcon_core.shell:create_environment_hook('mechelangelo_teleop', 'ament_prefix_path')
+[0.196s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_teleop/share/mechelangelo_teleop/hook/ament_prefix_path.ps1'
+[0.196s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_teleop/share/mechelangelo_teleop/hook/ament_prefix_path.dsv'
+[0.197s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_teleop/share/mechelangelo_teleop/hook/ament_prefix_path.sh'
+[0.197s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.197s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[0.202s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_description': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_description -- -j32 -l32
+[0.305s] INFO:colcon.colcon_core.task.python.build:Building Python package in '/home/andy/git/MECHelangelo/src/mechelangelo_arm_control'
+[0.305s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.305s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[0.309s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_base_hardware': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_base_hardware -- -j32 -l32
+[0.310s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_base_sim': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_base_sim -- -j32 -l32
+[0.311s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_behaviour': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_behaviour -- -j32 -l32
+[0.312s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_gazebo': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_gazebo -- -j32 -l32
+[0.316s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_navigation': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_navigation -- -j32 -l32
+[0.420s] INFO:colcon.colcon_core.task.python.build:Building Python package in '/home/andy/git/MECHelangelo/src/mechelangelo_perception'
+[0.420s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.420s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[0.522s] INFO:colcon.colcon_core.task.python.build:Building Python package in '/home/andy/git/MECHelangelo/src/mechelangelo_teleop'
+[0.522s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.522s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[0.527s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_description' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_description -- -j32 -l32
+[0.533s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_description': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_description
+[0.533s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_base_sim' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_base_sim -- -j32 -l32
+[0.534s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_base_sim': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_base_sim
+[0.534s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_base_hardware' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_base_hardware -- -j32 -l32
+[0.535s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_base_hardware': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_base_hardware
+[0.535s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_behaviour' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_behaviour -- -j32 -l32
+[0.536s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_behaviour': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_behaviour
+[0.536s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_navigation' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_navigation -- -j32 -l32
+[0.537s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_navigation': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_navigation
+[0.537s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_gazebo' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_gazebo -- -j32 -l32
+[0.538s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_gazebo': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_gazebo
+[0.546s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(mechelangelo_base_sim)
+[0.546s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_base_sim' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_base_sim
+[0.547s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim' for CMake module files
+[0.547s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim' for CMake config files
+[0.548s] Level 1:colcon.colcon_core.shell:create_environment_hook('mechelangelo_base_sim', 'cmake_prefix_path')
+[0.548s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/hook/cmake_prefix_path.ps1'
+[0.548s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/hook/cmake_prefix_path.dsv'
+[0.548s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/hook/cmake_prefix_path.sh'
+[0.548s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/bin'
+[0.548s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/lib/pkgconfig/mechelangelo_base_sim.pc'
+[0.549s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/lib/python3.10/site-packages'
+[0.549s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/bin'
+[0.549s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/package.ps1'
+[0.549s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/package.dsv'
+[0.549s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/package.sh'
+[0.550s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/package.bash'
+[0.550s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/package.zsh'
+[0.550s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/colcon-core/packages/mechelangelo_base_sim)
+[0.551s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(mechelangelo_base_sim)
+[0.551s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim' for CMake module files
+[0.551s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim' for CMake config files
+[0.551s] Level 1:colcon.colcon_core.shell:create_environment_hook('mechelangelo_base_sim', 'cmake_prefix_path')
+[0.551s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/hook/cmake_prefix_path.ps1'
+[0.551s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/hook/cmake_prefix_path.dsv'
+[0.551s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/hook/cmake_prefix_path.sh'
+[0.551s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/bin'
+[0.551s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/lib/pkgconfig/mechelangelo_base_sim.pc'
+[0.552s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/lib/python3.10/site-packages'
+[0.552s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/bin'
+[0.552s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/package.ps1'
+[0.552s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/package.dsv'
+[0.552s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/package.sh'
+[0.552s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/package.bash'
+[0.553s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/package.zsh'
+[0.553s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/colcon-core/packages/mechelangelo_base_sim)
+[0.553s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(mechelangelo_description)
+[0.553s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_description' for CMake module files
+[0.553s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_description' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_description
+[0.553s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_description' for CMake config files
+[0.554s] Level 1:colcon.colcon_core.shell:create_environment_hook('mechelangelo_description', 'cmake_prefix_path')
+[0.554s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_description/share/mechelangelo_description/hook/cmake_prefix_path.ps1'
+[0.554s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_description/share/mechelangelo_description/hook/cmake_prefix_path.dsv'
+[0.554s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_description/share/mechelangelo_description/hook/cmake_prefix_path.sh'
+[0.554s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_description/bin'
+[0.554s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_description/lib/pkgconfig/mechelangelo_description.pc'
+[0.554s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_description/lib/python3.10/site-packages'
+[0.554s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_description/bin'
+[0.555s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_description/share/mechelangelo_description/package.ps1'
+[0.555s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_description/share/mechelangelo_description/package.dsv'
+[0.555s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_description/share/mechelangelo_description/package.sh'
+[0.555s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_description/share/mechelangelo_description/package.bash'
+[0.555s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_description/share/mechelangelo_description/package.zsh'
+[0.555s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/andy/git/MECHelangelo/install/mechelangelo_description/share/colcon-core/packages/mechelangelo_description)
+[0.555s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(mechelangelo_description)
+[0.555s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_description' for CMake module files
+[0.556s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_description' for CMake config files
+[0.556s] Level 1:colcon.colcon_core.shell:create_environment_hook('mechelangelo_description', 'cmake_prefix_path')
+[0.556s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_description/share/mechelangelo_description/hook/cmake_prefix_path.ps1'
+[0.556s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_description/share/mechelangelo_description/hook/cmake_prefix_path.dsv'
+[0.556s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_description/share/mechelangelo_description/hook/cmake_prefix_path.sh'
+[0.556s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_description/bin'
+[0.556s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_description/lib/pkgconfig/mechelangelo_description.pc'
+[0.556s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_description/lib/python3.10/site-packages'
+[0.557s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_description/bin'
+[0.557s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_description/share/mechelangelo_description/package.ps1'
+[0.557s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_description/share/mechelangelo_description/package.dsv'
+[0.557s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_description/share/mechelangelo_description/package.sh'
+[0.557s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_description/share/mechelangelo_description/package.bash'
+[0.557s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_description/share/mechelangelo_description/package.zsh'
+[0.557s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/andy/git/MECHelangelo/install/mechelangelo_description/share/colcon-core/packages/mechelangelo_description)
+[0.557s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(mechelangelo_navigation)
+[0.558s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_navigation' for CMake module files
+[0.558s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_navigation' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_navigation
+[0.558s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_navigation' for CMake config files
+[0.558s] Level 1:colcon.colcon_core.shell:create_environment_hook('mechelangelo_navigation', 'cmake_prefix_path')
+[0.558s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/hook/cmake_prefix_path.ps1'
+[0.558s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/hook/cmake_prefix_path.dsv'
+[0.558s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/hook/cmake_prefix_path.sh'
+[0.559s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/bin'
+[0.559s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/lib/pkgconfig/mechelangelo_navigation.pc'
+[0.559s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/lib/python3.10/site-packages'
+[0.559s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/bin'
+[0.559s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/package.ps1'
+[0.559s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/package.dsv'
+[0.559s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/package.sh'
+[0.559s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/package.bash'
+[0.560s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/package.zsh'
+[0.560s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/colcon-core/packages/mechelangelo_navigation)
+[0.560s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(mechelangelo_navigation)
+[0.560s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_navigation' for CMake module files
+[0.560s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_navigation' for CMake config files
+[0.560s] Level 1:colcon.colcon_core.shell:create_environment_hook('mechelangelo_navigation', 'cmake_prefix_path')
+[0.560s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/hook/cmake_prefix_path.ps1'
+[0.560s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/hook/cmake_prefix_path.dsv'
+[0.561s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/hook/cmake_prefix_path.sh'
+[0.561s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/bin'
+[0.561s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/lib/pkgconfig/mechelangelo_navigation.pc'
+[0.561s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/lib/python3.10/site-packages'
+[0.561s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/bin'
+[0.561s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/package.ps1'
+[0.561s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/package.dsv'
+[0.561s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/package.sh'
+[0.561s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/package.bash'
+[0.562s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/package.zsh'
+[0.562s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/colcon-core/packages/mechelangelo_navigation)
+[0.562s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(mechelangelo_base_hardware)
+[0.562s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware' for CMake module files
+[0.562s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_base_hardware' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_base_hardware
+[0.562s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware' for CMake config files
+[0.562s] Level 1:colcon.colcon_core.shell:create_environment_hook('mechelangelo_base_hardware', 'cmake_prefix_path')
+[0.563s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/hook/cmake_prefix_path.ps1'
+[0.563s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/hook/cmake_prefix_path.dsv'
+[0.563s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/hook/cmake_prefix_path.sh'
+[0.563s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/bin'
+[0.563s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/lib/pkgconfig/mechelangelo_base_hardware.pc'
+[0.563s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/lib/python3.10/site-packages'
+[0.563s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/bin'
+[0.563s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/package.ps1'
+[0.564s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/package.dsv'
+[0.564s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/package.sh'
+[0.564s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/package.bash'
+[0.564s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/package.zsh'
+[0.564s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/colcon-core/packages/mechelangelo_base_hardware)
+[0.564s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(mechelangelo_base_hardware)
+[0.564s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware' for CMake module files
+[0.564s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware' for CMake config files
+[0.565s] Level 1:colcon.colcon_core.shell:create_environment_hook('mechelangelo_base_hardware', 'cmake_prefix_path')
+[0.565s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/hook/cmake_prefix_path.ps1'
+[0.565s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/hook/cmake_prefix_path.dsv'
+[0.565s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/hook/cmake_prefix_path.sh'
+[0.565s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/bin'
+[0.565s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/lib/pkgconfig/mechelangelo_base_hardware.pc'
+[0.565s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/lib/python3.10/site-packages'
+[0.565s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/bin'
+[0.565s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/package.ps1'
+[0.566s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/package.dsv'
+[0.566s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/package.sh'
+[0.566s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/package.bash'
+[0.566s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/package.zsh'
+[0.566s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/colcon-core/packages/mechelangelo_base_hardware)
+[0.567s] INFO:colcon.colcon_ros.task.ament_cmake.build:Building ROS package in '/home/andy/git/MECHelangelo/src/mechelangelo_bringup' with build type 'ament_cmake'
+[0.567s] INFO:colcon.colcon_cmake.task.cmake.build:Building CMake package in '/home/andy/git/MECHelangelo/src/mechelangelo_bringup'
+[0.567s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.567s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[0.569s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(mechelangelo_behaviour)
+[0.569s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour' for CMake module files
+[0.569s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour' for CMake config files
+[0.569s] Level 1:colcon.colcon_core.shell:create_environment_hook('mechelangelo_behaviour', 'cmake_prefix_path')
+[0.569s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/hook/cmake_prefix_path.ps1'
+[0.570s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/hook/cmake_prefix_path.dsv'
+[0.570s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/hook/cmake_prefix_path.sh'
+[0.570s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/bin'
+[0.570s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/lib/pkgconfig/mechelangelo_behaviour.pc'
+[0.570s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/lib/python3.10/site-packages'
+[0.570s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/bin'
+[0.571s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/package.ps1'
+[0.569s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_behaviour' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_behaviour
+[0.571s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/package.dsv'
+[0.571s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/package.sh'
+[0.571s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/package.bash'
+[0.572s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/package.zsh'
+[0.572s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/colcon-core/packages/mechelangelo_behaviour)
+[0.572s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(mechelangelo_behaviour)
+[0.572s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour' for CMake module files
+[0.572s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour' for CMake config files
+[0.572s] Level 1:colcon.colcon_core.shell:create_environment_hook('mechelangelo_behaviour', 'cmake_prefix_path')
+[0.572s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/hook/cmake_prefix_path.ps1'
+[0.573s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/hook/cmake_prefix_path.dsv'
+[0.573s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/hook/cmake_prefix_path.sh'
+[0.573s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/bin'
+[0.573s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/lib/pkgconfig/mechelangelo_behaviour.pc'
+[0.573s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/lib/python3.10/site-packages'
+[0.574s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/bin'
+[0.574s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/package.ps1'
+[0.574s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/package.dsv'
+[0.574s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/package.sh'
+[0.574s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/package.bash'
+[0.575s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/package.zsh'
+[0.575s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/colcon-core/packages/mechelangelo_behaviour)
+[0.576s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(mechelangelo_gazebo)
+[0.576s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo' for CMake module files
+[0.576s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_gazebo' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_gazebo
+[0.577s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo' for CMake config files
+[0.577s] Level 1:colcon.colcon_core.shell:create_environment_hook('mechelangelo_gazebo', 'cmake_prefix_path')
+[0.577s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/hook/cmake_prefix_path.ps1'
+[0.577s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/hook/cmake_prefix_path.dsv'
+[0.577s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/hook/cmake_prefix_path.sh'
+[0.577s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/bin'
+[0.577s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/lib/pkgconfig/mechelangelo_gazebo.pc'
+[0.578s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/lib/python3.10/site-packages'
+[0.578s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/bin'
+[0.578s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/package.ps1'
+[0.578s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/package.dsv'
+[0.578s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/package.sh'
+[0.578s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/package.bash'
+[0.578s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/package.zsh'
+[0.579s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/colcon-core/packages/mechelangelo_gazebo)
+[0.579s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(mechelangelo_gazebo)
+[0.579s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo' for CMake module files
+[0.579s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo' for CMake config files
+[0.579s] Level 1:colcon.colcon_core.shell:create_environment_hook('mechelangelo_gazebo', 'cmake_prefix_path')
+[0.579s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/hook/cmake_prefix_path.ps1'
+[0.579s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/hook/cmake_prefix_path.dsv'
+[0.579s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/hook/cmake_prefix_path.sh'
+[0.580s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/bin'
+[0.580s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/lib/pkgconfig/mechelangelo_gazebo.pc'
+[0.580s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/lib/python3.10/site-packages'
+[0.580s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/bin'
+[0.580s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/package.ps1'
+[0.580s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/package.dsv'
+[0.580s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/package.sh'
+[0.581s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/package.bash'
+[0.581s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/package.zsh'
+[0.581s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/colcon-core/packages/mechelangelo_gazebo)
+[0.582s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_bringup': CMAKE_PREFIX_PATH=/home/andy/git/MECHelangelo/install/mechelangelo_description:/home/andy/git/MECHelangelo/install/mechelangelo_navigation:/home/andy/git/MECHelangelo/install/mechelangelo_gazebo:/home/andy/git/MECHelangelo/install/mechelangelo_bringup:/home/andy/git/MECHelangelo/install/mechelangelo_behaviour:/home/andy/git/MECHelangelo/install/mechelangelo_base_sim:/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_bringup -- -j32 -l32
+[0.605s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_bringup' returned '0': CMAKE_PREFIX_PATH=/home/andy/git/MECHelangelo/install/mechelangelo_description:/home/andy/git/MECHelangelo/install/mechelangelo_navigation:/home/andy/git/MECHelangelo/install/mechelangelo_gazebo:/home/andy/git/MECHelangelo/install/mechelangelo_bringup:/home/andy/git/MECHelangelo/install/mechelangelo_behaviour:/home/andy/git/MECHelangelo/install/mechelangelo_base_sim:/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_bringup -- -j32 -l32
+[0.608s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_bringup': CMAKE_PREFIX_PATH=/home/andy/git/MECHelangelo/install/mechelangelo_description:/home/andy/git/MECHelangelo/install/mechelangelo_navigation:/home/andy/git/MECHelangelo/install/mechelangelo_gazebo:/home/andy/git/MECHelangelo/install/mechelangelo_bringup:/home/andy/git/MECHelangelo/install/mechelangelo_behaviour:/home/andy/git/MECHelangelo/install/mechelangelo_base_sim:/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_bringup
+[0.621s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(mechelangelo_bringup)
+[0.621s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_bringup' for CMake module files
+[0.622s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_bringup' for CMake config files
+[0.622s] Level 1:colcon.colcon_core.shell:create_environment_hook('mechelangelo_bringup', 'cmake_prefix_path')
+[0.622s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/hook/cmake_prefix_path.ps1'
+[0.623s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/hook/cmake_prefix_path.dsv'
+[0.623s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/hook/cmake_prefix_path.sh'
+[0.623s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/bin'
+[0.623s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/lib/pkgconfig/mechelangelo_bringup.pc'
+[0.624s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/lib/python3.10/site-packages'
+[0.624s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/bin'
+[0.624s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/package.ps1'
+[0.624s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_bringup' returned '0': CMAKE_PREFIX_PATH=/home/andy/git/MECHelangelo/install/mechelangelo_description:/home/andy/git/MECHelangelo/install/mechelangelo_navigation:/home/andy/git/MECHelangelo/install/mechelangelo_gazebo:/home/andy/git/MECHelangelo/install/mechelangelo_bringup:/home/andy/git/MECHelangelo/install/mechelangelo_behaviour:/home/andy/git/MECHelangelo/install/mechelangelo_base_sim:/home/andy/git/MECHelangelo/install/mechelangelo_base_hardware:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_bringup
+[0.625s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/package.dsv'
+[0.625s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/package.sh'
+[0.625s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/package.bash'
+[0.625s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/package.zsh'
+[0.625s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/colcon-core/packages/mechelangelo_bringup)
+[0.626s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(mechelangelo_bringup)
+[0.626s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_bringup' for CMake module files
+[0.626s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_bringup' for CMake config files
+[0.626s] Level 1:colcon.colcon_core.shell:create_environment_hook('mechelangelo_bringup', 'cmake_prefix_path')
+[0.626s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/hook/cmake_prefix_path.ps1'
+[0.680s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/hook/cmake_prefix_path.dsv'
+[0.681s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/hook/cmake_prefix_path.sh'
+[0.681s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/bin'
+[0.681s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/lib/pkgconfig/mechelangelo_bringup.pc'
+[0.681s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/lib/python3.10/site-packages'
+[0.681s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/bin'
+[0.682s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/package.ps1'
+[0.682s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/package.dsv'
+[0.682s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/package.sh'
+[0.682s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/package.bash'
+[0.682s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/package.zsh'
+[0.683s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/colcon-core/packages/mechelangelo_bringup)
+[0.704s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/andy/git/MECHelangelo/src/mechelangelo_perception': PYTHONPATH=/home/andy/git/MECHelangelo/build/mechelangelo_perception/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/andy/git/MECHelangelo/install/mechelangelo_perception/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/mechelangelo_perception build --build-base /home/andy/git/MECHelangelo/build/mechelangelo_perception/build install --record /home/andy/git/MECHelangelo/build/mechelangelo_perception/install.log --single-version-externally-managed install_data
+[0.707s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/andy/git/MECHelangelo/src/mechelangelo_arm_control': PYTHONPATH=/home/andy/git/MECHelangelo/build/mechelangelo_arm_control/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/mechelangelo_arm_control build --build-base /home/andy/git/MECHelangelo/build/mechelangelo_arm_control/build install --record /home/andy/git/MECHelangelo/build/mechelangelo_arm_control/install.log --single-version-externally-managed install_data
+[0.708s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/andy/git/MECHelangelo/src/mechelangelo_teleop': PYTHONPATH=/home/andy/git/MECHelangelo/build/mechelangelo_teleop/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/andy/git/MECHelangelo/install/mechelangelo_teleop/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/mechelangelo_teleop build --build-base /home/andy/git/MECHelangelo/build/mechelangelo_teleop/build install --record /home/andy/git/MECHelangelo/build/mechelangelo_teleop/install.log --single-version-externally-managed install_data
+[0.834s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_teleop' for CMake module files
+[0.835s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/andy/git/MECHelangelo/src/mechelangelo_teleop' returned '0': PYTHONPATH=/home/andy/git/MECHelangelo/build/mechelangelo_teleop/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/andy/git/MECHelangelo/install/mechelangelo_teleop/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/mechelangelo_teleop build --build-base /home/andy/git/MECHelangelo/build/mechelangelo_teleop/build install --record /home/andy/git/MECHelangelo/build/mechelangelo_teleop/install.log --single-version-externally-managed install_data
+[0.835s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_teleop' for CMake config files
+[0.835s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_teleop/lib'
+[0.835s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_teleop/bin'
+[0.835s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_teleop/lib/pkgconfig/mechelangelo_teleop.pc'
+[0.835s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_teleop/lib/python3.10/site-packages'
+[0.835s] Level 1:colcon.colcon_core.shell:create_environment_hook('mechelangelo_teleop', 'pythonpath')
+[0.835s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_teleop/share/mechelangelo_teleop/hook/pythonpath.ps1'
+[0.836s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_teleop/share/mechelangelo_teleop/hook/pythonpath.dsv'
+[0.836s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_teleop/share/mechelangelo_teleop/hook/pythonpath.sh'
+[0.836s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_teleop/bin'
+[0.836s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(mechelangelo_teleop)
+[0.836s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_teleop/share/mechelangelo_teleop/package.ps1'
+[0.837s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_teleop/share/mechelangelo_teleop/package.dsv'
+[0.837s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_teleop/share/mechelangelo_teleop/package.sh'
+[0.837s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_teleop/share/mechelangelo_teleop/package.bash'
+[0.837s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_teleop/share/mechelangelo_teleop/package.zsh'
+[0.837s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/andy/git/MECHelangelo/install/mechelangelo_teleop/share/colcon-core/packages/mechelangelo_teleop)
+[0.837s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_perception' for CMake module files
+[0.837s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_perception' for CMake config files
+[0.838s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/andy/git/MECHelangelo/src/mechelangelo_perception' returned '0': PYTHONPATH=/home/andy/git/MECHelangelo/build/mechelangelo_perception/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/andy/git/MECHelangelo/install/mechelangelo_perception/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/mechelangelo_perception build --build-base /home/andy/git/MECHelangelo/build/mechelangelo_perception/build install --record /home/andy/git/MECHelangelo/build/mechelangelo_perception/install.log --single-version-externally-managed install_data
+[0.838s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_perception/lib'
+[0.838s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_perception/bin'
+[0.838s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_perception/lib/pkgconfig/mechelangelo_perception.pc'
+[0.838s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_perception/lib/python3.10/site-packages'
+[0.838s] Level 1:colcon.colcon_core.shell:create_environment_hook('mechelangelo_perception', 'pythonpath')
+[0.838s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_perception/share/mechelangelo_perception/hook/pythonpath.ps1'
+[0.838s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_perception/share/mechelangelo_perception/hook/pythonpath.dsv'
+[0.838s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_perception/share/mechelangelo_perception/hook/pythonpath.sh'
+[0.839s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_perception/bin'
+[0.839s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(mechelangelo_perception)
+[0.839s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_perception/share/mechelangelo_perception/package.ps1'
+[0.839s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_perception/share/mechelangelo_perception/package.dsv'
+[0.839s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_perception/share/mechelangelo_perception/package.sh'
+[0.839s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_perception/share/mechelangelo_perception/package.bash'
+[0.839s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_perception/share/mechelangelo_perception/package.zsh'
+[0.839s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/andy/git/MECHelangelo/install/mechelangelo_perception/share/colcon-core/packages/mechelangelo_perception)
+[0.840s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_arm_control' for CMake module files
+[0.840s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_arm_control' for CMake config files
+[0.840s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/andy/git/MECHelangelo/src/mechelangelo_arm_control' returned '0': PYTHONPATH=/home/andy/git/MECHelangelo/build/mechelangelo_arm_control/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/mechelangelo_arm_control build --build-base /home/andy/git/MECHelangelo/build/mechelangelo_arm_control/build install --record /home/andy/git/MECHelangelo/build/mechelangelo_arm_control/install.log --single-version-externally-managed install_data
+[0.840s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/lib'
+[0.840s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/bin'
+[0.840s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/lib/pkgconfig/mechelangelo_arm_control.pc'
+[0.840s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/lib/python3.10/site-packages'
+[0.840s] Level 1:colcon.colcon_core.shell:create_environment_hook('mechelangelo_arm_control', 'pythonpath')
+[0.840s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/share/mechelangelo_arm_control/hook/pythonpath.ps1'
+[0.840s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/share/mechelangelo_arm_control/hook/pythonpath.dsv'
+[0.841s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/share/mechelangelo_arm_control/hook/pythonpath.sh'
+[0.841s] Level 1:colcon.colcon_core.environment:checking '/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/bin'
+[0.841s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(mechelangelo_arm_control)
+[0.841s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/share/mechelangelo_arm_control/package.ps1'
+[0.841s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/share/mechelangelo_arm_control/package.dsv'
+[0.841s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/share/mechelangelo_arm_control/package.sh'
+[0.841s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/share/mechelangelo_arm_control/package.bash'
+[0.842s] INFO:colcon.colcon_core.shell:Creating package script '/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/share/mechelangelo_arm_control/package.zsh'
+[0.842s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/share/colcon-core/packages/mechelangelo_arm_control)
+[0.842s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:closing loop
+[0.842s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:loop closed
+[0.842s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete finished with '0'
+[0.842s] DEBUG:colcon.colcon_core.event_reactor:joining thread
+[0.844s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.terminal_notifier': Not used on non-Darwin systems
+[0.844s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.win32': Not used on non-Windows systems
+[0.844s] INFO:colcon.colcon_notification.desktop_notification:Sending desktop notification using 'notify2'
+[0.851s] DEBUG:colcon.colcon_core.event_reactor:joined thread
+[0.851s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/andy/git/MECHelangelo/install/local_setup.ps1'
+[0.852s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/andy/git/MECHelangelo/install/_local_setup_util_ps1.py'
+[0.852s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/andy/git/MECHelangelo/install/setup.ps1'
+[0.853s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/andy/git/MECHelangelo/install/local_setup.sh'
+[0.853s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/andy/git/MECHelangelo/install/_local_setup_util_sh.py'
+[0.853s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/andy/git/MECHelangelo/install/setup.sh'
+[0.853s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/andy/git/MECHelangelo/install/local_setup.bash'
+[0.854s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/andy/git/MECHelangelo/install/setup.bash'
+[0.854s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/andy/git/MECHelangelo/install/local_setup.zsh'
+[0.854s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/andy/git/MECHelangelo/install/setup.zsh'

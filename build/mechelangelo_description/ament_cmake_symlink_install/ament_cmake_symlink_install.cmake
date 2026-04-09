@@ -315,8 +315,8 @@ message(STATUS "Execute custom install script")
 
 # begin of custom install code
 
-# install(DIRECTORY "urdf" "meshes" "launch" "rviz" "config" "DESTINATION" "share/mechelangelo_description")
-ament_cmake_symlink_install_directory("/home/andy/git/MECHelangelo/src/mechelangelo_description" DIRECTORY "urdf" "meshes" "launch" "rviz" "config" "DESTINATION" "share/mechelangelo_description")
+# install(DIRECTORY "urdf" "meshes" "rviz" "DESTINATION" "share/mechelangelo_description")
+ament_cmake_symlink_install_directory("/home/andy/git/MECHelangelo/src/mechelangelo_description" DIRECTORY "urdf" "meshes" "rviz" "DESTINATION" "share/mechelangelo_description")
 
 # install(FILES "/home/andy/git/MECHelangelo/build/mechelangelo_description/ament_cmake_index/share/ament_index/resource_index/package_run_dependencies/mechelangelo_description" "DESTINATION" "share/ament_index/resource_index/package_run_dependencies")
 ament_cmake_symlink_install_files("/home/andy/git/MECHelangelo/src/mechelangelo_description" FILES "/home/andy/git/MECHelangelo/build/mechelangelo_description/ament_cmake_index/share/ament_index/resource_index/package_run_dependencies/mechelangelo_description" "DESTINATION" "share/ament_index/resource_index/package_run_dependencies")

@@ -1,0 +1,23 @@
+[0.855s] Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_perception': PYTHONPATH=/home/andy/git/MECHelangelo/build/mechelangelo_perception/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/andy/git/MECHelangelo/install/mechelangelo_perception/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/andy/git/MECHelangelo/build/mechelangelo_perception/build --no-deps symlink_data
+[1.023s] running develop
+[1.109s] running egg_info
+[1.109s] creating mechelangelo_perception.egg-info
+[1.109s] writing mechelangelo_perception.egg-info/PKG-INFO
+[1.109s] writing dependency_links to mechelangelo_perception.egg-info/dependency_links.txt
+[1.109s] writing entry points to mechelangelo_perception.egg-info/entry_points.txt
+[1.109s] writing requirements to mechelangelo_perception.egg-info/requires.txt
+[1.109s] writing top-level names to mechelangelo_perception.egg-info/top_level.txt
+[1.109s] writing manifest file 'mechelangelo_perception.egg-info/SOURCES.txt'
+[1.111s] reading manifest file 'mechelangelo_perception.egg-info/SOURCES.txt'
+[1.111s] writing manifest file 'mechelangelo_perception.egg-info/SOURCES.txt'
+[1.111s] running build_ext
+[1.112s] Creating /home/andy/git/MECHelangelo/install/mechelangelo_perception/lib/python3.10/site-packages/mechelangelo-perception.egg-link (link to .)
+[1.112s] 
+[1.112s] Installed /home/andy/git/MECHelangelo/build/mechelangelo_perception
+[1.112s] running symlink_data
+[1.112s] creating /home/andy/git/MECHelangelo/install/mechelangelo_perception/share/ament_index
+[1.112s] creating /home/andy/git/MECHelangelo/install/mechelangelo_perception/share/ament_index/resource_index
+[1.112s] creating /home/andy/git/MECHelangelo/install/mechelangelo_perception/share/ament_index/resource_index/packages
+[1.112s] symbolically linking /home/andy/git/MECHelangelo/build/mechelangelo_perception/resource/mechelangelo_perception -> /home/andy/git/MECHelangelo/install/mechelangelo_perception/share/ament_index/resource_index/packages
+[1.112s] symbolically linking /home/andy/git/MECHelangelo/build/mechelangelo_perception/package.xml -> /home/andy/git/MECHelangelo/install/mechelangelo_perception/share/mechelangelo_perception
+[1.156s] Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_perception' returned '0': PYTHONPATH=/home/andy/git/MECHelangelo/build/mechelangelo_perception/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/andy/git/MECHelangelo/install/mechelangelo_perception/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/andy/git/MECHelangelo/build/mechelangelo_perception/build --no-deps symlink_data

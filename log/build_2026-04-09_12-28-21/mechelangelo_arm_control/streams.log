@@ -1,0 +1,32 @@
+[0.912s] Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_arm_control': PYTHONPATH=/home/andy/git/MECHelangelo/build/mechelangelo_arm_control/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --uninstall --editable --build-directory /home/andy/git/MECHelangelo/build/mechelangelo_arm_control/build
+[1.091s] running develop
+[1.185s] Removing /home/andy/git/MECHelangelo/install/mechelangelo_arm_control/lib/python3.10/site-packages/mechelangelo-arm-control.egg-link (link to .)
+[1.224s] Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_arm_control' returned '0': PYTHONPATH=/home/andy/git/MECHelangelo/build/mechelangelo_arm_control/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --uninstall --editable --build-directory /home/andy/git/MECHelangelo/build/mechelangelo_arm_control/build
+[1.225s] Invoking command in '/home/andy/git/MECHelangelo/src/mechelangelo_arm_control': PYTHONPATH=/home/andy/git/MECHelangelo/build/mechelangelo_arm_control/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/mechelangelo_arm_control build --build-base /home/andy/git/MECHelangelo/build/mechelangelo_arm_control/build install --record /home/andy/git/MECHelangelo/build/mechelangelo_arm_control/install.log --single-version-externally-managed install_data --force
+[1.383s] running egg_info
+[1.383s] writing ../../build/mechelangelo_arm_control/mechelangelo_arm_control.egg-info/PKG-INFO
+[1.383s] writing dependency_links to ../../build/mechelangelo_arm_control/mechelangelo_arm_control.egg-info/dependency_links.txt
+[1.383s] writing entry points to ../../build/mechelangelo_arm_control/mechelangelo_arm_control.egg-info/entry_points.txt
+[1.383s] writing requirements to ../../build/mechelangelo_arm_control/mechelangelo_arm_control.egg-info/requires.txt
+[1.383s] writing top-level names to ../../build/mechelangelo_arm_control/mechelangelo_arm_control.egg-info/top_level.txt
+[1.385s] reading manifest file '../../build/mechelangelo_arm_control/mechelangelo_arm_control.egg-info/SOURCES.txt'
+[1.385s] writing manifest file '../../build/mechelangelo_arm_control/mechelangelo_arm_control.egg-info/SOURCES.txt'
+[1.385s] running build
+[1.385s] running build_py
+[1.389s] creating /home/andy/git/MECHelangelo/build/mechelangelo_arm_control/build
+[1.389s] creating /home/andy/git/MECHelangelo/build/mechelangelo_arm_control/build/lib
+[1.389s] creating /home/andy/git/MECHelangelo/build/mechelangelo_arm_control/build/lib/mechelangelo_arm_control
+[1.389s] copying mechelangelo_arm_control/__init__.py -> /home/andy/git/MECHelangelo/build/mechelangelo_arm_control/build/lib/mechelangelo_arm_control
+[1.390s] running install
+[1.390s] running install_lib
+[1.390s] creating /home/andy/git/MECHelangelo/install/mechelangelo_arm_control/lib/python3.10/site-packages/mechelangelo_arm_control
+[1.390s] copying /home/andy/git/MECHelangelo/build/mechelangelo_arm_control/build/lib/mechelangelo_arm_control/__init__.py -> /home/andy/git/MECHelangelo/install/mechelangelo_arm_control/lib/python3.10/site-packages/mechelangelo_arm_control
+[1.390s] byte-compiling /home/andy/git/MECHelangelo/install/mechelangelo_arm_control/lib/python3.10/site-packages/mechelangelo_arm_control/__init__.py to __init__.cpython-310.pyc
+[1.390s] running install_data
+[1.390s] copying resource/mechelangelo_arm_control -> /home/andy/git/MECHelangelo/install/mechelangelo_arm_control/share/ament_index/resource_index/packages
+[1.390s] copying package.xml -> /home/andy/git/MECHelangelo/install/mechelangelo_arm_control/share/mechelangelo_arm_control
+[1.390s] running install_egg_info
+[1.391s] Copying ../../build/mechelangelo_arm_control/mechelangelo_arm_control.egg-info to /home/andy/git/MECHelangelo/install/mechelangelo_arm_control/lib/python3.10/site-packages/mechelangelo_arm_control-0.0.0-py3.10.egg-info
+[1.391s] running install_scripts
+[1.407s] writing list of installed files to '/home/andy/git/MECHelangelo/build/mechelangelo_arm_control/install.log'
+[1.443s] Invoked command in '/home/andy/git/MECHelangelo/src/mechelangelo_arm_control' returned '0': PYTHONPATH=/home/andy/git/MECHelangelo/build/mechelangelo_arm_control/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/mechelangelo_arm_control build --build-base /home/andy/git/MECHelangelo/build/mechelangelo_arm_control/build install --record /home/andy/git/MECHelangelo/build/mechelangelo_arm_control/install.log --single-version-externally-managed install_data --force

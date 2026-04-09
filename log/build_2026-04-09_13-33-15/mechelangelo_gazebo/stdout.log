@@ -1,0 +1,80 @@
+-- Install configuration: ""
+-- Execute custom install script
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/launch/Gallery_Test2.launch.py
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/launch/gallery.launch.py
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/launch/sim.launch.py
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/launch/spawn_mechelangelo.launch.py
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/barrels/Mesh/Metal Diffuese.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/barrels/Mesh/Metal Diffuese.jpg.001.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/barrels/Mesh/Metal Diffuese.jpg.002.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/barrels/Mesh/Metal Diffuese.jpg.003.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/barrels/Mesh/Metal Diffuese.jpg.004.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/barrels/Mesh/Wood Diffuse.jpg.002.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/barrels/Mesh/Wood Diffuse.jpg.002.jpg.001.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/barrels/Mesh/Wood Diffuse.jpg.002.jpg.002.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/barrels/Mesh/Wood Diffuse.jpg.002.jpg.003.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/barrels/Mesh/Wood Diffuse.jpg.002.jpg.004.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/barrels/Mesh/barrels.dae
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/barrels/Mesh/barrels.stl
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/barrels/model.config
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/barrels/model.sdf
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/gallery_floor/Mesh/Birch-Wood-Texture-Background-edit-online.png.001.png
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/gallery_floor/Mesh/EmptyGallery.stl
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/gallery_floor/Mesh/floor.dae
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/gallery_floor/model.config
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/gallery_floor/model.sdf
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/meshes/base/HardwareBox_-_Finishes_-_Gunmetal_Grey_480x480.jpg
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/meshes/base/base.STL
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/meshes/base/base.dae
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/meshes/sensors/astra.dae
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/meshes/sensors/astra.jpg
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/meshes/sensors/lds.stl
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/meshes/sensors/r200.dae
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/meshes/sensors/r200.jpg
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/meshes/wheels/TIREWHEEL.jpg
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/meshes/wheels/wheel.STL
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/meshes/wheels/wheel.dae
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/model.config
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/model.sdf
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/statues/Mesh/marble texture 3.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/statues/Mesh/marble texture 3.jpg.001.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/statues/Mesh/statue_diffuse.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/statues/Mesh/statues.dae
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/statues/Mesh/statues.stl
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/statues/model.config
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/statues/model.sdf
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/walls/Mesh/1607px-The_Scream.jpg.001.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/walls/Mesh/190430171751-mona-lisa.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/walls/Mesh/Charging station 2.png
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/walls/Mesh/Funky.png
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/walls/Mesh/Kasamatsu-Shiro-Flowers-Four-Seasons-Banner.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/walls/Mesh/UglyDutchess.jpeg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/walls/Mesh/UglyDutchess.jpeg.001.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/walls/Mesh/a3bbad.png
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/walls/Mesh/clock.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/walls/Mesh/dogpoker.webp
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/walls/Mesh/marble texture 3.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/walls/Mesh/marble texture 3.jpg.001.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/walls/Mesh/minecraft_burning_skull_poster.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/walls/Mesh/simpsons.jpg.001.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/walls/Mesh/squares.jpg.001.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/walls/Mesh/walls.dae
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/walls/Mesh/walls.stl
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/walls/model.config
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/walls/model.sdf
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/worlds/Gallery_Test2.world
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/ament_index/resource_index/package_run_dependencies/mechelangelo_gazebo
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/ament_index/resource_index/parent_prefix_path/mechelangelo_gazebo
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/environment/ament_prefix_path.sh
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/environment/ament_prefix_path.dsv
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/environment/path.sh
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/environment/path.dsv
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/local_setup.bash
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/local_setup.sh
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/local_setup.zsh
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/local_setup.dsv
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/package.dsv
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/ament_index/resource_index/packages/mechelangelo_gazebo
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/cmake/mechelangelo_gazeboConfig.cmake
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/cmake/mechelangelo_gazeboConfig-version.cmake
+-- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/package.xml

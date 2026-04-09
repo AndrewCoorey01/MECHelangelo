@@ -1,0 +1,28 @@
+[0.543s] Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_perception': PYTHONPATH=/home/andy/git/MECHelangelo/build/mechelangelo_perception/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/andy/git/MECHelangelo/install/mechelangelo_perception/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --uninstall --editable --build-directory /home/andy/git/MECHelangelo/build/mechelangelo_perception/build
+[0.657s] running develop
+[0.712s] Removing /home/andy/git/MECHelangelo/install/mechelangelo_perception/lib/python3.10/site-packages/mechelangelo-perception.egg-link (link to .)
+[0.736s] Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_perception' returned '0': PYTHONPATH=/home/andy/git/MECHelangelo/build/mechelangelo_perception/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/andy/git/MECHelangelo/install/mechelangelo_perception/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --uninstall --editable --build-directory /home/andy/git/MECHelangelo/build/mechelangelo_perception/build
+[0.737s] Invoking command in '/home/andy/git/MECHelangelo/src/mechelangelo_perception': PYTHONPATH=/home/andy/git/MECHelangelo/build/mechelangelo_perception/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/andy/git/MECHelangelo/install/mechelangelo_perception/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/mechelangelo_perception build --build-base /home/andy/git/MECHelangelo/build/mechelangelo_perception/build install --record /home/andy/git/MECHelangelo/build/mechelangelo_perception/install.log --single-version-externally-managed install_data --force
+[0.831s] running egg_info
+[0.831s] writing ../../build/mechelangelo_perception/mechelangelo_perception.egg-info/PKG-INFO
+[0.831s] writing dependency_links to ../../build/mechelangelo_perception/mechelangelo_perception.egg-info/dependency_links.txt
+[0.831s] writing entry points to ../../build/mechelangelo_perception/mechelangelo_perception.egg-info/entry_points.txt
+[0.831s] writing requirements to ../../build/mechelangelo_perception/mechelangelo_perception.egg-info/requires.txt
+[0.831s] writing top-level names to ../../build/mechelangelo_perception/mechelangelo_perception.egg-info/top_level.txt
+[0.832s] reading manifest file '../../build/mechelangelo_perception/mechelangelo_perception.egg-info/SOURCES.txt'
+[0.832s] writing manifest file '../../build/mechelangelo_perception/mechelangelo_perception.egg-info/SOURCES.txt'
+[0.832s] running build
+[0.832s] running build_py
+[0.832s] running install
+[0.832s] running install_lib
+[0.833s] creating /home/andy/git/MECHelangelo/install/mechelangelo_perception/lib/python3.10/site-packages/mechelangelo_perception
+[0.833s] copying /home/andy/git/MECHelangelo/build/mechelangelo_perception/build/lib/mechelangelo_perception/__init__.py -> /home/andy/git/MECHelangelo/install/mechelangelo_perception/lib/python3.10/site-packages/mechelangelo_perception
+[0.833s] byte-compiling /home/andy/git/MECHelangelo/install/mechelangelo_perception/lib/python3.10/site-packages/mechelangelo_perception/__init__.py to __init__.cpython-310.pyc
+[0.833s] running install_data
+[0.833s] copying resource/mechelangelo_perception -> /home/andy/git/MECHelangelo/install/mechelangelo_perception/share/ament_index/resource_index/packages
+[0.833s] copying package.xml -> /home/andy/git/MECHelangelo/install/mechelangelo_perception/share/mechelangelo_perception
+[0.833s] running install_egg_info
+[0.834s] Copying ../../build/mechelangelo_perception/mechelangelo_perception.egg-info to /home/andy/git/MECHelangelo/install/mechelangelo_perception/lib/python3.10/site-packages/mechelangelo_perception-0.0.0-py3.10.egg-info
+[0.834s] running install_scripts
+[0.843s] writing list of installed files to '/home/andy/git/MECHelangelo/build/mechelangelo_perception/install.log'
+[0.861s] Invoked command in '/home/andy/git/MECHelangelo/src/mechelangelo_perception' returned '0': PYTHONPATH=/home/andy/git/MECHelangelo/build/mechelangelo_perception/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/andy/git/MECHelangelo/install/mechelangelo_perception/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/mechelangelo_perception build --build-base /home/andy/git/MECHelangelo/build/mechelangelo_perception/build install --record /home/andy/git/MECHelangelo/build/mechelangelo_perception/install.log --single-version-externally-managed install_data --force

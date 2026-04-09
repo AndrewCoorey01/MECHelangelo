@@ -1,0 +1,57 @@
+[0.192s] Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_gazebo': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake /home/andy/git/MECHelangelo/src/mechelangelo_gazebo -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/andy/git/MECHelangelo/install/mechelangelo_gazebo
+[0.549s] -- The C compiler identification is GNU 11.4.0
+[0.549s] -- The CXX compiler identification is GNU 11.4.0
+[0.550s] -- Detecting C compiler ABI info
+[0.550s] -- Detecting C compiler ABI info - done
+[0.550s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.550s] -- Detecting C compile features
+[0.550s] -- Detecting C compile features - done
+[0.550s] -- Detecting CXX compiler ABI info
+[0.550s] -- Detecting CXX compiler ABI info - done
+[0.550s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[0.550s] -- Detecting CXX compile features
+[0.550s] -- Detecting CXX compile features - done
+[0.550s] -- Found ament_cmake: 1.3.14 (/opt/ros/humble/share/ament_cmake/cmake)
+[0.550s] -- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter 
+[0.590s] -- Override CMake install command with custom implementation using symlinks instead of copying resources
+[0.664s] -- Configuring done
+[0.668s] -- Generating done
+[0.668s] -- Build files have been written to: /home/andy/git/MECHelangelo/build/mechelangelo_gazebo
+[0.674s] Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_gazebo' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake /home/andy/git/MECHelangelo/src/mechelangelo_gazebo -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/andy/git/MECHelangelo/install/mechelangelo_gazebo
+[0.676s] Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_gazebo': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_gazebo -- -j32 -l32
+[0.711s] Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_gazebo' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_gazebo -- -j32 -l32
+[0.712s] Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_gazebo': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_gazebo
+[0.716s] -- Install configuration: ""
+[0.716s] -- Execute custom install script
+[0.717s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/launch/Gallery_Test2.launch.py
+[0.723s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/launch/gallery.launch.py
+[0.729s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/launch/sim.launch.py
+[0.735s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/launch/spawn_mechelangelo.launch.py
+[0.745s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/meshes/base/base.STL
+[0.750s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/meshes/sensors/astra.dae
+[0.757s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/meshes/sensors/astra.jpg
+[0.762s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/meshes/sensors/lds.stl
+[0.767s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/meshes/sensors/r200.dae
+[0.776s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/meshes/sensors/r200.jpg
+[0.784s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/meshes/wheels/TIREWHEEL.jpg
+[0.790s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/meshes/wheels/wheel.STL
+[0.798s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/meshes/wheels/wheel.dae
+[0.808s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/model.config
+[0.815s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo/model.sdf
+[0.820s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/worlds/Gallery_Test2.world
+[0.836s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/ament_index/resource_index/package_run_dependencies/mechelangelo_gazebo
+[0.836s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/ament_index/resource_index/parent_prefix_path/mechelangelo_gazebo
+[0.847s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/environment/ament_prefix_path.sh
+[0.852s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/environment/ament_prefix_path.dsv
+[0.860s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/environment/path.sh
+[0.864s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/environment/path.dsv
+[0.878s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/local_setup.bash
+[0.883s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/local_setup.sh
+[0.889s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/local_setup.zsh
+[0.895s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/local_setup.dsv
+[0.904s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/package.dsv
+[0.914s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/ament_index/resource_index/packages/mechelangelo_gazebo
+[0.924s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/cmake/mechelangelo_gazeboConfig.cmake
+[0.932s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/cmake/mechelangelo_gazeboConfig-version.cmake
+[0.942s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/package.xml
+[0.954s] Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_gazebo' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_gazebo

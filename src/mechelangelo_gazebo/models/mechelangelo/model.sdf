@@ -1,0 +1,428 @@
+<?xml version="1.0"?>
+<sdf version="1.7">
+  <model name="mechelangelo">
+    <pose>0 0 0 0 0 0</pose>
+
+    <!-- =========================
+         LINKS
+         ========================= -->
+
+    <link name="base_link">
+      <inertial>
+        <pose>0 0 0.10 0 0 0</pose>
+        <mass>12.0</mass>
+        <inertia>
+          <ixx>0.30</ixx>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyy>0.40</iyy>
+          <iyz>0.0</iyz>
+          <izz>0.50</izz>
+        </inertia>
+      </inertial>
+
+      <collision name="base_collision">
+        <pose>0 0 0.10 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://mechelangelo/meshes/base/base.dae</uri>
+            <scale>1 1 1</scale>
+          </mesh>
+        </geometry>
+      </collision>
+
+      <visual name="base_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://mechelangelo/meshes/base/base.dae</uri>
+            <scale>1 1 1</scale>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+
+    <link name="wheel_left_link">
+      <inertial>
+        <pose>0.11091 0.20103 0.075 0 0 0</pose>
+        <mass>1.0</mass>
+        <inertia>
+          <ixx>0.002</ixx>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyy>0.001</iyy>
+          <iyz>0.0</iyz>
+          <izz>0.002</izz>
+        </inertia>
+      </inertial>
+
+      <collision name="wheel_left_collision">
+        <pose>0.11091 0.20103 0.075 1.5708 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.075</radius>
+            <length>0.03</length>
+          </cylinder>
+        </geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>100000</mu>
+              <mu2>100000</mu2>
+              <slip1>0.0</slip1>
+              <slip2>0.0</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>1000000.0</kp>
+              <kd>100.0</kd>
+              <max_vel>0.01</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
+      </collision>
+
+      <visual name="wheel_left_visual">
+        <pose>0.11091 0.20103 0.075 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://mechelangelo/meshes/wheels/wheel.dae</uri>
+            <scale>1 1 1</scale>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+
+    <link name="wheel_right_link">
+      <inertial>
+        <pose>0.11091 -0.20103 0.075 0 0 0</pose>
+        <mass>1.0</mass>
+        <inertia>
+          <ixx>0.002</ixx>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyy>0.001</iyy>
+          <iyz>0.0</iyz>
+          <izz>0.002</izz>
+        </inertia>
+      </inertial>
+
+      <collision name="wheel_right_collision">
+        <pose>0.11091 -0.20103 0.075 1.5708 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.075</radius>
+            <length>0.03</length>
+          </cylinder>
+        </geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>100000</mu>
+              <mu2>100000</mu2>
+              <slip1>0.0</slip1>
+              <slip2>0.0</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>1000000.0</kp>
+              <kd>100.0</kd>
+              <max_vel>0.01</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
+      </collision>
+
+      <visual name="wheel_right_visual">
+        <pose>0.11091 -0.20103 0.075 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://mechelangelo/meshes/wheels/wheel.dae</uri>
+            <scale>1 1 1</scale>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+
+    <link name="caster_link">
+      <inertial>
+        <pose>-0.18 0.0 0.03 0 0 0</pose>
+        <mass>0.2</mass>
+        <inertia>
+          <ixx>0.0001</ixx>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyy>0.0001</iyy>
+          <iyz>0.0</iyz>
+          <izz>0.0001</izz>
+        </inertia>
+      </inertial>
+
+      <collision name="caster_collision">
+        <pose>-0.18 0.0 0.03 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.03</radius>
+          </sphere>
+        </geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.2</mu>
+              <mu2>0.2</mu2>
+            </ode>
+          </friction>
+        </surface>
+      </collision>
+
+      <visual name="caster_visual">
+        <pose>-0.18 0.0 0.03 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.03</radius>
+          </sphere>
+        </geometry>
+      </visual>
+    </link>
+
+    <link name="imu_link">
+      <inertial>
+        <pose>0.0 0 0.068 0 0 0</pose>
+        <mass>0.01</mass>
+        <inertia>
+          <ixx>0.00001</ixx>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyy>0.00001</iyy>
+          <iyz>0.0</iyz>
+          <izz>0.00001</izz>
+        </inertia>
+      </inertial>
+
+      <sensor name="mechelangelo_imu" type="imu">
+        <always_on>true</always_on>
+        <update_rate>100</update_rate>
+        <plugin name="mechelangelo_imu_plugin" filename="libgazebo_ros_imu_sensor.so">
+          <ros>
+            <remapping>~/out:=imu</remapping>
+          </ros>
+        </plugin>
+      </sensor>
+    </link>
+
+    <link name="base_scan">
+      <inertial>
+        <pose>0 0 0.280 0 0 0</pose>
+        <mass>0.114</mass>
+        <inertia>
+          <ixx>0.001</ixx>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyy>0.001</iyy>
+          <iyz>0.0</iyz>
+          <izz>0.001</izz>
+        </inertia>
+      </inertial>
+
+      <visual name="lidar_visual">
+        <pose>0 0 0.280 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://mechelangelo/meshes/sensors/lds.dae</uri>
+            <scale>1 1 1</scale>
+          </mesh>
+        </geometry>
+      </visual>
+
+      <sensor name="mechelangelo_lidar" type="ray">
+        <always_on>true</always_on>
+        <visualize>true</visualize>
+        <pose>0 0 0.280 0 0 0</pose>
+        <update_rate>10</update_rate>
+        <ray>
+          <scan>
+            <horizontal>
+              <samples>720</samples>
+              <resolution>1</resolution>
+              <min_angle>-3.14159</min_angle>
+              <max_angle>3.14159</max_angle>
+            </horizontal>
+          </scan>
+          <range>
+            <min>0.12</min>
+            <max>8.0</max>
+            <resolution>0.01</resolution>
+          </range>
+        </ray>
+        <plugin name="mechelangelo_laserscan_plugin" filename="libgazebo_ros_ray_sensor.so">
+          <ros>
+            <remapping>~/out:=scan</remapping>
+          </ros>
+          <output_type>sensor_msgs/LaserScan</output_type>
+          <frame_name>base_scan</frame_name>
+        </plugin>
+      </sensor>
+    </link>
+
+    <link name="camera_link">
+      <inertial>
+        <pose>0 0 1.480 0 0 0</pose>
+        <mass>0.05</mass>
+        <inertia>
+          <ixx>0.00001</ixx>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyy>0.00001</iyy>
+          <iyz>0.0</iyz>
+          <izz>0.00001</izz>
+        </inertia>
+      </inertial>
+
+      <collision name="camera_collision">
+        <pose>0 0 1.480 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.015 0.030 0.027</size>
+          </box>
+        </geometry>
+      </collision>
+
+      <visual name="camera_visual">
+        <pose>0 0 1.480 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.015 0.030 0.027</size>
+          </box>
+        </geometry>
+      </visual>
+    </link>
+
+    <link name="camera_rgb_frame"/>
+
+    <link name="camera_rgb_optical_frame">
+      <pose>0 0 1.480 0 0 0</pose>
+      <sensor name="mechelangelo_camera" type="camera">
+        <always_on>true</always_on>
+        <visualize>false</visualize>
+        <update_rate>15</update_rate>
+        <camera>
+          <horizontal_fov>1.3962634</horizontal_fov>
+          <image>
+            <width>640</width>
+            <height>480</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip>
+            <near>0.05</near>
+            <far>20.0</far>
+          </clip>
+        </camera>
+        <plugin name="mechelangelo_camera_plugin" filename="libgazebo_ros_camera.so">
+          <ros>
+            <remapping>~/image_raw:=camera/image_raw</remapping>
+            <remapping>~/camera_info:=camera/camera_info</remapping>
+          </ros>
+        </plugin>
+      </sensor>
+    </link>
+
+    <!-- =========================
+         JOINTS
+         ========================= -->
+
+    <joint name="left_wheel_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>wheel_left_link</child>
+      <pose>0.11091 0.20103 0.075 0 0 0</pose>
+      <axis>
+        <xyz>0 1 0</xyz>
+      </axis>
+    </joint>
+
+    <joint name="right_wheel_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>wheel_right_link</child>
+      <pose>0.11091 -0.20103 0.075 0 0 0</pose>
+      <axis>
+        <xyz>0 1 0</xyz>
+      </axis>
+    </joint>
+
+    <joint name="caster_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>caster_link</child>
+      <pose>-0.18 0.0 0.03 0 0 0</pose>
+    </joint>
+
+    <joint name="imu_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>imu_link</child>
+      <pose>0.0 0 0.068 0 0 0</pose>
+    </joint>
+
+    <joint name="scan_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>base_scan</child>
+      <pose>0 0 0.280 0 0 0</pose>
+    </joint>
+
+    <joint name="camera_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>camera_link</child>
+      <pose>0 0 1.480 0 0 0</pose>
+    </joint>
+
+    <joint name="camera_rgb_joint" type="fixed">
+      <parent>camera_link</parent>
+      <child>camera_rgb_frame</child>
+      <pose>0 0 0 0 0 0</pose>
+    </joint>
+
+    <joint name="camera_rgb_optical_joint" type="fixed">
+      <parent>camera_rgb_frame</parent>
+      <child>camera_rgb_optical_frame</child>
+      <pose>0 0 0 -1.5708 0 -1.5708</pose>
+    </joint>
+
+    <!-- =========================
+         PLUGINS
+         ========================= -->
+
+    <plugin name="mechelangelo_diff_drive" filename="libgazebo_ros_diff_drive.so">
+      <update_rate>50</update_rate>
+
+      <left_joint>left_wheel_joint</left_joint>
+      <right_joint>right_wheel_joint</right_joint>
+
+      <wheel_separation>0.40206</wheel_separation>
+      <wheel_diameter>0.15</wheel_diameter>
+
+      <max_wheel_torque>20.0</max_wheel_torque>
+      <max_wheel_acceleration>5.0</max_wheel_acceleration>
+
+      <command_topic>cmd_vel</command_topic>
+
+      <publish_odom>true</publish_odom>
+      <publish_odom_tf>true</publish_odom_tf>
+      <publish_wheel_tf>false</publish_wheel_tf>
+
+      <odometry_topic>odom</odometry_topic>
+      <odometry_frame>odom</odometry_frame>
+      <robot_base_frame>base_link</robot_base_frame>
+    </plugin>
+
+    <plugin name="mechelangelo_joint_state" filename="libgazebo_ros_joint_state_publisher.so">
+      <ros>
+        <remapping>~/out:=joint_states</remapping>
+      </ros>
+      <update_rate>30</update_rate>
+      <joint_name>left_wheel_joint</joint_name>
+      <joint_name>right_wheel_joint</joint_name>
+    </plugin>
+
+  </model>
+</sdf>

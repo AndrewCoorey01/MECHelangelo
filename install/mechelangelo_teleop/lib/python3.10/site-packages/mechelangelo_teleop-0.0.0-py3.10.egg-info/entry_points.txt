@@ -1,0 +1,3 @@
+[console_scripts]
+teleop_keyboard = mechelangelo_teleop.teleop_keyboard:main
+

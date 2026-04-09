@@ -1,0 +1,44 @@
+[0.191s] Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_navigation': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake /home/andy/git/MECHelangelo/src/mechelangelo_navigation -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/andy/git/MECHelangelo/install/mechelangelo_navigation
+[0.548s] -- The C compiler identification is GNU 11.4.0
+[0.548s] -- The CXX compiler identification is GNU 11.4.0
+[0.548s] -- Detecting C compiler ABI info
+[0.548s] -- Detecting C compiler ABI info - done
+[0.549s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.549s] -- Detecting C compile features
+[0.549s] -- Detecting C compile features - done
+[0.549s] -- Detecting CXX compiler ABI info
+[0.549s] -- Detecting CXX compiler ABI info - done
+[0.549s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[0.549s] -- Detecting CXX compile features
+[0.549s] -- Detecting CXX compile features - done
+[0.549s] -- Found ament_cmake: 1.3.14 (/opt/ros/humble/share/ament_cmake/cmake)
+[0.551s] -- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter 
+[0.587s] -- Override CMake install command with custom implementation using symlinks instead of copying resources
+[0.604s] -- Found ament_lint_auto: 0.12.15 (/opt/ros/humble/share/ament_lint_auto/cmake)
+[0.676s] -- Added test 'lint_cmake' to check CMake code style
+[0.677s] -- Added test 'xmllint' to check XML markup files
+[0.681s] -- Configuring done
+[0.681s] -- Generating done
+[0.681s] -- Build files have been written to: /home/andy/git/MECHelangelo/build/mechelangelo_navigation
+[0.693s] Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_navigation' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake /home/andy/git/MECHelangelo/src/mechelangelo_navigation -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/andy/git/MECHelangelo/install/mechelangelo_navigation
+[0.694s] Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_navigation': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_navigation -- -j32 -l32
+[0.734s] Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_navigation' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_navigation -- -j32 -l32
+[0.736s] Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_navigation': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_navigation
+[0.743s] -- Install configuration: ""
+[0.744s] -- Execute custom install script
+[0.744s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/ament_index/resource_index/package_run_dependencies/mechelangelo_navigation
+[0.750s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/ament_index/resource_index/parent_prefix_path/mechelangelo_navigation
+[0.759s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/environment/ament_prefix_path.sh
+[0.765s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/environment/ament_prefix_path.dsv
+[0.774s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/environment/path.sh
+[0.781s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/environment/path.dsv
+[0.787s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/local_setup.bash
+[0.796s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/local_setup.sh
+[0.802s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/local_setup.zsh
+[0.805s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/local_setup.dsv
+[0.813s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/package.dsv
+[0.825s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/ament_index/resource_index/packages/mechelangelo_navigation
+[0.834s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/cmake/mechelangelo_navigationConfig.cmake
+[0.834s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/cmake/mechelangelo_navigationConfig-version.cmake
+[0.845s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_navigation/share/mechelangelo_navigation/package.xml
+[0.876s] Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_navigation' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_navigation
