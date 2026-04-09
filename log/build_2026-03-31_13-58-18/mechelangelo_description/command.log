@@ -1,2 +1,0 @@
-Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_description': /usr/bin/cmake /home/andy/git/MECHelangelo/src/mechelangelo_description -DCMAKE_INSTALL_PREFIX=/home/andy/git/MECHelangelo/install/mechelangelo_description
-Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_description' returned '1': /usr/bin/cmake /home/andy/git/MECHelangelo/src/mechelangelo_description -DCMAKE_INSTALL_PREFIX=/home/andy/git/MECHelangelo/install/mechelangelo_description

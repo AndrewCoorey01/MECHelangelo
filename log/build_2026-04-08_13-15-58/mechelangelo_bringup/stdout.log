@@ -1,0 +1,86 @@
+-- The C compiler identification is GNU 11.4.0
+-- The CXX compiler identification is GNU 11.4.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found ament_cmake: 1.3.14 (/opt/ros/humble/share/ament_cmake/cmake)
+-- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter 
+-- Override CMake install command with custom implementation using symlinks instead of copying resources
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/andy/git/MECHelangelo/build/mechelangelo_bringup
+-- Install configuration: ""
+-- Execute custom install script
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/launch/Gallery_Test2.launch.py
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/launch/sim.launch.py
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/worlds/Gallery_Test2.world
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/barrels/Mesh/Metal Diffuese.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/barrels/Mesh/Metal Diffuese.jpg.001.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/barrels/Mesh/Metal Diffuese.jpg.002.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/barrels/Mesh/Metal Diffuese.jpg.003.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/barrels/Mesh/Metal Diffuese.jpg.004.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/barrels/Mesh/Wood Diffuse.jpg.002.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/barrels/Mesh/Wood Diffuse.jpg.002.jpg.001.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/barrels/Mesh/Wood Diffuse.jpg.002.jpg.002.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/barrels/Mesh/Wood Diffuse.jpg.002.jpg.003.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/barrels/Mesh/Wood Diffuse.jpg.002.jpg.004.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/barrels/Mesh/barrels.dae
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/barrels/Mesh/barrels.stl
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/barrels/model.config
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/barrels/model.sdf
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/gallery_floor/Mesh/Birch-Wood-Texture-Background-edit-online.png.001.png
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/gallery_floor/Mesh/EmptyGallery.stl
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/gallery_floor/Mesh/floor.dae
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/gallery_floor/model.config
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/gallery_floor/model.sdf
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/statues/Mesh/marble texture 3.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/statues/Mesh/marble texture 3.jpg.001.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/statues/Mesh/statue_diffuse.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/statues/Mesh/statues.dae
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/statues/Mesh/statues.stl
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/statues/model.config
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/statues/model.sdf
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/turtlebot3_waffle_pi/model-1_4_.sdf
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/turtlebot3_waffle_pi/model.config
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/turtlebot3_waffle_pi/model.sdf
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/walls/Mesh/1607px-The_Scream.jpg.001.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/walls/Mesh/190430171751-mona-lisa.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/walls/Mesh/Charging station 2.png
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/walls/Mesh/Funky.png
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/walls/Mesh/Kasamatsu-Shiro-Flowers-Four-Seasons-Banner.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/walls/Mesh/UglyDutchess.jpeg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/walls/Mesh/UglyDutchess.jpeg.001.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/walls/Mesh/a3bbad.png
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/walls/Mesh/clock.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/walls/Mesh/dogpoker.webp
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/walls/Mesh/marble texture 3.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/walls/Mesh/marble texture 3.jpg.001.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/walls/Mesh/minecraft_burning_skull_poster.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/walls/Mesh/simpsons.jpg.001.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/walls/Mesh/squares.jpg.001.jpg
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/walls/Mesh/walls.dae
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/walls/Mesh/walls.stl
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/walls/model.config
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/Models/walls/model.sdf
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/ament_index/resource_index/package_run_dependencies/mechelangelo_bringup
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/ament_index/resource_index/parent_prefix_path/mechelangelo_bringup
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/environment/ament_prefix_path.sh
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/environment/ament_prefix_path.dsv
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/environment/path.sh
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/environment/path.dsv
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/local_setup.bash
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/local_setup.sh
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/local_setup.zsh
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/local_setup.dsv
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/package.dsv
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/ament_index/resource_index/packages/mechelangelo_bringup
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/cmake/mechelangelo_bringupConfig.cmake
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/cmake/mechelangelo_bringupConfig-version.cmake
+-- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_bringup/share/mechelangelo_bringup/package.xml

@@ -1,0 +1,44 @@
+[0.123s] Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_base_sim': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake /home/andy/git/MECHelangelo/src/mechelangelo_base_sim -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/andy/git/MECHelangelo/install/mechelangelo_base_sim
+[0.348s] -- The C compiler identification is GNU 11.4.0
+[0.348s] -- The CXX compiler identification is GNU 11.4.0
+[0.348s] -- Detecting C compiler ABI info
+[0.348s] -- Detecting C compiler ABI info - done
+[0.348s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.348s] -- Detecting C compile features
+[0.348s] -- Detecting C compile features - done
+[0.348s] -- Detecting CXX compiler ABI info
+[0.348s] -- Detecting CXX compiler ABI info - done
+[0.349s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[0.349s] -- Detecting CXX compile features
+[0.349s] -- Detecting CXX compile features - done
+[0.349s] -- Found ament_cmake: 1.3.14 (/opt/ros/humble/share/ament_cmake/cmake)
+[0.349s] -- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter 
+[0.362s] -- Override CMake install command with custom implementation using symlinks instead of copying resources
+[0.374s] -- Found ament_lint_auto: 0.12.15 (/opt/ros/humble/share/ament_lint_auto/cmake)
+[0.416s] -- Added test 'lint_cmake' to check CMake code style
+[0.417s] -- Added test 'xmllint' to check XML markup files
+[0.418s] -- Configuring done
+[0.422s] -- Generating done
+[0.422s] -- Build files have been written to: /home/andy/git/MECHelangelo/build/mechelangelo_base_sim
+[0.430s] Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_base_sim' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake /home/andy/git/MECHelangelo/src/mechelangelo_base_sim -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/andy/git/MECHelangelo/install/mechelangelo_base_sim
+[0.431s] Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_base_sim': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_base_sim -- -j32 -l32
+[0.448s] Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_base_sim' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_base_sim -- -j32 -l32
+[0.448s] Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_base_sim': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_base_sim
+[0.451s] -- Install configuration: ""
+[0.451s] -- Execute custom install script
+[0.452s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/ament_index/resource_index/package_run_dependencies/mechelangelo_base_sim
+[0.455s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/ament_index/resource_index/parent_prefix_path/mechelangelo_base_sim
+[0.459s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/environment/ament_prefix_path.sh
+[0.463s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/environment/ament_prefix_path.dsv
+[0.466s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/environment/path.sh
+[0.469s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/environment/path.dsv
+[0.473s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/local_setup.bash
+[0.476s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/local_setup.sh
+[0.479s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/local_setup.zsh
+[0.483s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/local_setup.dsv
+[0.487s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/package.dsv
+[0.490s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/ament_index/resource_index/packages/mechelangelo_base_sim
+[0.497s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/cmake/mechelangelo_base_simConfig.cmake
+[0.505s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/cmake/mechelangelo_base_simConfig-version.cmake
+[0.509s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_base_sim/share/mechelangelo_base_sim/package.xml
+[0.526s] Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_base_sim' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_base_sim

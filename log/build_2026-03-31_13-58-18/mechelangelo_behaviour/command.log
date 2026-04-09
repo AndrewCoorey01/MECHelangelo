@@ -1,2 +1,0 @@
-Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_behaviour': /usr/bin/cmake /home/andy/git/MECHelangelo/src/mechelangelo_behaviour -DCMAKE_INSTALL_PREFIX=/home/andy/git/MECHelangelo/install/mechelangelo_behaviour
-Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_behaviour' returned '1': /usr/bin/cmake /home/andy/git/MECHelangelo/src/mechelangelo_behaviour -DCMAKE_INSTALL_PREFIX=/home/andy/git/MECHelangelo/install/mechelangelo_behaviour

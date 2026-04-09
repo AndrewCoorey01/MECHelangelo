@@ -1,2 +1,1 @@
-source;share/mechelangelo_navigation/environment/ament_prefix_path.sh
-source;share/mechelangelo_navigation/environment/path.sh
+/home/andy/git/MECHelangelo/build/mechelangelo_navigation/ament_cmake_environment_hooks/local_setup.dsv

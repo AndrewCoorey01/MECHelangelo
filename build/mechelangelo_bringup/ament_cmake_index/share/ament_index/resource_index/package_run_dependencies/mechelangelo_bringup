@@ -1,1 +1,1 @@
-ament_lint_auto;ament_lint_common
+launch;launch_ros;gazebo_ros;robot_state_publisher;mechelangelo_description

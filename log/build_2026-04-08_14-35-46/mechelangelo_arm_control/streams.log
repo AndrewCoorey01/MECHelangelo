@@ -1,0 +1,16 @@
+[0.540s] Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_arm_control': PYTHONPATH=/home/andy/git/MECHelangelo/build/mechelangelo_arm_control/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/andy/git/MECHelangelo/build/mechelangelo_arm_control/build --no-deps symlink_data
+[0.652s] running develop
+[0.714s] running egg_info
+[0.714s] writing mechelangelo_arm_control.egg-info/PKG-INFO
+[0.717s] writing dependency_links to mechelangelo_arm_control.egg-info/dependency_links.txt
+[0.717s] writing entry points to mechelangelo_arm_control.egg-info/entry_points.txt
+[0.717s] writing requirements to mechelangelo_arm_control.egg-info/requires.txt
+[0.717s] writing top-level names to mechelangelo_arm_control.egg-info/top_level.txt
+[0.717s] reading manifest file 'mechelangelo_arm_control.egg-info/SOURCES.txt'
+[0.717s] writing manifest file 'mechelangelo_arm_control.egg-info/SOURCES.txt'
+[0.717s] running build_ext
+[0.717s] Creating /home/andy/git/MECHelangelo/install/mechelangelo_arm_control/lib/python3.10/site-packages/mechelangelo-arm-control.egg-link (link to .)
+[0.718s] 
+[0.718s] Installed /home/andy/git/MECHelangelo/build/mechelangelo_arm_control
+[0.718s] running symlink_data
+[0.738s] Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_arm_control' returned '0': PYTHONPATH=/home/andy/git/MECHelangelo/build/mechelangelo_arm_control/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/andy/git/MECHelangelo/build/mechelangelo_arm_control/build --no-deps symlink_data

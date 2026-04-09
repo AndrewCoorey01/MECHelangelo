@@ -1,0 +1,13 @@
+package.xml
+setup.cfg
+setup.py
+mechelangelo_teleop/__init__.py
+mechelangelo_teleop/teleop_keyboard.py
+mechelangelo_teleop.egg-info/PKG-INFO
+mechelangelo_teleop.egg-info/SOURCES.txt
+mechelangelo_teleop.egg-info/dependency_links.txt
+mechelangelo_teleop.egg-info/entry_points.txt
+mechelangelo_teleop.egg-info/requires.txt
+mechelangelo_teleop.egg-info/top_level.txt
+mechelangelo_teleop.egg-info/zip-safe
+resource/mechelangelo_teleop

@@ -1,6 +1,0 @@
-Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_bringup': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /home/andy/git/MECHelangelo/src/mechelangelo_bringup -DCMAKE_INSTALL_PREFIX=/home/andy/git/MECHelangelo/install/mechelangelo_bringup
-Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_bringup' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /home/andy/git/MECHelangelo/src/mechelangelo_bringup -DCMAKE_INSTALL_PREFIX=/home/andy/git/MECHelangelo/install/mechelangelo_bringup
-Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_bringup': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_bringup -- -j32 -l32
-Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_bringup' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_bringup -- -j32 -l32
-Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_bringup': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_bringup
-Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_bringup' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_bringup

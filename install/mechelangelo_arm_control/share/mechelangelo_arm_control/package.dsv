@@ -4,3 +4,6 @@ source;share/mechelangelo_arm_control/hook/pythonpath.sh
 source;share/mechelangelo_arm_control/hook/ament_prefix_path.ps1
 source;share/mechelangelo_arm_control/hook/ament_prefix_path.dsv
 source;share/mechelangelo_arm_control/hook/ament_prefix_path.sh
+source;../../build/mechelangelo_arm_control/share/mechelangelo_arm_control/hook/pythonpath_develop.ps1
+source;../../build/mechelangelo_arm_control/share/mechelangelo_arm_control/hook/pythonpath_develop.dsv
+source;../../build/mechelangelo_arm_control/share/mechelangelo_arm_control/hook/pythonpath_develop.sh
