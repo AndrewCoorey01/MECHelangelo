@@ -67,8 +67,8 @@
         <surface>
           <friction>
             <ode>
-              <mu>100000</mu>
-              <mu2>100000</mu2>
+              <mu>1.0</mu>
+              <mu2>1.0</mu2>
               <slip1>0.0</slip1>
               <slip2>0.0</slip2>
             </ode>
@@ -120,8 +120,8 @@
         <surface>
           <friction>
             <ode>
-              <mu>100000</mu>
-              <mu2>100000</mu2>
+              <mu>1.0</mu>
+              <mu2>1.0</mu2>
               <slip1>0.0</slip1>
               <slip2>0.0</slip2>
             </ode>
@@ -189,20 +189,9 @@
       </visual>
     </link>
 
-    <link name="imu_link">
-      <inertial>
-        <pose>0.0 0 0.068 0 0 0</pose>
-        <mass>0.01</mass>
-        <inertia>
-          <ixx>0.00001</ixx>
-          <ixy>0.0</ixy>
-          <ixz>0.0</ixz>
-          <iyy>0.00001</iyy>
-          <iyz>0.0</iyz>
-          <izz>0.00001</izz>
-        </inertia>
-      </inertial>
+    <!-- Sensors: inertial removed -->
 
+    <link name="imu_link">
       <sensor name="mechelangelo_imu" type="imu">
         <always_on>true</always_on>
         <update_rate>100</update_rate>
@@ -215,19 +204,6 @@
     </link>
 
     <link name="base_scan">
-      <inertial>
-        <pose>0 0 0.280 0 0 0</pose>
-        <mass>0.114</mass>
-        <inertia>
-          <ixx>0.001</ixx>
-          <ixy>0.0</ixy>
-          <ixz>0.0</ixz>
-          <iyy>0.001</iyy>
-          <iyz>0.0</iyz>
-          <izz>0.001</izz>
-        </inertia>
-      </inertial>
-
       <visual name="lidar_visual">
         <pose>0 0 0.280 0 0 0</pose>
         <geometry>
@@ -269,28 +245,6 @@
     </link>
 
     <link name="camera_link">
-      <inertial>
-        <pose>0 0 1.480 0 0 0</pose>
-        <mass>0.05</mass>
-        <inertia>
-          <ixx>0.00001</ixx>
-          <ixy>0.0</ixy>
-          <ixz>0.0</ixz>
-          <iyy>0.00001</iyy>
-          <iyz>0.0</iyz>
-          <izz>0.00001</izz>
-        </inertia>
-      </inertial>
-
-      <collision name="camera_collision">
-        <pose>0 0 1.480 0 0 0</pose>
-        <geometry>
-          <box>
-            <size>0.015 0.030 0.027</size>
-          </box>
-        </geometry>
-      </collision>
-
       <visual name="camera_visual">
         <pose>0 0 1.480 0 0 0</pose>
         <geometry>
