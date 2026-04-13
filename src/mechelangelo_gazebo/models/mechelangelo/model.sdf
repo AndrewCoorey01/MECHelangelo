@@ -189,7 +189,7 @@
       </visual>
     </link>
 
-    <!-- Sensors: inertial removed -->
+    <!-- Sensors: inertial removed because it turned MECHelangelo into a helicopter-->
 
     <link name="imu_link">
       <sensor name="mechelangelo_imu" type="imu">

@@ -1,0 +1,21 @@
+[0.125s] Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_behaviour': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_behaviour -- -j32 -l32
+[0.341s] Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_behaviour' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_behaviour -- -j32 -l32
+[0.346s] Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_behaviour': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_behaviour
+[0.351s] -- Install configuration: ""
+[0.352s] -- Execute custom install script
+[0.352s] -- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/ament_index/resource_index/package_run_dependencies/mechelangelo_behaviour
+[0.352s] -- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/ament_index/resource_index/parent_prefix_path/mechelangelo_behaviour
+[0.352s] -- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/environment/ament_prefix_path.sh
+[0.353s] -- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/environment/ament_prefix_path.dsv
+[0.353s] -- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/environment/path.sh
+[0.353s] -- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/environment/path.dsv
+[0.353s] -- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/local_setup.bash
+[0.353s] -- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/local_setup.sh
+[0.353s] -- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/local_setup.zsh
+[0.355s] -- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/local_setup.dsv
+[0.355s] -- Symlinking: /home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/package.dsv
+[0.362s] -- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/ament_index/resource_index/packages/mechelangelo_behaviour
+[0.362s] -- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/cmake/mechelangelo_behaviourConfig.cmake
+[0.362s] -- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/cmake/mechelangelo_behaviourConfig-version.cmake
+[0.362s] -- Up-to-date symlink: /home/andy/git/MECHelangelo/install/mechelangelo_behaviour/share/mechelangelo_behaviour/package.xml
+[0.363s] Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_behaviour' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_behaviour

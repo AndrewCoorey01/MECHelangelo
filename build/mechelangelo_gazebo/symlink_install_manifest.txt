@@ -1,4 +1,5 @@
 /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/launch/Gallery_Test2.launch.py
+/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/launch/environment.launch.py
 /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/launch/gallery.launch.py
 /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/launch/sim.launch.py
 /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/launch/spawn_mechelangelo.launch.py
@@ -60,6 +61,7 @@
 /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/walls/Mesh/walls.stl
 /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/walls/model.config
 /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/walls/model.sdf
+/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/worlds/Gallery.world
 /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/worlds/Gallery_Test2.world
 /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/ament_index/resource_index/package_run_dependencies/mechelangelo_gazebo
 /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/ament_index/resource_index/parent_prefix_path/mechelangelo_gazebo
