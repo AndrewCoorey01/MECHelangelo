@@ -1,9 +1,0 @@
-/home/andy/git/MECHelangelo/build/mechelangelo_navigation/CMakeFiles/uninstall.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_navigation/CMakeFiles/mechelangelo_navigation_uninstall.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_navigation/CMakeFiles/test.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_navigation/CMakeFiles/edit_cache.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_navigation/CMakeFiles/rebuild_cache.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_navigation/CMakeFiles/list_install_components.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_navigation/CMakeFiles/install.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_navigation/CMakeFiles/install/local.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_navigation/CMakeFiles/install/strip.dir

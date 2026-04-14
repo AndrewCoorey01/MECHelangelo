@@ -197,7 +197,7 @@
         <update_rate>100</update_rate>
         <plugin name="mechelangelo_imu_plugin" filename="libgazebo_ros_imu_sensor.so">
           <ros>
-            <remapping>~/out:=imu</remapping>
+            <remapping>~/out:=/imu</remapping>
           </ros>
         </plugin>
       </sensor>
@@ -236,7 +236,7 @@
         </ray>
         <plugin name="mechelangelo_laserscan_plugin" filename="libgazebo_ros_ray_sensor.so">
           <ros>
-            <remapping>~/out:=scan</remapping>
+            <remapping>~/out:=/scan</remapping>
           </ros>
           <output_type>sensor_msgs/LaserScan</output_type>
           <frame_name>base_scan</frame_name>
@@ -277,8 +277,8 @@
         </camera>
         <plugin name="mechelangelo_camera_plugin" filename="libgazebo_ros_camera.so">
           <ros>
-            <remapping>~/image_raw:=camera/image_raw</remapping>
-            <remapping>~/camera_info:=camera/camera_info</remapping>
+            <remapping>~/image_raw:=/camera/image_raw</remapping>
+            <remapping>~/camera_info:=/camera/camera_info</remapping>
           </ros>
         </plugin>
       </sensor>
@@ -371,7 +371,7 @@
 
     <plugin name="mechelangelo_joint_state" filename="libgazebo_ros_joint_state_publisher.so">
       <ros>
-        <remapping>~/out:=joint_states</remapping>
+        <remapping>~/out:=/joint_states</remapping>
       </ros>
       <update_rate>30</update_rate>
       <joint_name>left_wheel_joint</joint_name>

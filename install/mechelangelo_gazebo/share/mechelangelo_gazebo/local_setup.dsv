@@ -1,1 +1,2 @@
-/home/andy/git/MECHelangelo/build/mechelangelo_gazebo/ament_cmake_environment_hooks/local_setup.dsv
+source;share/mechelangelo_gazebo/environment/ament_prefix_path.sh
+source;share/mechelangelo_gazebo/environment/path.sh

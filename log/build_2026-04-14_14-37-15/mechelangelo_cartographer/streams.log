@@ -1,0 +1,46 @@
+[0.138s] Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_cartographer': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake /home/andy/git/MECHelangelo/src/mechelangelo_cartographer -DCMAKE_INSTALL_PREFIX=/home/andy/git/MECHelangelo/install/mechelangelo_cartographer
+[0.362s] -- The C compiler identification is GNU 11.4.0
+[0.362s] -- The CXX compiler identification is GNU 11.4.0
+[0.362s] -- Detecting C compiler ABI info
+[0.362s] -- Detecting C compiler ABI info - done
+[0.362s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.362s] -- Detecting C compile features
+[0.362s] -- Detecting C compile features - done
+[0.362s] -- Detecting CXX compiler ABI info
+[0.362s] -- Detecting CXX compiler ABI info - done
+[0.362s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[0.362s] -- Detecting CXX compile features
+[0.362s] -- Detecting CXX compile features - done
+[0.362s] -- Found ament_cmake: 1.3.14 (/opt/ros/humble/share/ament_cmake/cmake)
+[0.362s] -- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter 
+[0.447s] -- Configuring done
+[0.449s] -- Generating done
+[0.450s] -- Build files have been written to: /home/andy/git/MECHelangelo/build/mechelangelo_cartographer
+[0.453s] Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_cartographer' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake /home/andy/git/MECHelangelo/src/mechelangelo_cartographer -DCMAKE_INSTALL_PREFIX=/home/andy/git/MECHelangelo/install/mechelangelo_cartographer
+[0.454s] Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_cartographer': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_cartographer -- -j32 -l32
+[0.477s] Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_cartographer' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_cartographer -- -j32 -l32
+[0.477s] Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_cartographer': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_cartographer
+[0.480s] -- Install configuration: ""
+[0.480s] -- Installing: /home/andy/git/MECHelangelo/install/mechelangelo_cartographer/share/mechelangelo_cartographer/config
+[0.481s] -- Installing: /home/andy/git/MECHelangelo/install/mechelangelo_cartographer/share/mechelangelo_cartographer/config/mechelangelo_lds_2d.lua
+[0.481s] -- Installing: /home/andy/git/MECHelangelo/install/mechelangelo_cartographer/share/mechelangelo_cartographer/launch
+[0.481s] -- Installing: /home/andy/git/MECHelangelo/install/mechelangelo_cartographer/share/mechelangelo_cartographer/launch/occupancy_grid.launch.py
+[0.481s] -- Installing: /home/andy/git/MECHelangelo/install/mechelangelo_cartographer/share/mechelangelo_cartographer/launch/cartographer.launch.py
+[0.481s] -- Installing: /home/andy/git/MECHelangelo/install/mechelangelo_cartographer/share/mechelangelo_cartographer/rviz
+[0.481s] -- Installing: /home/andy/git/MECHelangelo/install/mechelangelo_cartographer/share/mechelangelo_cartographer/rviz/mechelangelo_cartographer.rviz
+[0.481s] -- Installing: /home/andy/git/MECHelangelo/install/mechelangelo_cartographer/share/ament_index/resource_index/package_run_dependencies/mechelangelo_cartographer
+[0.481s] -- Installing: /home/andy/git/MECHelangelo/install/mechelangelo_cartographer/share/ament_index/resource_index/parent_prefix_path/mechelangelo_cartographer
+[0.481s] -- Installing: /home/andy/git/MECHelangelo/install/mechelangelo_cartographer/share/mechelangelo_cartographer/environment/ament_prefix_path.sh
+[0.481s] -- Installing: /home/andy/git/MECHelangelo/install/mechelangelo_cartographer/share/mechelangelo_cartographer/environment/ament_prefix_path.dsv
+[0.481s] -- Installing: /home/andy/git/MECHelangelo/install/mechelangelo_cartographer/share/mechelangelo_cartographer/environment/path.sh
+[0.481s] -- Installing: /home/andy/git/MECHelangelo/install/mechelangelo_cartographer/share/mechelangelo_cartographer/environment/path.dsv
+[0.481s] -- Installing: /home/andy/git/MECHelangelo/install/mechelangelo_cartographer/share/mechelangelo_cartographer/local_setup.bash
+[0.481s] -- Installing: /home/andy/git/MECHelangelo/install/mechelangelo_cartographer/share/mechelangelo_cartographer/local_setup.sh
+[0.481s] -- Installing: /home/andy/git/MECHelangelo/install/mechelangelo_cartographer/share/mechelangelo_cartographer/local_setup.zsh
+[0.481s] -- Installing: /home/andy/git/MECHelangelo/install/mechelangelo_cartographer/share/mechelangelo_cartographer/local_setup.dsv
+[0.481s] -- Installing: /home/andy/git/MECHelangelo/install/mechelangelo_cartographer/share/mechelangelo_cartographer/package.dsv
+[0.481s] -- Installing: /home/andy/git/MECHelangelo/install/mechelangelo_cartographer/share/ament_index/resource_index/packages/mechelangelo_cartographer
+[0.481s] -- Installing: /home/andy/git/MECHelangelo/install/mechelangelo_cartographer/share/mechelangelo_cartographer/cmake/mechelangelo_cartographerConfig.cmake
+[0.481s] -- Installing: /home/andy/git/MECHelangelo/install/mechelangelo_cartographer/share/mechelangelo_cartographer/cmake/mechelangelo_cartographerConfig-version.cmake
+[0.481s] -- Installing: /home/andy/git/MECHelangelo/install/mechelangelo_cartographer/share/mechelangelo_cartographer/package.xml
+[0.483s] Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_cartographer' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_cartographer

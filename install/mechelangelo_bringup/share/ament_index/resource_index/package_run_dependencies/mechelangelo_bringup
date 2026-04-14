@@ -1,1 +1,1 @@
-/home/andy/git/MECHelangelo/build/mechelangelo_bringup/ament_cmake_index/share/ament_index/resource_index/package_run_dependencies/mechelangelo_bringup
+launch;launch_ros;gazebo_ros;robot_state_publisher;mechelangelo_description
