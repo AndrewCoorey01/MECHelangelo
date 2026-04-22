@@ -1,0 +1,21 @@
+[0.583s] Invoking command in '/home/andy/git/MECHelangelo/src/mechelangelo_teleop': PYTHONPATH=/home/andy/git/MECHelangelo/build/mechelangelo_teleop/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/andy/git/MECHelangelo/install/mechelangelo_teleop/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/mechelangelo_teleop build --build-base /home/andy/git/MECHelangelo/build/mechelangelo_teleop/build install --record /home/andy/git/MECHelangelo/build/mechelangelo_teleop/install.log --single-version-externally-managed install_data
+[0.700s] running egg_info
+[0.700s] writing ../../build/mechelangelo_teleop/mechelangelo_teleop.egg-info/PKG-INFO
+[0.700s] writing dependency_links to ../../build/mechelangelo_teleop/mechelangelo_teleop.egg-info/dependency_links.txt
+[0.700s] writing entry points to ../../build/mechelangelo_teleop/mechelangelo_teleop.egg-info/entry_points.txt
+[0.700s] writing requirements to ../../build/mechelangelo_teleop/mechelangelo_teleop.egg-info/requires.txt
+[0.700s] writing top-level names to ../../build/mechelangelo_teleop/mechelangelo_teleop.egg-info/top_level.txt
+[0.701s] reading manifest file '../../build/mechelangelo_teleop/mechelangelo_teleop.egg-info/SOURCES.txt'
+[0.701s] writing manifest file '../../build/mechelangelo_teleop/mechelangelo_teleop.egg-info/SOURCES.txt'
+[0.701s] running build
+[0.701s] running build_py
+[0.702s] running install
+[0.702s] running install_lib
+[0.702s] running install_data
+[0.702s] running install_egg_info
+[0.703s] removing '/home/andy/git/MECHelangelo/install/mechelangelo_teleop/lib/python3.10/site-packages/mechelangelo_teleop-0.0.0-py3.10.egg-info' (and everything under it)
+[0.703s] Copying ../../build/mechelangelo_teleop/mechelangelo_teleop.egg-info to /home/andy/git/MECHelangelo/install/mechelangelo_teleop/lib/python3.10/site-packages/mechelangelo_teleop-0.0.0-py3.10.egg-info
+[0.703s] running install_scripts
+[0.716s] Installing teleop_keyboard script to /home/andy/git/MECHelangelo/install/mechelangelo_teleop/lib/mechelangelo_teleop
+[0.716s] writing list of installed files to '/home/andy/git/MECHelangelo/build/mechelangelo_teleop/install.log'
+[0.746s] Invoked command in '/home/andy/git/MECHelangelo/src/mechelangelo_teleop' returned '0': PYTHONPATH=/home/andy/git/MECHelangelo/build/mechelangelo_teleop/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/andy/git/MECHelangelo/install/mechelangelo_teleop/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/mechelangelo_teleop build --build-base /home/andy/git/MECHelangelo/build/mechelangelo_teleop/build install --record /home/andy/git/MECHelangelo/build/mechelangelo_teleop/install.log --single-version-externally-managed install_data

@@ -9,6 +9,8 @@ setup.py
 ../../build/mechelangelo_perception/mechelangelo_perception.egg-info/top_level.txt
 ../../build/mechelangelo_perception/mechelangelo_perception.egg-info/zip-safe
 mechelangelo_perception/__init__.py
+mechelangelo_perception/mqtt_bridge.py
+mechelangelo_perception/pose_debug.py
 resource/mechelangelo_perception
 test/test_copyright.py
 test/test_flake8.py
