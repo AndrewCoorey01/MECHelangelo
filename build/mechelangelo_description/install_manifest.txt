@@ -1,3 +1,4 @@
+/home/andy/git/MECHelangelo/install/mechelangelo_description/share/mechelangelo_description/urdf/mechelangelo_dual_arms.urdf
 /home/andy/git/MECHelangelo/install/mechelangelo_description/share/mechelangelo_description/urdf/mechelangelo_base.urdf
 /home/andy/git/MECHelangelo/install/mechelangelo_description/share/mechelangelo_description/urdf/mechelangelo_arm.urdf
 /home/andy/git/MECHelangelo/install/mechelangelo_description/share/mechelangelo_description/meshes/base/base.STL

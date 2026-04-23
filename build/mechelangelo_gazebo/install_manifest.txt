@@ -1,5 +1,4 @@
-/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/launch/gallery.launch.py
-/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/launch/Gallery_Test2.launch.py
+/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/launch/mechelangelo.launch.py
 /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/launch/environment_arm.launch.py
 /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/launch/sim.launch.py
 /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/launch/spawn_mechelangelo.launch.py
@@ -75,6 +74,19 @@
 /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/barrels/Mesh/Metal Diffuese.jpg.004.jpg
 /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/barrels/Mesh/Wood Diffuse.jpg.002.jpg.004.jpg
 /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/barrels/Mesh/Metal Diffuese.jpg
+/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo_dual_arms/model.config
+/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo_dual_arms/meshes/base/base.STL
+/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo_dual_arms/meshes/base/base.dae
+/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo_dual_arms/meshes/base/HardwareBox_-_Finishes_-_Gunmetal_Grey_480x480.jpg
+/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo_dual_arms/meshes/wheels/wheel.STL
+/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo_dual_arms/meshes/wheels/TIREWHEEL.jpg
+/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo_dual_arms/meshes/wheels/wheel.dae
+/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo_dual_arms/meshes/sensors/lds.stl
+/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo_dual_arms/meshes/sensors/astra.jpg
+/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo_dual_arms/meshes/sensors/r200.dae
+/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo_dual_arms/meshes/sensors/r200.jpg
+/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo_dual_arms/meshes/sensors/astra.dae
+/home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/models/mechelangelo_dual_arms/model.sdf
 /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/worlds/Gallery.world
 /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/mechelangelo_gazebo/worlds/Gallery_Test2.world
 /home/andy/git/MECHelangelo/install/mechelangelo_gazebo/share/ament_index/resource_index/package_run_dependencies/mechelangelo_gazebo

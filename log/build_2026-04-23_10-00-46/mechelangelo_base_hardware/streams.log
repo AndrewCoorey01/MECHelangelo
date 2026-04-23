@@ -1,0 +1,20 @@
+[0.142s] Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_base_hardware': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_base_hardware -- -j32 -l32
+[0.387s] Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_base_hardware' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --build /home/andy/git/MECHelangelo/build/mechelangelo_base_hardware -- -j32 -l32
+[0.387s] Invoking command in '/home/andy/git/MECHelangelo/build/mechelangelo_base_hardware': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_base_hardware
+[0.393s] -- Install configuration: ""
+[0.394s] -- Up-to-date: /home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/ament_index/resource_index/package_run_dependencies/mechelangelo_base_hardware
+[0.394s] -- Up-to-date: /home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/ament_index/resource_index/parent_prefix_path/mechelangelo_base_hardware
+[0.394s] -- Up-to-date: /home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/environment/ament_prefix_path.sh
+[0.394s] -- Up-to-date: /home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/environment/ament_prefix_path.dsv
+[0.394s] -- Up-to-date: /home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/environment/path.sh
+[0.394s] -- Up-to-date: /home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/environment/path.dsv
+[0.394s] -- Up-to-date: /home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/local_setup.bash
+[0.394s] -- Up-to-date: /home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/local_setup.sh
+[0.394s] -- Up-to-date: /home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/local_setup.zsh
+[0.394s] -- Up-to-date: /home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/local_setup.dsv
+[0.394s] -- Installing: /home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/package.dsv
+[0.395s] -- Up-to-date: /home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/ament_index/resource_index/packages/mechelangelo_base_hardware
+[0.395s] -- Up-to-date: /home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/cmake/mechelangelo_base_hardwareConfig.cmake
+[0.395s] -- Up-to-date: /home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/cmake/mechelangelo_base_hardwareConfig-version.cmake
+[0.395s] -- Up-to-date: /home/andy/git/MECHelangelo/install/mechelangelo_base_hardware/share/mechelangelo_base_hardware/package.xml
+[0.411s] Invoked command in '/home/andy/git/MECHelangelo/build/mechelangelo_base_hardware' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/andy/git/MECHelangelo/install/mechelangelo_teleop:/home/andy/git/MECHelangelo/install/mechelangelo_perception:/home/andy/git/MECHelangelo/install/mechelangelo_arm_control:/opt/ros/humble /usr/bin/cmake --install /home/andy/git/MECHelangelo/build/mechelangelo_base_hardware

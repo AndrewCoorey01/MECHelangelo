@@ -8,7 +8,8 @@
          ========================= -->
     <link name="base_link">
       <pose>0 0 0.05 0 0 0</pose>
-      <gravity>true</gravity>
+      <!-- <pose>0 0 1.38 1.5708 0 0</pose> -->
+      <gravity>false</gravity>
 
       <visual name="base_visual">
         <geometry>
@@ -51,6 +52,7 @@
          ========================= -->
     <link name="joint1_link">
       <pose>0 0 0.13 0 0 0</pose>
+      <!-- <pose>0 0 1.51 1.5708 0 0</pose> -->
       <gravity>false</gravity>
 
       <visual name="joint1_visual">
@@ -113,6 +115,7 @@
          ========================= -->
     <link name="joint2_link">
       <pose>0 0 0.16 0 1.5708 0</pose>
+      <!-- <pose>0 0 1.56 3.1416 0 0</pose> -->
       <gravity>false</gravity>
 
       <visual name="joint2_visual">
