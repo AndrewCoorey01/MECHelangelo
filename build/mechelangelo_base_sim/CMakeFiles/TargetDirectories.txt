@@ -1,9 +1,0 @@
-/home/andy/git/MECHelangelo/build/mechelangelo_base_sim/CMakeFiles/uninstall.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_base_sim/CMakeFiles/mechelangelo_base_sim_uninstall.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_base_sim/CMakeFiles/test.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_base_sim/CMakeFiles/edit_cache.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_base_sim/CMakeFiles/rebuild_cache.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_base_sim/CMakeFiles/list_install_components.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_base_sim/CMakeFiles/install.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_base_sim/CMakeFiles/install/local.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_base_sim/CMakeFiles/install/strip.dir

@@ -1,9 +1,0 @@
-/home/andy/git/MECHelangelo/build/mechelangelo_base_hardware/CMakeFiles/uninstall.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_base_hardware/CMakeFiles/mechelangelo_base_hardware_uninstall.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_base_hardware/CMakeFiles/test.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_base_hardware/CMakeFiles/edit_cache.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_base_hardware/CMakeFiles/rebuild_cache.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_base_hardware/CMakeFiles/list_install_components.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_base_hardware/CMakeFiles/install.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_base_hardware/CMakeFiles/install/local.dir
-/home/andy/git/MECHelangelo/build/mechelangelo_base_hardware/CMakeFiles/install/strip.dir
