@@ -1,0 +1,12 @@
+build/
+install/
+log/
+
+**/build/
+**/install/
+**/log/
+
+.vscode/.cmake/
+CMakeCache.txt
+CMakeFiles/
+compile_commands.json
