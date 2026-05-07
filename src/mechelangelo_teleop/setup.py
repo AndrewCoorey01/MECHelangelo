@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'teleop_keyboard = mechelangelo_teleop.teleop_keyboard:main',
+            'teleop_keyboard_real = mechelangelo_teleop.teleop_keyboard_real:main',
         ],
     },
 )
