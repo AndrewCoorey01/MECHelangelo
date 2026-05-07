@@ -31,7 +31,7 @@ static constexpr double kStopDistance = 1.5; // m
 // 30 loops x 0.1 s = 3 seconds
 static constexpr int kStopDurationLoops = 30;
 
-// Ignore laser points very close to the robot body
+// Ignore laser points closer than 0.5 m, this eliminates the blind spots of the robot interfering with navigation.
 static constexpr double kMinValidRange = 0.5; // m
 
 // Front scan window used while moving forward
