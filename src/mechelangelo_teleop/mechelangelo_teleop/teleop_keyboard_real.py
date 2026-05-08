@@ -13,20 +13,16 @@ if os.name != "nt":
 
 # Everything up here is what needs to change, Pin definitions, power and speed settings.
 
-
 # ============================================================
-# GPIO PIN CONFIGURATION
+# GPIO PIN CONFIGURATION FOR DRI0002 / MD1.3 MOTOR DRIVER
 # ============================================================
-# These are BCM GPIO numbers, not physical pin numbers.
-# Change these to match your actual wiring.
+# These are Raspberry Pi BCM GPIO numbers, matching IO labels on the HAT.
 
-RIGHT_PWM_PIN = 12
-RIGHT_IN1_PIN = 23
-RIGHT_IN2_PIN = 24
+RIGHT_PWM_PIN = 12   # Driver E1
+RIGHT_DIR_PIN = 23   # Driver M1
 
-LEFT_PWM_PIN = 13
-LEFT_IN1_PIN = 5
-LEFT_IN2_PIN = 6
+LEFT_PWM_PIN = 13    # Driver E2
+LEFT_DIR_PIN = 24    # Driver M2
 
 
 # ============================================================
@@ -104,20 +100,15 @@ def print_status(target_linear, target_turn, left_cmd, right_cmd):
     )
 
 class Motor:
-    def __init__(self, pwm_pin, in1_pin, in2_pin, invert=False):
+    def __init__(self, pwm_pin, dir_pin, invert=False):
         self.pwm = PWMOutputDevice(
             pwm_pin,
             frequency=PWM_FREQUENCY,
             initial_value=0.0
         )
 
-        self.in1 = DigitalOutputDevice(
-            in1_pin,
-            initial_value=False
-        )
-
-        self.in2 = DigitalOutputDevice(
-            in2_pin,
+        self.direction = DigitalOutputDevice(
+            dir_pin,
             initial_value=False
         )
 
@@ -129,6 +120,10 @@ class Motor:
             + value = forward
             - value = reverse
             0       = stop
+
+        DRI0002 logic:
+            Enable pin E = PWM speed
+            Direction pin M = LOW/HIGH direction
         """
 
         command = constrain(command, -1.0, 1.0)
@@ -138,25 +133,21 @@ class Motor:
 
         if command > 0.0:
             # Forward
-            self.in1.on()
-            self.in2.off()
+            # Datasheet says M = LOW gives forward.
+            self.direction.off()
             self.pwm.value = abs(command)
 
         elif command < 0.0:
             # Reverse
-            self.in1.off()
-            self.in2.on()
+            # Datasheet says M = HIGH gives back direction.
+            self.direction.on()
             self.pwm.value = abs(command)
 
         else:
-            # Stop / coast
-            self.in1.off()
-            self.in2.off()
+            # Stop
             self.pwm.value = 0.0
 
     def stop(self):
-        self.in1.off()
-        self.in2.off()
         self.pwm.value = 0.0
 
 
@@ -170,15 +161,13 @@ def main():
     # If a wheel spins backwards when pressing w, change its invert value.
     left_motor = Motor(
         LEFT_PWM_PIN,
-        LEFT_IN1_PIN,
-        LEFT_IN2_PIN,
+        LEFT_DIR_PIN,
         invert=False
     )
     
     right_motor = Motor(
         RIGHT_PWM_PIN,
-        RIGHT_IN1_PIN,
-        RIGHT_IN2_PIN,
+        RIGHT_DIR_PIN,
         invert=False
     )
 
