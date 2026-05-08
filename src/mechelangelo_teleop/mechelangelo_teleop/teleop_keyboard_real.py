@@ -20,11 +20,13 @@ if os.name != "nt":
 # These are BCM GPIO numbers, not physical pin numbers.
 # Change these to match your actual wiring.
 
-LEFT_PWM_PIN = 18
-LEFT_DIR_PIN = 23
+RIGHT_PWM_PIN = 12
+RIGHT_IN1_PIN = 23
+RIGHT_IN2_PIN = 24
 
-RIGHT_PWM_PIN = 13
-RIGHT_DIR_PIN = 24
+LEFT_PWM_PIN = 13
+LEFT_IN1_PIN = 5
+LEFT_IN2_PIN = 6
 
 
 # ============================================================
@@ -101,17 +103,21 @@ def print_status(target_linear, target_turn, left_cmd, right_cmd):
         f"right motor: {right_cmd:+.2f}"
     )
 
-
 class Motor:
-    def __init__(self, pwm_pin, dir_pin, invert=False):
+    def __init__(self, pwm_pin, in1_pin, in2_pin, invert=False):
         self.pwm = PWMOutputDevice(
             pwm_pin,
             frequency=PWM_FREQUENCY,
             initial_value=0.0
         )
 
-        self.direction = DigitalOutputDevice(
-            dir_pin,
+        self.in1 = DigitalOutputDevice(
+            in1_pin,
+            initial_value=False
+        )
+
+        self.in2 = DigitalOutputDevice(
+            in2_pin,
             initial_value=False
         )
 
@@ -130,14 +136,27 @@ class Motor:
         if self.invert:
             command = -command
 
-        if command >= 0.0:
-            self.direction.on()
-            self.pwm.value = abs(command)
-        else:
-            self.direction.off()
+        if command > 0.0:
+            # Forward
+            self.in1.on()
+            self.in2.off()
             self.pwm.value = abs(command)
 
+        elif command < 0.0:
+            # Reverse
+            self.in1.off()
+            self.in2.on()
+            self.pwm.value = abs(command)
+
+        else:
+            # Stop / coast
+            self.in1.off()
+            self.in2.off()
+            self.pwm.value = 0.0
+
     def stop(self):
+        self.in1.off()
+        self.in2.off()
         self.pwm.value = 0.0
 
 
@@ -149,8 +168,19 @@ def main():
     settings = termios.tcgetattr(sys.stdin)
 
     # If a wheel spins backwards when pressing w, change its invert value.
-    left_motor = Motor(LEFT_PWM_PIN, LEFT_DIR_PIN, invert=False)
-    right_motor = Motor(RIGHT_PWM_PIN, RIGHT_DIR_PIN, invert=False)
+    left_motor = Motor(
+        LEFT_PWM_PIN,
+        LEFT_IN1_PIN,
+        LEFT_IN2_PIN,
+        invert=False
+    )
+    
+    right_motor = Motor(
+        RIGHT_PWM_PIN,
+        RIGHT_IN1_PIN,
+        RIGHT_IN2_PIN,
+        invert=False
+    )
 
     target_linear = 0.0
     target_turn = 0.0
