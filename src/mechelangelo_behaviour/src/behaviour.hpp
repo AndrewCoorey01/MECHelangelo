@@ -5,6 +5,10 @@
 
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <geometry_msgs/msg/twist.hpp>
+#include <std_msgs/msg/bool.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+#include <tf2/utils.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <random>
 
@@ -69,6 +73,11 @@ private:
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr laser_scan_subscriber_;
 
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_publisher_;
+
+    // Manual human detection trigger
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr human_detected_subscriber_;
+
+    void humanDetectedCallback(const std_msgs::msg::Bool::SharedPtr msg);
 
     rclcpp::TimerBase::SharedPtr control_timer_;
 

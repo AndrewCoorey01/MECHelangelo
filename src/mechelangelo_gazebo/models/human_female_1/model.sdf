@@ -6,7 +6,7 @@
         <pose frame=''>0 0 0 0 -0 0</pose>
         <geometry>
           <mesh>
-            <uri>model://human_female_2/meshes/belt.dae</uri>
+            <uri>model://human_female_1/meshes/belt.dae</uri>
             <scale>1 1 1</scale>
           </mesh>
         </geometry>

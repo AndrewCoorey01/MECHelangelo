@@ -29,16 +29,23 @@ LEFT_DIR_PIN = 24    # Driver M2
 # SAFETY / CONTROL SETTINGS
 # ============================================================
 
-MAX_DUTY = 0.25 #Power control for the motors (25% start for testing) PWM duty cycle range 0.0-1.0.
+# MAX_DUTY = 0.25 #Power control for the motors (25% start for testing) PWM duty cycle range 0.0-1.0.
 
-DUTY_STEP = 0.02 #how much each press of the keyboard increases speed
-TURN_STEP = 0.02 #how much each press of the keyboard increases turn
-RAMP_STEP = 0.01 #how much the motor speed changes per iteration used to reduce jerk and smooth accerleration
+# DUTY_STEP = 0.02 #how much each press of the keyboard increases speed
+# TURN_STEP = 0.02 #how much each press of the keyboard increases turn
+# RAMP_STEP = 0.01 #how much the motor speed changes per iteration used to reduce jerk and smooth accerleration
+MAX_DUTY = 1.0 #Power control for the motors (25% start for testing) PWM duty cycle range 0.0-1.0.
+
+DUTY_STEP = 0.5 #how much each press of the keyboard increases speed
+TURN_STEP = 0.5 #how much each press of the keyboard increases turn
+RAMP_STEP = 0.2 #how much the motor speed changes per iteration used to reduce jerk and smooth accerleration
+
+MIN_MOVING_DUTY = 0.20 # Minimum duty cycle to overcome static friction and start moving. Adjust based on your motors and load.
 
 PWM_FREQUENCY = 1000
 
 # If no key command is received for this long, stop motors.
-COMMAND_TIMEOUT = 0.5
+COMMAND_TIMEOUT = 5.0
 
 #terminal printout instructions
 MSG = """
@@ -114,38 +121,58 @@ class Motor:
 
         self.invert = invert
 
+    # def set_speed(self, command):
+    #     """
+    #     command:
+    #         + value = forward
+    #         - value = reverse
+    #         0       = stop
+
+    #     DRI0002 logic:
+    #         Enable pin E = PWM speed
+    #         Direction pin M = LOW/HIGH direction
+    #     """
+
+    #     command = constrain(command, -1.0, 1.0)
+
+    #     if self.invert:
+    #         command = -command
+
+    #     if command > 0.0:
+    #         # Forward
+    #         # Datasheet says M = LOW gives forward.
+    #         self.direction.off()
+    #         self.pwm.value = abs(command)
+
+    #     elif command < 0.0:
+    #         # Reverse
+    #         # Datasheet says M = HIGH gives back direction.
+    #         self.direction.on()
+    #         self.pwm.value = abs(command)
+
+    #     else:
+    #         # Stop
+    #         self.pwm.value = 0.0
+
     def set_speed(self, command):
-        """
-        command:
-            + value = forward
-            - value = reverse
-            0       = stop
-
-        DRI0002 logic:
-            Enable pin E = PWM speed
-            Direction pin M = LOW/HIGH direction
-        """
-
         command = constrain(command, -1.0, 1.0)
-
+    
         if self.invert:
             command = -command
-
-        if command > 0.0:
-            # Forward
-            # Datasheet says M = LOW gives forward.
-            self.direction.off()
-            self.pwm.value = abs(command)
-
-        elif command < 0.0:
-            # Reverse
-            # Datasheet says M = HIGH gives back direction.
-            self.direction.on()
-            self.pwm.value = abs(command)
-
-        else:
-            # Stop
+    
+        if abs(command) < 0.001:
             self.pwm.value = 0.0
+            return
+    
+        duty = max(abs(command), MIN_MOVING_DUTY)
+    
+        if command > 0.0:
+            self.direction.off()
+            self.pwm.value = duty
+    
+        else:
+            self.direction.on()
+            self.pwm.value = duty
 
     def stop(self):
         self.pwm.value = 0.0

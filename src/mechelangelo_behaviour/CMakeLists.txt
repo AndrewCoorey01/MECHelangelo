@@ -14,9 +14,12 @@ endif()
 # Find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(visualization_msgs REQUIRED)
-find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
 add_executable(mechelangelo_behaviour
   src/behaviour.cpp
@@ -24,9 +27,12 @@ add_executable(mechelangelo_behaviour
 
 ament_target_dependencies(mechelangelo_behaviour
   rclcpp
-  visualization_msgs
-  geometry_msgs
   sensor_msgs
+  geometry_msgs
+  std_msgs
+  nav_msgs
+  tf2
+  tf2_geometry_msgs
 )
 
 install(TARGETS

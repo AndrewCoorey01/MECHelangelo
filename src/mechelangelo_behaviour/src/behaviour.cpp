@@ -49,6 +49,11 @@ MechelangeloBehaviour::MechelangeloBehaviour()
         "/cmd_vel",
         10);
 
+    human_detected_subscriber_ = this->create_subscription<std_msgs::msg::Bool>(
+        "/human_detected",
+        10,
+        std::bind(&MechelangeloBehaviour::humanDetectedCallback, this, std::placeholders::_1));
+
     control_timer_ = this->create_wall_timer(
         100ms,
         std::bind(&MechelangeloBehaviour::controlLoop, this));
@@ -309,6 +314,17 @@ void MechelangeloBehaviour::controlLoop()
     // ------------------------------------------------------
     case NavigationState::HUMAN_DETECTED:
     {
+            RCLCPP_INFO_THROTTLE(
+                    this->get_logger(),
+                    *this->get_clock(),
+                    1000,
+                    "HUMAN_DETECTED: Human detected. Stopping robot.");
+    
+            stopRobot(twist);
+
+            //insert code to move towards human here, using target_angle_ and target_range_ if needed
+
+            break;
 
     }
 
@@ -462,6 +478,22 @@ void MechelangeloBehaviour::laserScanCallback(
     const sensor_msgs::msg::LaserScan::SharedPtr msg)
 {
     latest_scan_ = *msg;
+}
+
+void MechelangeloBehaviour::humanDetectedCallback(
+    const std_msgs::msg::Bool::SharedPtr msg)
+{
+    if (!msg->data)
+    {
+        return;
+    }
+
+    RCLCPP_WARN(
+        this->get_logger(),
+        "Manual human detection trigger received. Interrupting autonomous behaviour.");
+
+    current_state_ = NavigationState::HUMAN_DETECTED;
+
 }
 
 void MechelangeloBehaviour::longestLaserScan()

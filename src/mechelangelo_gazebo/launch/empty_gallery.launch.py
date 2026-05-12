@@ -1,4 +1,5 @@
 import os
+import random
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
@@ -38,6 +39,32 @@ def generate_launch_description():
     else:
         gazebo_model_path = new_model_path
 
+        # Random human model selection
+    human_models = [
+        os.path.join(gazebo_pkg, 'models', 'human_male_1', 'model.sdf'),
+        os.path.join(gazebo_pkg, 'models', 'human_female_1', 'model.sdf'),
+        os.path.join(gazebo_pkg, 'models', 'human_female_1_1', 'model.sdf'),
+        os.path.join(gazebo_pkg, 'models', 'human_female_2', 'model.sdf'),
+        os.path.join(gazebo_pkg, 'models', 'human_female_3', 'model.sdf'),
+        os.path.join(gazebo_pkg, 'models', 'human_female_4', 'model.sdf'),
+        os.path.join(gazebo_pkg, 'models', 'human_male_1_1', 'model.sdf'),
+        os.path.join(gazebo_pkg, 'models', 'human_male_2', 'model.sdf'),
+        os.path.join(gazebo_pkg, 'models', 'human_male_3', 'model.sdf'),
+        os.path.join(gazebo_pkg, 'models', 'human_male_4', 'model.sdf'),
+        # os.path.join(gazebo_pkg, 'models', 'mechelangelo', 'model.sdf'), #easter egg, add if you want a preliminary mechelangelo model to take the place of human model
+
+    ]
+
+    random_human_sdf = random.choice(human_models)
+
+    # Random human spawn pose
+    # human_x = str(random.uniform(2.0, 8.0))
+    # human_y = str(random.uniform(2.0, 6.0))
+    human_x = '6.0'
+    human_y = '6.0'
+    human_z = '0.05'
+    human_yaw = str(random.uniform(-3.14159, 3.14159))
+
     gzserver_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_gazebo_ros, 'launch', 'gzserver.launch.py')
@@ -54,7 +81,7 @@ def generate_launch_description():
     gzclient_cmd = ExecuteProcess(
     cmd=['gzclient'],
     output='screen'
-)
+    )
 
     # robot_state_publisher_cmd = Node(
     #     package='robot_state_publisher',
@@ -82,7 +109,23 @@ def generate_launch_description():
         output='screen'
     )
 
+    spawn_random_human_cmd = Node(
+        package='gazebo_ros',
+        executable='spawn_entity.py',
+        arguments=[
+            '-entity', 'random_human',
+            '-file', random_human_sdf,
+            '-x', human_x,
+            '-y', human_y,
+            '-z', human_z,
+            '-Y', human_yaw
+        ],
+        output='screen'
+    )
+
     ld = LaunchDescription()
+
+    
 
     ld.add_action(DeclareLaunchArgument('x_pose', default_value='2'))
     ld.add_action(DeclareLaunchArgument('y_pose', default_value='2'))
@@ -101,5 +144,6 @@ def generate_launch_description():
     ld.add_action(gzclient_cmd)
     # ld.add_action(robot_state_publisher_cmd)
     ld.add_action(spawn_robot_cmd)
+    ld.add_action(spawn_random_human_cmd)
 
     return ld
