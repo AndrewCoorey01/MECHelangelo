@@ -1,0 +1,135 @@
+/**:
+  ros__parameters:
+    # ============================================================
+    # GPIO PIN CONFIGURATION
+    # ============================================================
+    # These are BCM GPIO numbers, not physical Raspberry Pi header pin numbers.
+    # Match these to the IO/GPIO labels on your screw terminal HAT.
+
+    right_pwm_pin: 12
+    right_dir_pin: 23
+
+    left_pwm_pin: 13
+    left_dir_pin: 24
+
+    left_enc_a_pin: 5
+    left_enc_b_pin: 6
+
+    right_enc_a_pin: 16
+    right_enc_b_pin: 20
+
+
+    # ============================================================
+    # MOTOR AND ENCODER DIRECTION CORRECTION
+    # ============================================================
+    # If pressing forward makes a wheel physically spin backward,
+    # change that wheel's motor invert value.
+    #
+    # If pressing forward makes the wheel spin forward but the encoder
+    # reports negative ticks/sec, change that wheel's encoder invert value.
+
+    left_motor_invert: false
+    right_motor_invert: false
+
+    left_encoder_invert: false
+    right_encoder_invert: false
+
+    # Usually false for powered quadrature encoder boards.
+    # Try true only if encoder counts drift while the wheels are stationary.
+    encoder_pull_up: false
+
+
+    # ============================================================
+    # MOTOR DRIVER SETTINGS
+    # ============================================================
+
+    pwm_frequency: 1000
+
+    # Start conservative for physical testing.
+    # Increase slowly after testing on blocks and then on the floor.
+    max_duty: 0.35
+
+    # Minimum duty needed to overcome static friction.
+    # If motors hum but do not move, increase this slightly.
+    # If the robot jumps when starting, decrease this slightly.
+    min_moving_duty: 0.18
+
+    # Parallax wheel kit is approximately 100 rpm no-load.
+    # Use a lower value for early testing because the loaded robot will be slower.
+    max_wheel_rpm: 60.0
+
+
+    # ============================================================
+    # ROBOT GEOMETRY
+    # ============================================================
+
+    # 6 inch wheel diameter = 0.1524 m.
+    wheel_diameter_m: 0.1524
+
+    # IMPORTANT:
+    # Measure this on the real robot.
+    # It is the centre-to-centre distance between the left and right wheels.
+    wheel_separation_m: 0.50
+
+
+    # ============================================================
+    # ENCODER SETTINGS
+    # ============================================================
+
+    # Parallax quadrature encoder can provide up to 144 counts per wheel revolution
+    # when using 4x quadrature decoding.
+    encoder_ticks_per_rev: 144.0
+
+
+    # ============================================================
+    # CMD_VEL LIMITS
+    # ============================================================
+    # These limit incoming /cmd_vel commands before they are converted to
+    # left and right wheel speeds.
+
+    max_linear_vel_mps: 0.15
+    max_angular_vel_radps: 0.60
+
+
+    # ============================================================
+    # CLOSED-LOOP SPEED CONTROL SETTINGS
+    # ============================================================
+
+    # Stop if no /cmd_vel message has been received recently.
+    cmd_timeout: 0.5
+
+    # Control loop period in seconds.
+    # 0.05 = 20 Hz.
+    control_period: 0.05
+
+    # Start with integral disabled.
+    # Tune kp first, then add a small ki later.
+    kp: 0.0010
+    ki: 0.0
+
+    integral_limit: 150.0
+
+    # Encoder speed smoothing.
+    # Lower = smoother but slower response.
+    # Higher = faster response but noisier.
+    speed_filter_alpha: 0.35
+
+
+    # ============================================================
+    # ROS INTERFACE
+    # ============================================================
+
+    cmd_vel_topic: "cmd_vel"
+
+    odom_topic: "odom"
+    odom_frame_id: "odom"
+    base_frame_id: "base_link"
+
+    publish_odom: true
+
+    # Set this to false later if another localisation system publishes
+    # odom -> base_link, otherwise you can get duplicate TFs.
+    publish_tf: true
+
+    # How often status is printed in seconds.
+    status_period: 0.5
