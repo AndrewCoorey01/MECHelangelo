@@ -58,14 +58,14 @@ from gpiozero import PWMOutputDevice, DigitalOutputDevice, DigitalInputDevice
 # Example: screw terminal labelled IO12 usually means BCM GPIO12.
 
 # Left motor connected to driver OUT1 / OUT2
-LEFT_PWM_PIN = 12      # Pi GPIO12 -> driver ENA
-LEFT_IN1_PIN = 23      # Pi GPIO23 -> driver IN1
-LEFT_IN2_PIN = 25      # Pi GPIO25 -> driver IN2
+LEFT_PWM_PIN = 21      # Pi GPIO21 -> driver ENA
+LEFT_IN1_PIN = 13      # Pi GPIO13 -> driver IN1
+LEFT_IN2_PIN = 26      # Pi GPIO26 -> driver IN2
 
 # Right motor connected to driver OUT3 / OUT4
-RIGHT_PWM_PIN = 13     # Pi GPIO13 -> driver ENB
-RIGHT_IN1_PIN = 24     # Pi GPIO24 -> driver IN3
-RIGHT_IN2_PIN = 22     # Pi GPIO22 -> driver IN4
+RIGHT_PWM_PIN = 27     # Pi GPIO27 -> driver ENB
+RIGHT_IN1_PIN = 4     # Pi GPIO4 -> driver IN3
+RIGHT_IN2_PIN = 23     # Pi GPIO23 -> driver IN4
 
 # Encoder input pins. These are only used for debug feedback in this script.
 LEFT_ENC_A_PIN = 6
