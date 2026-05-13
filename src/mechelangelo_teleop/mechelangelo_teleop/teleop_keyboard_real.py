@@ -358,8 +358,8 @@ LEFT_DIR_PIN = 24    # Driver M2, direction
 # Quadrature encoder pins
 # Each encoder board has two white signal wires: channel A and channel B.
 # Change these to match where you connect the two white wires for each wheel.
-LEFT_ENC_A_PIN = 5
-LEFT_ENC_B_PIN = 6
+LEFT_ENC_A_PIN = 6
+LEFT_ENC_B_PIN = 5
 # RIGHT_ENC_A_PIN = 16
 # RIGHT_ENC_B_PIN = 20
 RIGHT_ENC_A_PIN = 20
@@ -371,7 +371,7 @@ RIGHT_ENC_B_PIN = 16
 PWM_FREQUENCY = 1000
 
 # Start conservative while tuning. Increase only after the robot is safe on blocks.
-MAX_DUTY = 0.60
+MAX_DUTY = 1.0
 MIN_MOVING_DUTY = 0.18
 
 # The Parallax kit gives 144 positions/counts per full tyre rotation if using
@@ -384,11 +384,11 @@ MAX_TICKS_PER_SEC = ENCODER_TICKS_PER_REV * MAX_WHEEL_RPM / 60.0
 
 # Keyboard commands are normalized wheel-speed commands, not raw PWM duty.
 SPEED_STEP = 0.10 ##how much each press of the keyboard increases forward/reverse speed
-TURN_STEP = 0.10 ##how much each press of the keyboard increases turn
+TURN_STEP = 0.05 ##how much each press of the keyboard increases turn
 RAMP_STEP = 0.03 ##how much the motor speed changes per iteration used to reduce jerk and smooth acceleration. Increase for more responsiveness, decrease for smoother but slower response.
 
 CONTROL_PERIOD = 0.05       # 20 Hz closed-loop update
-COMMAND_TIMEOUT = 2.0       # Stop if keyboard input is inactive this long
+COMMAND_TIMEOUT = 20.0       # Stop if keyboard input is inactive this long
 STATUS_PERIOD = 0.25        # Print status while moving
 
 # PI speed controller gains.
@@ -400,8 +400,8 @@ INTEGRAL_LIMIT = 250.0
 # Set these after the first encoder test.
 # If pressing w makes the wheel move forward but measured ticks/sec is negative,
 # flip that wheel's encoder invert value.
-LEFT_MOTOR_INVERT = False ##if pressing w makes the wheel spin backwards, set this to True to flip the motor direction.
-RIGHT_MOTOR_INVERT = False
+LEFT_MOTOR_INVERT = True ##if pressing w makes the wheel spin backwards, set this to True to flip the motor direction.
+RIGHT_MOTOR_INVERT = True
 LEFT_ENCODER_INVERT = False ##if wheel goes forward but ticks/sec is negative, set this to True to flip the sign of the encoder reading for that wheel.
 RIGHT_ENCODER_INVERT = False
 
