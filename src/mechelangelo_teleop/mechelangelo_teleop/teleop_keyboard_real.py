@@ -70,8 +70,8 @@ RIGHT_IN2_PIN = 23     # Pi GPIO23 -> driver IN4
 # Encoder input pins. These are only used for debug feedback in this script.
 LEFT_ENC_A_PIN = 6
 LEFT_ENC_B_PIN = 5
-RIGHT_ENC_A_PIN = 20
-RIGHT_ENC_B_PIN = 16
+RIGHT_ENC_A_PIN = 25
+RIGHT_ENC_B_PIN = 24
 
 
 # =============================================================================
@@ -84,8 +84,8 @@ PWM_FREQUENCY_HZ = 1000
 MAX_DUTY = 1.00
 
 # Normal command scaling.
-MAX_LINEAR_DUTY = 0.85
-MAX_TURN_DUTY = 0.65
+MAX_LINEAR_DUTY = 1.0
+MAX_TURN_DUTY = 1.0
 
 # Minimum duty to overcome motor static friction.
 # If the robot jerks too aggressively at low speed, reduce this.
