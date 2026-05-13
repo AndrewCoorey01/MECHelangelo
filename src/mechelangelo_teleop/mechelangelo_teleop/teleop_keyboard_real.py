@@ -334,7 +334,8 @@ import time
 import select
 import threading
 
-from gpiozero import PWMOutputDevice, DigitalOutputDevice, InputDevice
+# from gpiozero import PWMOutputDevice, DigitalOutputDevice, InputDevice
+from gpiozero import PWMOutputDevice, DigitalOutputDevice, DigitalInputDevice
 
 if os.name != "nt":
     import termios
@@ -472,8 +473,10 @@ class QuadratureEncoder:
 
     def __init__(self, pin_a, pin_b, invert=False, name="encoder"):
         self.name = name
-        self.a = InputDevice(pin_a, pull_up=ENCODER_PULL_UP)
-        self.b = InputDevice(pin_b, pull_up=ENCODER_PULL_UP)
+        # self.a = InputDevice(pin_a, pull_up=ENCODER_PULL_UP)
+        # self.b = InputDevice(pin_b, pull_up=ENCODER_PULL_UP)
+        self.a = DigitalInputDevice(pin_a, pull_up=ENCODER_PULL_UP)
+        self.b = DigitalInputDevice(pin_b, pull_up=ENCODER_PULL_UP)
         self.invert = invert
         self.count = 0
         self.lock = threading.Lock()
