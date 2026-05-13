@@ -360,9 +360,10 @@ LEFT_DIR_PIN = 24    # Driver M2, direction
 # Change these to match where you connect the two white wires for each wheel.
 LEFT_ENC_A_PIN = 5
 LEFT_ENC_B_PIN = 6
-RIGHT_ENC_A_PIN = 16
-RIGHT_ENC_B_PIN = 20
-
+# RIGHT_ENC_A_PIN = 16
+# RIGHT_ENC_B_PIN = 20
+RIGHT_ENC_A_PIN = 20
+RIGHT_ENC_B_PIN = 16
 
 # ============================================================
 # MOTOR / ENCODER SETTINGS
