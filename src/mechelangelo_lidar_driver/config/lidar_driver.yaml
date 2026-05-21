@@ -1,0 +1,15 @@
+/**:
+  ros__parameters:
+    port: "/dev/ttyUSB0"
+    frame_id: "base_scan"
+    scan_topic: "scan"
+
+    range_min_m: 0.12
+    range_max_m: 8.0
+    publish_rate_hz: 7.0
+
+    # Adjust this after testing the physical LiDAR direction.
+    angle_offset_deg: 0.0
+
+    # Set true only if left and right are mirrored.
+    invert_scan: false
