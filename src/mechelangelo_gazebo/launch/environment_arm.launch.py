@@ -88,8 +88,8 @@ def generate_launch_description():
     pkg_gazebo_ros = get_package_share_directory('gazebo_ros')
 
     world = os.path.join(gazebo_pkg, 'worlds', 'Gallery.world')
-    sdf_file = os.path.join(gazebo_pkg, 'models', 'mechelangelo_arm', 'arm.sdf')
-    urdf_file = os.path.join(description_pkg, 'urdf', 'mechelangelo_arm.urdf')
+    sdf_file = os.path.join(gazebo_pkg, 'models', 'mechelangelo_dual_arms', 'model.sdf')
+    urdf_file = os.path.join(description_pkg, 'urdf', 'mechelangelo_dual_arms.urdf')
 
     with open(urdf_file, 'r') as f:
         robot_description = f.read()
@@ -118,11 +118,11 @@ def generate_launch_description():
         launch_arguments={'world': world}.items()
     )
 
-    gzclient_cmd = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(pkg_gazebo_ros, 'launch', 'gzclient.launch.py')
-        )
-    )
+    # gzclient_cmd = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(
+    #         os.path.join(pkg_gazebo_ros, 'launch', 'gzclient.launch.py')
+    #     )
+    # )
 
     # robot_state_publisher_cmd = Node(
     #     package='robot_state_publisher',
@@ -164,7 +164,7 @@ def generate_launch_description():
     ld.add_action(SetEnvironmentVariable('GAZEBO_MODEL_PATH', gazebo_model_path))
 
     ld.add_action(gzserver_cmd)
-    ld.add_action(gzclient_cmd)
+    # ld.add_action(gzclient_cmd)
     # ld.add_action(robot_state_publisher_cmd)
     ld.add_action(spawn_robot_cmd)
 
