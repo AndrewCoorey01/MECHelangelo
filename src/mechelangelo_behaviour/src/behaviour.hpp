@@ -67,6 +67,8 @@ private:
 
     void longestLaserScan();
 
+    double getHumanLidarRange(double centre_offset) const;
+
     // ------------------------------------------------------
     // ROS publishers/subscribers/timers
     // ------------------------------------------------------

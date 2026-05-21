@@ -307,7 +307,6 @@
 //         break;
 //     }
 
-
 //     // ------------------------------------------------------
 //     // HUMAN_DETECTED:
 //     // TARGET HUMAN, move towards target and stop 1.5m away from them.
@@ -319,7 +318,7 @@
 //                     *this->get_clock(),
 //                     1000,
 //                     "HUMAN_DETECTED: Human detected. Stopping robot.");
-    
+
 //             stopRobot(twist);
 
 //             //insert code to move towards human here, using target_angle_ and target_range_ if needed
@@ -531,7 +530,6 @@
 //     return 0;
 // }
 
-
 #include "behaviour.hpp"
 
 #include <iostream>
@@ -573,20 +571,26 @@ static constexpr double kMinValidRange = 0.5; // m
 // Front scan window used while moving forward
 static constexpr double kFrontCheckAngle = 15.0 * M_PI / 180.0; // +/- 15 degrees
 
-
 // Human tracking tuning
 // /human_tracking message format:
 // data[0] = detected, data[1] = centre_offset, data[2] = distance_m
 // centre_offset is normalised image offset from centre: -0.5 left, 0 centre, +0.5 right.
-static constexpr double kHumanTargetDistance = 1.5;      // m
-static constexpr double kHumanDistanceTolerance = 0.15;  // m
-static constexpr double kHumanMaxForwardSpeed = 0.22;    // m/s
-static constexpr double kHumanMaxReverseSpeed = 0.12;    // m/s
-static constexpr double kHumanMaxTurnSpeed = 0.7;        // rad/s
-static constexpr double kHumanTurnGain = 1.8;            // image offset to angular speed
-static constexpr double kHumanForwardGain = 0.35;        // distance error to linear speed
-static constexpr double kHumanCentreDeadZone = 0.06;     // normalised image width
-static constexpr double kHumanLostTimeout = 1.0;         // seconds
+static constexpr double kHumanTargetDistance = 1.5;     // m
+static constexpr double kHumanDistanceTolerance = 0.15; // m
+static constexpr double kHumanMaxForwardSpeed = 0.22;   // m/s
+static constexpr double kHumanMaxReverseSpeed = 0.12;   // m/s
+static constexpr double kHumanMaxTurnSpeed = 0.7;       // rad/s
+static constexpr double kHumanTurnGain = 1.8;           // image offset to angular speed
+static constexpr double kHumanForwardGain = 0.35;       // distance error to linear speed
+static constexpr double kHumanCentreDeadZone = 0.06;    // normalised image width
+static constexpr double kHumanLostTimeout = 1.0;        // seconds
+
+// LiDAR validation for human distance
+static constexpr double kCameraHorizontalFov = 60.0 * M_PI / 180.0; // approximate camera FOV
+static constexpr double kHumanLidarWindow = 10.0 * M_PI / 180.0;    // +/- 10 deg around estimated human direction
+static constexpr double kLidarCameraMaxDisagreement = 0.4;          // m
+static constexpr double kHumanLidarStopDistance = 1.5;              // m
+static constexpr double kHumanLidarStopTolerance = 0.15;            // m
 
 // Kept as file-scope variables so behaviour.hpp does not need to change for this test.
 static rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr g_human_tracking_subscriber;
@@ -893,7 +897,6 @@ void MechelangeloBehaviour::controlLoop()
         break;
     }
 
-
     // ------------------------------------------------------
     // HUMAN_DETECTED:
     // TARGET HUMAN, move towards target and stop 1.5m away from them.
@@ -932,21 +935,46 @@ void MechelangeloBehaviour::controlLoop()
         }
 
         // Move forward/backward until the estimated person distance is close to 1.5 m.
-        if (g_human_distance_m <= 0.0 || !std::isfinite(g_human_distance_m))
+        // Use LiDAR as the trusted distance source.
+        // Camera distance is only used as a fallback/debug comparison.
+        const double human_lidar_range = getHumanLidarRange(g_human_centre_offset);
+        const bool lidar_distance_valid = std::isfinite(human_lidar_range);
+
+        if (!lidar_distance_valid)
         {
+            // If LiDAR cannot see anything in the human direction, do not drive forward.
+            // Still allow turning so the camera can re-centre the human.
             twist.linear.x = 0.0;
 
             RCLCPP_WARN_THROTTLE(
                 this->get_logger(),
                 *this->get_clock(),
                 1000,
-                "HUMAN_DETECTED: Invalid human distance. Turning only.");
+                "HUMAN_DETECTED: No valid LiDAR return near human bearing. Turning only.");
         }
         else
         {
-            const double distance_error = g_human_distance_m - kHumanTargetDistance;
+            // Optional diagnostic: compare camera distance and LiDAR distance.
+            if (g_human_distance_m > 0.0 && std::isfinite(g_human_distance_m))
+            {
+                const double disagreement = std::fabs(g_human_distance_m - human_lidar_range);
 
-            if (std::fabs(distance_error) <= kHumanDistanceTolerance)
+                if (disagreement > kLidarCameraMaxDisagreement)
+                {
+                    RCLCPP_WARN_THROTTLE(
+                        this->get_logger(),
+                        *this->get_clock(),
+                        1000,
+                        "HUMAN_DETECTED: Camera/LiDAR distance disagreement. Camera=%.2f m, LiDAR=%.2f m",
+                        g_human_distance_m,
+                        human_lidar_range);
+                }
+            }
+
+            // Control distance using LiDAR, not camera.
+            const double distance_error = human_lidar_range - kHumanLidarStopDistance;
+
+            if (std::fabs(distance_error) <= kHumanLidarStopTolerance)
             {
                 twist.linear.x = 0.0;
 
@@ -954,8 +982,8 @@ void MechelangeloBehaviour::controlLoop()
                     this->get_logger(),
                     *this->get_clock(),
                     1000,
-                    "HUMAN_DETECTED: Reached target distance %.2f m. Ready for arm mimicry.",
-                    g_human_distance_m);
+                    "HUMAN_DETECTED: LiDAR validated target distance %.2f m. Ready for arm mimicry.",
+                    human_lidar_range);
             }
             else
             {
@@ -964,20 +992,13 @@ void MechelangeloBehaviour::controlLoop()
                     -kHumanMaxReverseSpeed,
                     kHumanMaxForwardSpeed);
             }
-        }
 
-        // Extra LiDAR safety: do not drive forward into anything closer than the target distance.
-        const double front_range = getFrontRange();
-        if (twist.linear.x > 0.0 && std::isfinite(front_range) && front_range < kHumanTargetDistance)
-        {
-            RCLCPP_WARN_THROTTLE(
-                this->get_logger(),
-                *this->get_clock(),
-                1000,
-                "HUMAN_DETECTED: LiDAR object at %.2f m. Blocking forward motion.",
-                front_range);
-
-            twist.linear.x = 0.0;
+            // Absolute safety limit:
+            // If anything is closer than the minimum allowed distance, never drive forward.
+            if (human_lidar_range < kHumanLidarStopDistance && twist.linear.x > 0.0)
+            {
+                twist.linear.x = 0.0;
+            }
         }
 
         RCLCPP_INFO_THROTTLE(
@@ -1158,7 +1179,6 @@ void MechelangeloBehaviour::humanDetectedCallback(
         "Manual human detection trigger received. Interrupting autonomous behaviour.");
 
     current_state_ = NavigationState::HUMAN_DETECTED;
-
 }
 
 void MechelangeloBehaviour::longestLaserScan()
@@ -1179,6 +1199,21 @@ void MechelangeloBehaviour::longestLaserScan()
         "Longest valid laser scan: Range = %.2f m at Angle = %.2f degrees",
         longest_range,
         longest_angle * 180.0 / M_PI);
+}
+
+double MechelangeloBehaviour::getHumanLidarRange(double centre_offset) const
+{
+    // Convert camera image offset into approximate bearing angle.
+    // centre_offset: -0.5 left, 0 centre, +0.5 right.
+    //
+    // NOTE:
+    // Depending on your camera/LiDAR frame convention, you may need to flip this sign.
+    double estimated_human_angle = -centre_offset * kCameraHorizontalFov;
+
+    double start_angle = estimated_human_angle - kHumanLidarWindow;
+    double end_angle = estimated_human_angle + kHumanLidarWindow;
+
+    return getMinimumRange(start_angle, end_angle);
 }
 
 int main(int argc, char *argv[])
