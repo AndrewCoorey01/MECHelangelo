@@ -34,10 +34,10 @@ def generate_launch_description():
             output='screen',
         ),
 
-        Node(
-            package='mechelangelo_behaviour',
-            executable='mechelangelo_behaviour',
-            name='mechelangelo_behaviour',
-            output='screen',
-        ),
+        # Node(
+        #     package='mechelangelo_behaviour',
+        #     executable='mechelangelo_behaviour',
+        #     name='mechelangelo_behaviour',
+        #     output='screen',
+        # ),
     ])

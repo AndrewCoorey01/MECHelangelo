@@ -560,7 +560,8 @@ static constexpr double kAngleGain = 0.8;           // proportional turning gain
 static constexpr double kAlignmentTolerance = 0.10; // radians, about 5.7 degrees
 
 // Stop 1.5 m away from the object/wall in front
-static constexpr double kStopDistance = 1.5; // m
+// static constexpr double kStopDistance = 1.5; // m for simulation
+static constexpr double kStopDistance = 0.75; // m for physical
 
 // 30 loops x 0.1 s = 3 seconds
 static constexpr int kStopDurationLoops = 30;
