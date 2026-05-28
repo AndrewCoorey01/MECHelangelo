@@ -1,3 +1,5 @@
 {
-    "cmake.sourceDirectory": "/home/andy/ros2_ws/src/MECHelangelo/src/mechelangelo_behaviour"
+    "cmake.sourceDirectory": "/home/andy/ros2_ws/src/MECHelangelo/src/mechelangelo_behaviour",
+    "C_Cpp.default.compileCommands": "/home/andy/ros2_ws/build/compile_commands.json",
+    "ros.distro": "humble"
 }

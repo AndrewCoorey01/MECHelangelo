@@ -1,3 +1,27 @@
+// =============================================================================
+// SCRATCH COPY — behaviour.hpp as of 2026-05-28
+// Saved before safety-zone interrupt was added.
+//
+// FUNCTIONALITY OF THIS VERSION:
+//   Navigation state machine with five states:
+//     SEARCHING  — robot stops and finds the longest valid LiDAR ray to use as
+//                  the next travel direction.
+//     ALIGNING   — robot rotates in place toward the chosen direction using open-
+//                  loop angle estimation (no odometry).
+//     MOVING     — robot drives straight forward until the front LiDAR cone
+//                  (±15°) returns a distance ≤ kStopDistance.
+//     STOPPED    — robot pauses for ~3 s then transitions back to SEARCHING
+//                  (sentry patrol loop).
+//     HUMAN_DETECTED — triggered by /human_detected bool or /human_tracking data.
+//                  Robot turns to centre the human in the camera frame and drives
+//                  to ~1.5 m away using LiDAR-validated distance.  Returns to
+//                  SEARCHING if the human is lost for >1 s.
+//
+//   There is NO safety zone interrupt in this version.  Any object entering
+//   the 1.5 m radius during interaction is not detected and will not pause
+//   the robot.
+// =============================================================================
+
 #ifndef BEHAVIOUR_HPP
 #define BEHAVIOUR_HPP
 
@@ -69,11 +93,6 @@ private:
 
     double getHumanLidarRange(double centre_offset) const;
 
-    // Returns true if any object (other than the tracked human) is within the
-    // safety zone radius.  human_bearing_rad is the estimated bearing of the
-    // tracked human so that direction is excluded from the check.
-    bool isSafetyZoneViolated(double human_bearing_rad) const;
-
     // ------------------------------------------------------
     // ROS publishers/subscribers/timers
     // ------------------------------------------------------
@@ -99,10 +118,6 @@ private:
     // Behaviour state
     // ------------------------------------------------------
     bool blind_autonomous_active_;
-
-    // Set to true while an unexpected object is inside the safety zone.
-    // Cleared when the zone is clear again or when leaving HUMAN_DETECTED.
-    bool safety_zone_violated_;
 
     NavigationState current_state_;
 

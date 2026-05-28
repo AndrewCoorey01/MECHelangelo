@@ -4,7 +4,7 @@ project(mechelangelo_description)
 find_package(ament_cmake REQUIRED)
 
 install(
-  DIRECTORY urdf meshes rviz
+  DIRECTORY urdf meshes
   DESTINATION share/${PROJECT_NAME}
 )
 
