@@ -22,7 +22,7 @@ LEFT_INVERT = False
 RIGHT_INVERT = False
 
 # Start safely. Increase later after testing.
-MAX_POWER = 0.35
+MAX_POWER = 0.75
 
 # How much W/S changes forward speed each keypress
 SPEED_STEP = 0.05

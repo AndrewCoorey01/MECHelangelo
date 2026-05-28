@@ -14,7 +14,7 @@ def generate_launch_description():
     base_config = PathJoinSubstitution([
         FindPackageShare('mechelangelo_base_driver'),
         'config',
-        'thunderborg_base_driver.yaml'
+        'base_driver.yaml'
     ])
 
     return LaunchDescription([
@@ -28,7 +28,7 @@ def generate_launch_description():
 
         Node(
             package='mechelangelo_base_driver',
-            executable='thunderborg_base_driver',
+            executable='base_driver',
             name='mechelangelo_base_driver',
             parameters=[base_config],
             output='screen',

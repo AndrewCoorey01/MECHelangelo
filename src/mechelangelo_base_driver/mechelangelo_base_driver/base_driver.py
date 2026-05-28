@@ -116,7 +116,7 @@ class MechelangeloThunderBorgDriver(Node):
         self.declare_parameter('max_angular_vel_radps', 0.60)
 
         # ThunderBorg output scaling
-        self.declare_parameter('max_power', 0.35)
+        self.declare_parameter('max_power', 0.75)
         self.declare_parameter('deadband', 0.03)
 
         # Motor mapping and direction correction
