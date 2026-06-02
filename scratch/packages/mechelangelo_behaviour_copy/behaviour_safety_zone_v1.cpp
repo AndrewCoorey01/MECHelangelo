@@ -1,3 +1,24 @@
+// =============================================================================
+// SCRATCH COPY — behaviour.cpp as of 2026-06-02
+// Saved before baseline-scan safety zone was added.
+//
+// FUNCTIONALITY OF THIS VERSION:
+//   Safety zone uses an ABSOLUTE distance check: anything within 1.5 m (other
+//   than the tracked human's bearing ±25°) triggers a freeze.
+//
+//   Known problems with this version:
+//     - Walls in the room are always within 1.5 m and permanently trigger the
+//       safety zone, preventing the robot from ever moving in HUMAN_DETECTED.
+//     - Robot frame supports that read slightly above the 0.5 m kMinValidRange
+//       cutoff (e.g. 0.52 m) also trigger false positives.
+//     - The robot is functionally blocked during interaction whenever static
+//       room geometry is within 1.5 m.
+//
+//   These issues are fixed in the next version (baseline_safety_zone) by
+//   capturing a background scan on entry to HUMAN_DETECTED and only triggering
+//   when something is significantly closer than that baseline.
+// =============================================================================
+
 #include "behaviour.hpp"
 
 #include <iostream>
@@ -62,14 +83,11 @@ static constexpr double kHumanLidarStopDistance = 1.5;              // m
 static constexpr double kHumanLidarStopTolerance = 0.15;            // m
 
 // Safety zone: full 360-degree perimeter check during interaction.
-// A background scan is taken when HUMAN_DETECTED is first entered.
-// An intruder is flagged only when a live reading is kSafetyZoneIntruderThreshold
-// closer than the baseline at the same angle AND within kSafetyZoneRadius.
-// This means walls and robot frame supports (which are in the baseline) are
-// never flagged; only new objects that move into the space trigger the freeze.
-static constexpr double kSafetyZoneRadius = 1.5;                               // m  — max range of interest
-static constexpr double kSafetyZoneIntruderThreshold = 0.3;                    // m  — must be this much closer than baseline to count
-static constexpr double kSafetyZoneHumanExclusionAngle = 25.0 * M_PI / 180.0; // +/- 25 deg around tracked human bearing
+// Any object between kMinValidRange (0.5 m, robot blind spot) and this radius
+// triggers a freeze.  A window around the tracked human bearing is excluded so
+// the human themselves do not false-trigger the check.
+static constexpr double kSafetyZoneRadius = 1.5;                             // m
+static constexpr double kSafetyZoneHumanExclusionAngle = 25.0 * M_PI / 180.0; // +/- 25 deg around human bearing
 
 // Kept as file-scope variables so behaviour.hpp does not need to change for this test.
 static rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr g_human_tracking_subscriber;
@@ -82,7 +100,6 @@ MechelangeloBehaviour::MechelangeloBehaviour()
     : Node("mechelangelo_behaviour"),
       blind_autonomous_active_(false),
       safety_zone_violated_(false),
-      safety_zone_baseline_captured_(false),
       current_state_(NavigationState::SEARCHING),
       target_angle_(0.0),
       target_range_(0.0),
@@ -168,7 +185,6 @@ void MechelangeloBehaviour::blindAutonomous()
 
     blind_autonomous_active_ = true;
     safety_zone_violated_ = false;
-    safety_zone_baseline_captured_ = false;
     current_state_ = NavigationState::SEARCHING;
     target_angle_ = 0.0;
     target_range_ = 0.0;
@@ -412,18 +428,8 @@ void MechelangeloBehaviour::controlLoop()
             stopRobot(twist);
             g_human_locked = false;
             safety_zone_violated_ = false;
-            safety_zone_baseline_captured_ = false;
             current_state_ = NavigationState::SEARCHING;
             break;
-        }
-
-        // Capture the room background (walls, frame supports, everything static)
-        // on the very first control tick after entering HUMAN_DETECTED.
-        // All subsequent safety zone checks compare against this snapshot so
-        // only genuinely new objects trigger a freeze.
-        if (!safety_zone_baseline_captured_)
-        {
-            captureSafetyZoneBaseline();
         }
 
         // Estimate the tracked human's bearing from the camera offset.
@@ -431,9 +437,8 @@ void MechelangeloBehaviour::controlLoop()
         // human does not false-trigger the interrupt.
         const double human_bearing_rad = -g_human_centre_offset * kCameraHorizontalFov;
 
-        // Safety zone interrupt: freeze all interaction if an unexpected intruder
-        // appears significantly closer than the baseline at any angle.
-        // Resumes automatically once the intruder leaves.
+        // Safety zone interrupt: freeze all interaction if an unexpected object
+        // is within kSafetyZoneRadius.  Resume automatically once the zone clears.
         const bool zone_now_violated = isSafetyZoneViolated(human_bearing_rad);
 
         if (zone_now_violated != safety_zone_violated_)
@@ -757,26 +762,9 @@ double MechelangeloBehaviour::getHumanLidarRange(double centre_offset) const
     return getMinimumRange(start_angle, end_angle);
 }
 
-void MechelangeloBehaviour::captureSafetyZoneBaseline()
-{
-    safety_zone_baseline_scan_ = latest_scan_;
-    safety_zone_baseline_captured_ = true;
-    RCLCPP_INFO(this->get_logger(), "SAFETY ZONE: Background baseline captured.");
-}
-
 bool MechelangeloBehaviour::isSafetyZoneViolated(double human_bearing_rad) const
 {
-    if (!safety_zone_baseline_captured_)
-    {
-        return false;
-    }
-
     if (latest_scan_.ranges.empty() || latest_scan_.angle_increment == 0.0)
-    {
-        return false;
-    }
-
-    if (safety_zone_baseline_scan_.ranges.size() != latest_scan_.ranges.size())
     {
         return false;
     }
@@ -787,6 +775,7 @@ bool MechelangeloBehaviour::isSafetyZoneViolated(double human_bearing_rad) const
 
         // Exclude the window around the tracked human so they don't self-trigger.
         double angle_diff = angle - human_bearing_rad;
+        // Normalise to [-pi, pi]
         while (angle_diff >  M_PI) angle_diff -= 2.0 * M_PI;
         while (angle_diff < -M_PI) angle_diff += 2.0 * M_PI;
         if (std::fabs(angle_diff) <= kSafetyZoneHumanExclusionAngle)
@@ -794,31 +783,15 @@ bool MechelangeloBehaviour::isSafetyZoneViolated(double human_bearing_rad) const
             continue;
         }
 
-        const double current_range = latest_scan_.ranges[i];
+        const double range = latest_scan_.ranges[i];
 
-        // Skip robot blind spot (≤ 0.5 m) and invalid readings.
-        if (!std::isfinite(current_range) || current_range <= kMinValidRange)
+        // Skip robot-body blind spot (< kMinValidRange) and invalid readings.
+        if (!std::isfinite(range) || range <= kMinValidRange)
         {
             continue;
         }
 
-        // Only care about objects within the safety zone radius.
-        if (current_range >= kSafetyZoneRadius)
-        {
-            continue;
-        }
-
-        // Use the baseline reading at this angle as the expected background distance.
-        // If no baseline return existed here, treat the zone radius as the reference
-        // (i.e. anything appearing within kSafetyZoneRadius at that angle is new).
-        const double baseline_range = std::isfinite(safety_zone_baseline_scan_.ranges[i])
-            ? safety_zone_baseline_scan_.ranges[i]
-            : kSafetyZoneRadius;
-
-        // Flag as intruder only if significantly closer than the background.
-        // This threshold ignores LiDAR noise and the robot's own frame supports
-        // since those appear at the same distance in both the baseline and live scan.
-        if (current_range < (baseline_range - kSafetyZoneIntruderThreshold))
+        if (range < kSafetyZoneRadius)
         {
             return true;
         }

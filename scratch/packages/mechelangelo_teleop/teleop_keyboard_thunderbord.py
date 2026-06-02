@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
+
 import sys
 import time
 import termios
 import tty
 import select
-import threading
-from mechelangelo_base_driver import ThunderBorg
-from gpiozero import DigitalInputDevice
+import ThunderBorg
 
 
 # ============================================================
@@ -42,21 +41,6 @@ LOOP_DT = 0.05
 DEADBAND = 0.03
 
 
-#Added for encoder implementation
-# ============================================================
-# Encoder debug input 
-# ============================================================
-# BCM GPIO numbering, not physical pin numbering.
-ENCODER_A_PIN = 24
-ENCODER_B_PIN = 25
-
-ENCODER_PULL_UP = False
-ENCODER_INVERT = False
-
-# Parallax quadrature encoder: up to 144 counts per wheel rotation.
-ENCODER_TICKS_PER_REV = 144.0
-
-
 # ============================================================
 # Helper functions
 # ============================================================
@@ -70,52 +54,6 @@ def apply_deadband(value):
         return 0.0
     return value
 
-class QuadratureEncoder:
-    FORWARD_TRANSITIONS = {0b0001, 0b0111, 0b1110, 0b1000}
-    REVERSE_TRANSITIONS = {0b0010, 0b1011, 0b1101, 0b0100}
-
-    def __init__(self, pin_a, pin_b, pull_up=False, invert=False, name='encoder'):
-        self.name = name
-        self.invert = invert
-        self.a = DigitalInputDevice(pin_a, pull_up=pull_up)
-        self.b = DigitalInputDevice(pin_b, pull_up=pull_up)
-
-        self.count = 0
-        self.lock = threading.Lock()
-        self.last_state = self._read_state()
-
-        self.a.when_activated = self._edge
-        self.a.when_deactivated = self._edge
-        self.b.when_activated = self._edge
-        self.b.when_deactivated = self._edge
-
-    def _read_state(self):
-        return (int(self.a.value) << 1) | int(self.b.value)
-
-    def _edge(self, device=None):
-        new_state = self._read_state()
-        transition = (self.last_state << 2) | new_state
-
-        delta = 0
-        if transition in self.FORWARD_TRANSITIONS:
-            delta = 1
-        elif transition in self.REVERSE_TRANSITIONS:
-            delta = -1
-
-        if self.invert:
-            delta = -delta
-
-        with self.lock:
-            self.count += delta
-            self.last_state = new_state
-
-    def get_count(self):
-        with self.lock:
-            return self.count
-
-    def close(self):
-        self.a.close()
-        self.b.close()
 
 def get_key(timeout):
     """
@@ -200,8 +138,6 @@ def print_help():
 # ============================================================
 
 def main():
-    encoder = None
-
     TB = ThunderBorg.ThunderBorg()
     TB.Init()
 
@@ -237,19 +173,6 @@ def main():
 
     speed = 0.0
     turn = 0.0
-
-    encoder = QuadratureEncoder(
-        ENCODER_A_PIN,
-        ENCODER_B_PIN,
-        pull_up=ENCODER_PULL_UP,
-        invert=ENCODER_INVERT,
-        name='wheel_encoder',
-    )
-
-    last_encoder_count = encoder.get_count()
-    last_encoder_time = time.time()
-
-    print(f"Encoder enabled on GPIO{ENCODER_A_PIN} and GPIO{ENCODER_B_PIN}")
 
     old_terminal_settings = termios.tcgetattr(sys.stdin)
 
@@ -288,32 +211,17 @@ def main():
             left_out, right_out = send_motor_command(TB, left_cmd, right_cmd)
 
             now = time.time()
-        if now - last_status_time > 0.5:
-            fault1 = TB.GetDriveFault1()
-            fault2 = TB.GetDriveFault2()
-        
-            enc_count = encoder.get_count()
-            enc_dt = max(now - last_encoder_time, 1e-3)
-            enc_delta = enc_count - last_encoder_count
-        
-            enc_tps = enc_delta / enc_dt
-            enc_rpm = (enc_tps / ENCODER_TICKS_PER_REV) * 60.0
-        
-            last_encoder_count = enc_count
-            last_encoder_time = now
-        
-            print(
-                f"\rSpeed: {speed:+.2f}  Turn: {turn:+.2f}  "
-                f"Left: {left_out:+.2f}  Right: {right_out:+.2f}  "
-                f"ENC count: {enc_count:+7d}  "
-                f"ENC speed: {enc_tps:+7.1f} ticks/s  "
-                f"ENC rpm: {enc_rpm:+6.1f}  "
-                f"Fault1: {fault1}  Fault2: {fault2}      ",
-                end="",
-                flush=True,
-            )
-        
-            last_status_time = now
+            if now - last_status_time > 0.5:
+                fault1 = TB.GetDriveFault1()
+                fault2 = TB.GetDriveFault2()
+                print(
+                    f"\rSpeed: {speed:+.2f}  Turn: {turn:+.2f}  "
+                    f"Left: {left_out:+.2f}  Right: {right_out:+.2f}  "
+                    f"Fault1: {fault1}  Fault2: {fault2}      ",
+                    end="",
+                    flush=True,
+                )
+                last_status_time = now
 
     except KeyboardInterrupt:
         pass
@@ -324,10 +232,6 @@ def main():
         TB.SetCommsFailsafe(False)
         TB.SetLedShowBattery(False)
         TB.SetLeds(0.2, 0.0, 0.0)
-    
-        if encoder is not None:
-            encoder.close()
-    
         print("\nMotors off. Exiting.")
 
 

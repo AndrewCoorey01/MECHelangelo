@@ -1,58 +1,80 @@
 #!/usr/bin/env python3
-"""
-MECHelangelo human pose tracking node — v2.
-
-Three operating modes (--mode):
-
-  full (default)
-    One camera source does everything: human lock-on for approach tracking
-    AND skeleton angle extraction for arm mimicry.  Publishes /human_tracking,
-    /arm_pose, and MQTT arm/angles + robot/commands.  Intended for the physical
-    robot where a single Pi camera is used throughout.
-
-  tracking
-    Approach-only mode.  Uses the robot/sim camera to detect and lock onto a
-    human, publishing /human_tracking for the behaviour node to drive the robot.
-    No arm angle extraction.  Used in sim to let the robot approach the human
-    using the Gazebo camera topic.
-
-  mimicry
-    Arm-tracking-only mode.  Uses a USB/laptop camera to track the operator's
-    skeleton and publish arm joint angles.  No /human_tracking published.
-    Publishes /arm_pose directly (no MQTT bridge needed) AND via MQTT for the
-    physical robot path.  Used in sim so the tester can move their own arms
-    while the sim human model stays static.
-
-Simulation testing workflow
----------------------------
-Terminal 1 — robot approach (sim camera → behaviour node):
-    ros2 launch mechelangelo_perception sim_tracking.launch.py
-
-Terminal 2 — arm mimicry (laptop webcam → arm controller):
-    ros2 launch mechelangelo_perception sim_mimicry.launch.py
-
-Or start both together:
-    ros2 launch mechelangelo_perception sim_combined.launch.py
-
-Camera sources (--camera):
-    sim  — subscribes to ROS image topic (Gazebo)
-    pi   — Picamera2 on Raspberry Pi
-    usb  — USB/laptop webcam via OpenCV VideoCapture
-
-ROS topics published:
-    /human_tracking   Float32MultiArray [detected, centre_offset, distance_m]
-    /arm_pose         Float32MultiArray [l_shoulder, l_elbow, l_z_fwd, 0,
-                                         r_shoulder, r_elbow, r_z_fwd, 0]
-"""
+# =============================================================================
+# SCRATCH COPY — mechelangelo_perception v1 (original)
+# File: pose_tracking_human_ros.py
+# Saved: 2026-05-29
+#
+# WHAT THIS FILE DOES:
+#   Main human pose tracking and robot navigation node for the MECHelangelo
+#   autonomous gallery robot.  A single script that does ALL of the following
+#   in parallel via three threads (ROS spinner / vision loop / Flask server):
+#
+#   1. CAMERA INPUT
+#      Supports three sources selected at launch with --camera:
+#        sim  — subscribes to /mechelangelo/camera/image_raw (Gazebo simulation)
+#        pi   — reads Raspberry Pi camera via Picamera2
+#        usb  — reads laptop/USB webcam via OpenCV VideoCapture
+#
+#   2. HUMAN DETECTION & LOCK-ON (approach phase)
+#      Uses MediaPipe Pose to locate a person in every second frame.
+#      LockState tracks a specific person with:
+#        - visibility floor (0.50) to acquire lock
+#        - 5-second grace period before losing lock
+#        - anchor drift check so a different person can't steal the lock easily
+#      Calculates shoulder-midpoint offset from frame centre → left/right turn
+#      Estimates distance from shoulder-width perspective → forward/backward
+#
+#   3. ROS TRACKING PUBLISHER
+#      Publishes Float32MultiArray on /human_tracking:
+#        [detected (0/1), centre_offset (-0.5..+0.5), distance_m]
+#      The mechelangelo_behaviour C++ node subscribes to this and drives
+#      /cmd_vel to move the robot toward the human.
+#
+#   4. SKELETON ANGLE EXTRACTION (mimicry phase)
+#      When locked on a visible person, calculates 3-D joint angles:
+#        L/R shoulder (hip–shoulder–elbow), L/R elbow (shoulder–elbow–wrist)
+#      Also tracks Z-depth deltas (arm forward/back reach).
+#
+#   5. MQTT PUBLISHING
+#      Publishes two MQTT topics to broker at 192.168.4.65:1883:
+#        arm/angles      — JSON: {l_shoulder, l_elbow, r_shoulder, r_elbow,
+#                                  l_z_fwd, r_z_fwd, distance_m}
+#        robot/commands  — JSON: {lateral, fwd_back, distance_m}
+#      mqtt_bridge.py converts arm/angles back into ROS /arm_pose messages.
+#      robot/commands was an older control path; in the ROS architecture the
+#      behaviour node drives movement via /cmd_vel instead.
+#
+#   6. DEBUG STREAM
+#      Flask MJPEG server on :5000 showing the annotated camera view with:
+#        lock box, centre guide line, distance gauge, angle overlay, info bar
+#
+# HOW THIS VERSION WAS RUN (standalone, not via ros2 run):
+#   python3 pose_tracking_human_ros.py --camera sim
+#   python3 pose_tracking_human_ros.py --camera pi
+#   python3 pose_tracking_human_ros.py --camera usb --device 0
+#
+# WHY THIS WAS THE ORIGINAL:
+#   This was the first working version that combined approach tracking and
+#   mimicry into a single script.  It was not yet registered as a ROS entry
+#   point (setup.py had empty console_scripts).  It always did both tracking
+#   and mimicry simultaneously regardless of robot state.
+#
+# SEE ALSO:
+#   v2 (active): src/mechelangelo_perception/mechelangelo_perception/pose_tracking_human_ros.py
+#     - Added --mode flag (full / tracking / mimicry)
+#     - Publishes arm angles directly to /arm_pose ROS topic (no MQTT needed in sim)
+#     - Registered as a ros2 run entry point
+#     - Launch files added to package
+# =============================================================================
 
 import argparse
 import json
 import os
-import sys
 import threading
 import time
 from collections import deque
 
+# Limit CPU threads before importing/using OpenCV heavily.
 os.environ["OMP_NUM_THREADS"] = "2"
 
 import cv2
@@ -79,7 +101,6 @@ last_z_deltas = {}
 # ── Default ROS topics ─────────────────────────────────────────────
 DEFAULT_CAMERA_TOPIC = "/mechelangelo/camera/image_raw"
 DEFAULT_TRACKING_TOPIC = "/human_tracking"
-DEFAULT_ARM_TOPIC = "/arm_pose"
 
 tracking_node = None
 camera_provider = None
@@ -165,6 +186,7 @@ KEY_LM = [11, 12, 13, 14, 15, 16, 23, 24]
 SHOULDER_WIDTH_M = 0.42
 FOCAL_LENGTH_PX = 280.0
 
+# Robot behaviour thresholds, also used for debug display.
 DIST_TOO_CLOSE = 1.0
 DIST_TARGET = 1.5
 DIST_IDEAL_NEAR = 1.4
@@ -177,19 +199,7 @@ DIST_SMOOTH_N = 6
 
 # ── Argument parsing ───────────────────────────────────────────────
 def parse_args():
-    from rclpy.utilities import remove_ros_args
     parser = argparse.ArgumentParser(description="MECHelangelo human pose tracking node")
-    parser.add_argument(
-        "--mode",
-        choices=["full", "tracking", "mimicry"],
-        default="full",
-        help=(
-            "Operating mode. "
-            "'full' (default): one camera does tracking + mimicry (real robot). "
-            "'tracking': sim/robot camera for approach only — publishes /human_tracking. "
-            "'mimicry': laptop/USB camera for arm angles only — publishes /arm_pose."
-        ),
-    )
     parser.add_argument(
         "--camera",
         choices=["sim", "pi", "usb"],
@@ -204,12 +214,7 @@ def parse_args():
     parser.add_argument(
         "--tracking-topic",
         default=DEFAULT_TRACKING_TOPIC,
-        help="ROS topic for publishing Float32MultiArray human tracking data.",
-    )
-    parser.add_argument(
-        "--arm-topic",
-        default=DEFAULT_ARM_TOPIC,
-        help="ROS topic for publishing Float32MultiArray arm pose data (mimicry output).",
+        help="ROS topic used to publish Float32MultiArray human tracking data.",
     )
     parser.add_argument(
         "--device",
@@ -240,27 +245,16 @@ def parse_args():
         default=5000,
         help="Flask debug stream port.",
     )
-    return parser.parse_args(remove_ros_args(sys.argv)[1:])
+    return parser.parse_args()
 
 
-# ── ROS node ───────────────────────────────────────────────────────
+# ── Camera providers ───────────────────────────────────────────────
 class HumanTrackingNode(Node):
-    def __init__(
-        self,
-        camera_source: str,
-        camera_topic: str,
-        tracking_topic: str,
-        arm_topic: str,
-        mode: str,
-        width: int,
-        height: int,
-    ):
+    def __init__(self, camera_source: str, camera_topic: str, tracking_topic: str, width: int, height: int):
         super().__init__("human_pose_tracking")
         self.camera_source = camera_source
         self.camera_topic = camera_topic
         self.tracking_topic = tracking_topic
-        self.arm_topic = arm_topic
-        self.mode = mode
         self.width = width
         self.height = height
 
@@ -277,29 +271,12 @@ class HumanTrackingNode(Node):
             )
             self.get_logger().info(f"Subscribed to simulation camera: {self.camera_topic}")
 
-        # /human_tracking — published in 'full' and 'tracking' modes
-        if self.mode != "mimicry":
-            self.tracking_pub = self.create_publisher(
-                Float32MultiArray,
-                self.tracking_topic,
-                10,
-            )
-            self.get_logger().info(f"Publishing human tracking: {self.tracking_topic}")
-        else:
-            self.tracking_pub = None
-
-        # /arm_pose — published in 'full' and 'mimicry' modes
-        if self.mode != "tracking":
-            self.arm_pose_pub = self.create_publisher(
-                Float32MultiArray,
-                self.arm_topic,
-                10,
-            )
-            self.get_logger().info(f"Publishing arm pose: {self.arm_topic}")
-        else:
-            self.arm_pose_pub = None
-
-        self.get_logger().info(f"Mode: {self.mode}")
+        self.tracking_pub = self.create_publisher(
+            Float32MultiArray,
+            self.tracking_topic,
+            10,
+        )
+        self.get_logger().info(f"Publishing human tracking: {self.tracking_topic}")
 
     def image_callback(self, msg: Image):
         try:
@@ -319,8 +296,6 @@ class HumanTrackingNode(Node):
             return self.latest_frame.copy()
 
     def publish_tracking(self, detected: bool, centre_offset: float, distance_m):
-        if self.tracking_pub is None:
-            return
         msg = Float32MultiArray()
         msg.data = [
             1.0 if detected else 0.0,
@@ -329,25 +304,7 @@ class HumanTrackingNode(Node):
         ]
         self.tracking_pub.publish(msg)
 
-    def publish_arm_pose(self, angles: dict, z_deltas: dict):
-        """Publish arm angles directly to /arm_pose (same layout as mqtt_bridge output)."""
-        if self.arm_pose_pub is None:
-            return
-        msg = Float32MultiArray()
-        msg.data = [
-            float(angles.get("L shoulder") or -1.0),
-            float(angles.get("L elbow") or -1.0),
-            float(z_deltas.get("L") or -1.0),
-            0.0,
-            float(angles.get("R shoulder") or -1.0),
-            float(angles.get("R elbow") or -1.0),
-            float(z_deltas.get("R") or -1.0),
-            0.0,
-        ]
-        self.arm_pose_pub.publish(msg)
 
-
-# ── Camera providers ───────────────────────────────────────────────
 class PiCameraProvider:
     def __init__(self, width: int, height: int):
         from picamera2 import Picamera2
@@ -397,7 +354,7 @@ class USBCameraProvider:
         self.cap.release()
 
 
-# ── Robot command state (tracking / full modes only) ───────────────
+# ── Command state ─────────────────────────────────────────────────
 class RobotCommand:
     FORWARD = "FORWARD"
     BACKWARD = "BACKWARD"
@@ -576,11 +533,14 @@ def calc_angle_3d(a, b, c):
 def estimate_distance(lm, w, vis_fn):
     if not (vis_fn(11) and vis_fn(12)):
         return None
+
     sx1 = lm[11].x * w
     sx2 = lm[12].x * w
     shoulder_px = abs(sx2 - sx1)
+
     if shoulder_px < 10:
         return None
+
     return (SHOULDER_WIDTH_M * FOCAL_LENGTH_PX) / shoulder_px
 
 
@@ -590,15 +550,18 @@ def draw_lock_box(frame, lm, w, h):
     ys = [lm[i].y * h for i in range(len(lm)) if lm[i].visibility > 0.3]
     if not xs:
         return
+
     pad = 10
     x1 = max(0, int(min(xs)) - pad)
     y1 = max(0, int(min(ys)) - pad)
     x2 = min(w, int(max(xs)) + pad)
     y2 = min(h, int(max(ys)) + pad)
     color = COL_GRACE if lock_state.grace_active else COL_LOCK_BOX
+
     cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
     label = "GRACE" if lock_state.grace_active else "LOCKED"
     cv2.putText(frame, label, (x1 + 2, max(y1 - 4, 10)), FONT, 0.38, color, 1)
+
     if lock_state.grace_active:
         bar_w = x2 - x1
         filled = int(bar_w * (1.0 - lock_state.grace_elapsed_fraction()))
@@ -608,8 +571,10 @@ def draw_lock_box(frame, lm, w, h):
 def draw_centre_guide(frame, w, h, shoulder_mid_x_norm):
     cx = w // 2
     cv2.line(frame, (cx, 0), (cx, h - 52), (80, 80, 80), 1)
+
     person_x = int(shoulder_mid_x_norm * w)
     cv2.line(frame, (person_x, 0), (person_x, h - 52), (0, 200, 255), 1)
+
     offset_px = person_x - cx
     dead_px = int(CENTER_DEAD_ZONE * w)
     if abs(offset_px) > dead_px:
@@ -628,19 +593,25 @@ def draw_distance_gauge(frame, w, h, dist_m):
     gauge_w = 6
     gauge_top = 10
     gauge_bot = h - 60
+
     cv2.rectangle(frame, (gauge_x, gauge_top), (gauge_x + gauge_w, gauge_bot), (50, 50, 50), -1)
+
     if dist_m is None or dist_m <= 0:
         return
+
     display_min, display_max = 0.5, 4.0
     frac = 1.0 - (min(max(dist_m, display_min), display_max) - display_min) / (display_max - display_min)
     fill_y = gauge_bot - int(frac * (gauge_bot - gauge_top))
+
     if dist_m < DIST_TOO_CLOSE or dist_m > DIST_TOO_FAR:
         col = COL_RED
     elif DIST_IDEAL_NEAR <= dist_m <= DIST_IDEAL_FAR:
         col = (0, 220, 0)
     else:
         col = (0, 180, 255)
+
     cv2.rectangle(frame, (gauge_x, fill_y), (gauge_x + gauge_w, gauge_bot), col, -1)
+
     for threshold in [DIST_TOO_CLOSE, DIST_TARGET, DIST_IDEAL_NEAR, DIST_IDEAL_FAR, DIST_TOO_FAR]:
         t_frac = 1.0 - (min(max(threshold, display_min), display_max) - display_min) / (display_max - display_min)
         t_y = gauge_bot - int(t_frac * (gauge_bot - gauge_top))
@@ -650,6 +621,7 @@ def draw_distance_gauge(frame, w, h, dist_m):
 def draw_command_panel(frame, w, h):
     panel_x, panel_y = 16, 8
     line_h = 16
+
     for i, (label, value, active) in enumerate(robot_cmd.summary_lines()):
         y = panel_y + i * line_h
         col_val = COL_CMD_ACT if active else COL_NA
@@ -657,7 +629,7 @@ def draw_command_panel(frame, w, h):
         cv2.putText(frame, value, (panel_x + 42, y + 12), FONT, 0.40, col_val, 1)
 
 
-def draw_info_bar(frame, angles, z_deltas, mode_label):
+def draw_info_bar(frame, angles, z_deltas):
     h, w = frame.shape[:2]
     bar_h = 52
 
@@ -678,6 +650,7 @@ def draw_info_bar(frame, angles, z_deltas, mode_label):
         ("R.Shldr", angles.get("R shoulder"), COL_SHOULDER),
         ("R.Elbw", angles.get("R elbow"), COL_ELBOW),
     ]
+
     for i, (label, value, color) in enumerate(angle_labels):
         x = i * slot_w + 4
         cv2.putText(frame, label, (x, h - bar_h + 11), FONT, 0.32, color, 1)
@@ -690,6 +663,7 @@ def draw_info_bar(frame, angles, z_deltas, mode_label):
         ("R.Zf", z_deltas.get("R")),
         ("R.Zr", z_deltas.get("R elbow wrist")),
     ]
+
     for i, (label, value) in enumerate(z_labels):
         x = i * slot_w + 4
         cv2.putText(frame, label, (x, h - bar_h + 37), FONT, 0.28, COL_Z, 1)
@@ -710,10 +684,6 @@ def draw_info_bar(frame, angles, z_deltas, mode_label):
         status, scol = "SEEK", COL_RED
 
     cv2.putText(frame, status, (w - 56, 16), FONT, 0.5, scol, 2)
-
-    # Mode label in top-left corner of info bar
-    mode_col = (0, 200, 255) if mode_label == "TRACK" else (255, 200, 0) if mode_label == "MIMIC" else (160, 160, 160)
-    cv2.putText(frame, mode_label, (4, h - bar_h + 11), FONT, 0.30, mode_col, 1)
 
 
 # ── Frame acquisition ──────────────────────────────────────────────
@@ -739,9 +709,6 @@ def process_frames():
     results = None
     encode_params = [cv2.IMWRITE_JPEG_QUALITY, 55]
     last_no_frame_log = 0.0
-
-    # Compact mode label shown in the OSD info bar
-    mode_label = {"full": "FULL", "tracking": "TRACK", "mimicry": "MIMIC"}[args.mode]
 
     while True:
         if tracking_node is None:
@@ -781,6 +748,7 @@ def process_frames():
                 use_detection = lock_state.update_with_detection(lm, w, h)
 
                 skel_col = (0, 200, 255) if (use_detection and not lock_state.grace_active) else (80, 80, 80)
+
                 mp_draw.draw_landmarks(
                     frame,
                     results.pose_landmarks,
@@ -807,67 +775,58 @@ def process_frames():
                     def vis(i):
                         return lm[i].visibility > VISIBILITY_FLOOR
 
+                    l_hip = pt3d(23)
+                    l_shoulder = pt3d(11)
+                    l_elbow = pt3d(13)
+                    l_wrist = pt3d(15)
+                    r_hip = pt3d(24)
+                    r_shoulder = pt3d(12)
+                    r_elbow = pt3d(14)
+                    r_wrist = pt3d(16)
+
+                    if vis(23) and vis(11) and vis(13):
+                        angles["L shoulder"] = calc_angle_3d(l_hip, l_shoulder, l_elbow)
+                    elif vis(12) and vis(11) and vis(13):
+                        angles["L shoulder"] = calc_angle_3d(r_shoulder, l_shoulder, l_elbow)
+
+                    if vis(24) and vis(12) and vis(14):
+                        angles["R shoulder"] = calc_angle_3d(r_hip, r_shoulder, r_elbow)
+                    elif vis(11) and vis(12) and vis(14):
+                        angles["R shoulder"] = calc_angle_3d(l_shoulder, r_shoulder, r_elbow)
+
+                    if vis(11) and vis(13) and vis(15):
+                        angles["L elbow"] = calc_angle_3d(l_shoulder, l_elbow, l_wrist)
+                    if vis(12) and vis(14) and vis(16):
+                        angles["R elbow"] = calc_angle_3d(r_shoulder, r_elbow, r_wrist)
+
+                    if vis(11) and vis(13):
+                        z_deltas["L"] = lm[13].z - lm[11].z
+                    if vis(13) and vis(15):
+                        z_deltas["L elbow wrist"] = lm[15].z - lm[13].z
+                    if vis(12) and vis(14):
+                        z_deltas["R"] = lm[14].z - lm[12].z
+                    if vis(14) and vis(16):
+                        z_deltas["R elbow wrist"] = lm[16].z - lm[14].z
+
+                    raw_dist = estimate_distance(lm, w, vis)
+                    if raw_dist is not None:
+                        robot_cmd.push_distance(raw_dist)
+
                     shoulder_mid_x = (lm[11].x + lm[12].x) / 2.0
                     centre_offset = shoulder_mid_x - 0.5
 
-                    # ── Tracking (approach) phase ─────────────────────────────
-                    # Only in 'full' and 'tracking' modes — drives robot towards human
-                    if args.mode != "mimicry":
-                        raw_dist = estimate_distance(lm, w, vis)
-                        if raw_dist is not None:
-                            robot_cmd.push_distance(raw_dist)
+                    robot_cmd.update(shoulder_mid_x)
 
-                        robot_cmd.update(shoulder_mid_x)
-
-                        tracking_node.publish_tracking(
-                            True,
-                            centre_offset,
-                            robot_cmd.distance if robot_cmd.distance is not None else -1.0,
-                        )
-                        published_tracking = True
+                    tracking_node.publish_tracking(
+                        True,
+                        centre_offset,
+                        robot_cmd.distance if robot_cmd.distance is not None else -1.0,
+                    )
+                    published_tracking = True
 
                     draw_centre_guide(frame, w, h, shoulder_mid_x)
                     draw_distance_gauge(frame, w, h, robot_cmd.distance)
 
-                    # ── Mimicry (arm angle) phase ─────────────────────────────
-                    # Only in 'full' and 'mimicry' modes — extracts joint angles
-                    if args.mode != "tracking":
-                        l_hip = pt3d(23)
-                        l_shoulder = pt3d(11)
-                        l_elbow = pt3d(13)
-                        l_wrist = pt3d(15)
-                        r_hip = pt3d(24)
-                        r_shoulder = pt3d(12)
-                        r_elbow = pt3d(14)
-                        r_wrist = pt3d(16)
-
-                        if vis(23) and vis(11) and vis(13):
-                            angles["L shoulder"] = calc_angle_3d(l_hip, l_shoulder, l_elbow)
-                        elif vis(12) and vis(11) and vis(13):
-                            angles["L shoulder"] = calc_angle_3d(r_shoulder, l_shoulder, l_elbow)
-
-                        if vis(24) and vis(12) and vis(14):
-                            angles["R shoulder"] = calc_angle_3d(r_hip, r_shoulder, r_elbow)
-                        elif vis(11) and vis(12) and vis(14):
-                            angles["R shoulder"] = calc_angle_3d(l_shoulder, r_shoulder, r_elbow)
-
-                        if vis(11) and vis(13) and vis(15):
-                            angles["L elbow"] = calc_angle_3d(l_shoulder, l_elbow, l_wrist)
-                        if vis(12) and vis(14) and vis(16):
-                            angles["R elbow"] = calc_angle_3d(r_shoulder, r_elbow, r_wrist)
-
-                        if vis(11) and vis(13):
-                            z_deltas["L"] = lm[13].z - lm[11].z
-                        if vis(13) and vis(15):
-                            z_deltas["L elbow wrist"] = lm[15].z - lm[13].z
-                        if vis(12) and vis(14):
-                            z_deltas["R"] = lm[14].z - lm[12].z
-                        if vis(14) and vis(16):
-                            z_deltas["R elbow wrist"] = lm[16].z - lm[14].z
-
-                        publish_angles = True
-
-                    # ── Draw angle OSD ────────────────────────────────────────
                     for idx, key, col in [
                         (11, "L shoulder", COL_SHOULDER),
                         (13, "L elbow", COL_ELBOW),
@@ -885,13 +844,14 @@ def process_frames():
                         x, y = pt2d(14)
                         cv2.putText(frame, f"z:{z_deltas['R']:.2f}", (x + 5, y + 12), FONT, 0.3, COL_Z, 1)
 
+                    publish_angles = True
+
                 elif lock_state.grace_active:
-                    if args.mode != "mimicry":
-                        tracking_node.publish_tracking(False, 0.0, -1.0)
-                        published_tracking = True
+                    tracking_node.publish_tracking(False, 0.0, -1.0)
+                    published_tracking = True
                     cv2.putText(frame, "Searching...", (20, 30), FONT, 0.6, COL_GRACE, 1)
 
-                if not published_tracking and not lock_state.locked and args.mode != "mimicry":
+                if not published_tracking and not lock_state.locked:
                     tracking_node.publish_tracking(False, 0.0, -1.0)
 
                 if publish_angles:
@@ -905,15 +865,13 @@ def process_frames():
                         "distance_m": round(robot_cmd.distance, 2) if robot_cmd.distance is not None else None,
                     })
                     mqtt_publish(payload)
-                    tracking_node.publish_arm_pose(angles, z_deltas)
 
                 last_angles = angles
                 last_z_deltas = z_deltas
 
             else:
                 in_grace = lock_state.update_no_detection()
-                if args.mode != "mimicry":
-                    tracking_node.publish_tracking(False, 0.0, -1.0)
+                tracking_node.publish_tracking(False, 0.0, -1.0)
 
                 if not in_grace:
                     cv2.putText(frame, "No person detected", (20, 30), FONT, 0.7, COL_RED, 2)
@@ -921,7 +879,6 @@ def process_frames():
                     cv2.putText(frame, "Searching...", (20, 30), FONT, 0.6, COL_GRACE, 1)
 
         else:
-            # Non-MP frame — redraw last known overlays
             if last_angles and results is not None and results.pose_landmarks and lock_state.locked and not lock_state.grace_active:
                 lm = results.pose_landmarks.landmark
                 shoulder_mid_x = (lm[11].x + lm[12].x) / 2.0
@@ -940,7 +897,7 @@ def process_frames():
                         cv2.putText(frame, f"{last_angles[key]:.0f}", (x + 5, y - 5), FONT, 0.38, col, 1)
 
         draw_command_panel(frame, w, h)
-        draw_info_bar(frame, last_angles, last_z_deltas, mode_label)
+        draw_info_bar(frame, last_angles, last_z_deltas)
 
         ok, buffer = cv2.imencode(".jpg", frame, encode_params)
         if ok:
@@ -971,16 +928,12 @@ def index():
     camera_text = args.camera if args is not None else "unknown"
     topic_text = args.topic if args is not None else "unknown"
     tracking_text = args.tracking_topic if args is not None else "unknown"
-    arm_text = args.arm_topic if args is not None else "unknown"
-    mode_text = args.mode if args is not None else "unknown"
     return (
         '<html><body style="background:#111;color:white;text-align:center">'
         "<h2>MECHelangelo Pose Stream</h2>"
-        f"<p>Mode: <b>{mode_text}</b></p>"
         f"<p>Camera source: {camera_text}</p>"
         f"<p>Camera topic/device: {topic_text}</p>"
         f"<p>Tracking topic: {tracking_text}</p>"
-        f"<p>Arm pose topic: {arm_text}</p>"
         '<img src="/video">'
         "</body></html>"
     )
@@ -1007,8 +960,6 @@ def main():
         camera_source=args.camera,
         camera_topic=args.topic,
         tracking_topic=args.tracking_topic,
-        arm_topic=args.arm_topic,
-        mode=args.mode,
         width=args.width,
         height=args.height,
     )
@@ -1019,19 +970,16 @@ def main():
     vision_thread = threading.Thread(target=process_frames, daemon=True)
     vision_thread.start()
 
-    print(f"Mode: {args.mode}")
-    print(f"Open debug stream: http://127.0.0.1:{args.flask_port}")
+    print("Open debug stream in browser:")
+    print(f"http://127.0.0.1:{args.flask_port}")
     print(f"Camera source: {args.camera}")
     if args.camera == "sim":
         print(f"Subscribing to camera topic: {args.topic}")
     elif args.camera == "usb":
         print(f"Using USB camera device: {args.device}")
     else:
-        print("Using Raspberry Pi Camera via Picamera2")
-    if args.mode != "mimicry":
-        print(f"Publishing tracking topic: {args.tracking_topic}")
-    if args.mode != "tracking":
-        print(f"Publishing arm pose topic: {args.arm_topic}")
+        print("Using Raspberry Pi Camera through Picamera2")
+    print(f"Publishing tracking topic: {args.tracking_topic}")
 
     try:
         app.run(host=args.flask_host, port=args.flask_port, threaded=True)
@@ -1040,8 +988,10 @@ def main():
     finally:
         if camera_provider is not None:
             camera_provider.close()
+
         if tracking_node is not None:
             tracking_node.destroy_node()
+
         if rclpy.ok():
             rclpy.shutdown()
 

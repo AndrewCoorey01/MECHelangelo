@@ -1,6 +1,4 @@
 from setuptools import find_packages, setup
-import os
-from glob import glob
 
 package_name = 'mechelangelo_perception'
 
@@ -12,14 +10,12 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        (os.path.join('share', package_name, 'launch'),
-            glob('launch/*.launch.py')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='andy',
     maintainer_email='andy@todo.todo',
-    description='MECHelangelo human pose tracking and mimicry perception package',
+    description='TODO: Package description',
     license='TODO: License declaration',
     extras_require={
         'test': [
@@ -28,10 +24,6 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            # Main perception node — supports --mode tracking / mimicry / full
-            'pose_tracking_human_ros = mechelangelo_perception.pose_tracking_human_ros:main',
-            # MQTT → ROS bridge for arm angles (used on physical robot)
-            'mqtt_bridge = mechelangelo_perception.mqtt_bridge:main',
         ],
     },
 )

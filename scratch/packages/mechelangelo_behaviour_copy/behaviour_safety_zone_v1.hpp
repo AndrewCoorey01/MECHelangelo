@@ -1,3 +1,9 @@
+// =============================================================================
+// SCRATCH COPY — behaviour.hpp as of 2026-06-02
+// Pair header for behaviour_safety_zone_v1.cpp
+// See that file for the version description.
+// =============================================================================
+
 #ifndef BEHAVIOUR_HPP
 #define BEHAVIOUR_HPP
 
@@ -69,15 +75,9 @@ private:
 
     double getHumanLidarRange(double centre_offset) const;
 
-    // Stores the current LiDAR scan as the room background the moment
-    // HUMAN_DETECTED is entered.  Subsequent safety zone checks compare
-    // live readings against this baseline so static objects (walls, frame
-    // supports) are never flagged as intruders.
-    void captureSafetyZoneBaseline();
-
-    // Returns true if any object (other than the tracked human) is
-    // significantly closer than the captured baseline at that angle,
-    // indicating an unexpected intruder has entered the safety zone.
+    // Returns true if any object (other than the tracked human) is within the
+    // safety zone radius.  human_bearing_rad is the estimated bearing of the
+    // tracked human so that direction is excluded from the check.
     bool isSafetyZoneViolated(double human_bearing_rad) const;
 
     // ------------------------------------------------------
@@ -109,12 +109,6 @@ private:
     // Set to true while an unexpected object is inside the safety zone.
     // Cleared when the zone is clear again or when leaving HUMAN_DETECTED.
     bool safety_zone_violated_;
-
-    // Baseline scan captured on first entry to HUMAN_DETECTED.
-    // Used by isSafetyZoneViolated() to distinguish static background
-    // (walls, frame supports) from new intruders.
-    sensor_msgs::msg::LaserScan safety_zone_baseline_scan_;
-    bool safety_zone_baseline_captured_;
 
     NavigationState current_state_;
 

@@ -1,3 +1,6 @@
+#thunderborg driver code working without the use of wheel encoders
+
+
 #!/usr/bin/env python3
 """
 MECHelangelo ThunderBorg base driver.
@@ -34,67 +37,9 @@ from geometry_msgs.msg import Twist
 
 from mechelangelo_base_driver import ThunderBorg
 
-import threading
-from gpiozero import DigitalInputDevice
-
 
 def constrain(value, low, high):
     return max(low, min(high, value))
-
-class QuadratureEncoder:
-    """
-    4x quadrature decoder for one Parallax encoder.
-
-    Uses two GPIO inputs:
-        A = encoder channel 1
-        B = encoder channel 2
-    """
-
-    FORWARD_TRANSITIONS = {0b0001, 0b0111, 0b1110, 0b1000}
-    REVERSE_TRANSITIONS = {0b0010, 0b1011, 0b1101, 0b0100}
-
-    def __init__(self, pin_a, pin_b, pull_up=False, invert=False, name='encoder'):
-        self.name = name
-        self.invert = invert
-        self.a = DigitalInputDevice(pin_a, pull_up=pull_up)
-        self.b = DigitalInputDevice(pin_b, pull_up=pull_up)
-
-        self.count = 0
-        self.lock = threading.Lock()
-        self.last_state = self._read_state()
-
-        self.a.when_activated = self._edge
-        self.a.when_deactivated = self._edge
-        self.b.when_activated = self._edge
-        self.b.when_deactivated = self._edge
-
-    def _read_state(self):
-        return (int(self.a.value) << 1) | int(self.b.value)
-
-    def _edge(self, device=None):
-        new_state = self._read_state()
-        transition = (self.last_state << 2) | new_state
-
-        delta = 0
-        if transition in self.FORWARD_TRANSITIONS:
-            delta = 1
-        elif transition in self.REVERSE_TRANSITIONS:
-            delta = -1
-
-        if self.invert:
-            delta = -delta
-
-        with self.lock:
-            self.count += delta
-            self.last_state = new_state
-
-    def get_count(self):
-        with self.lock:
-            return self.count
-
-    def close(self):
-        self.a.close()
-        self.b.close()
 
 
 class MechelangeloThunderBorgDriver(Node):
@@ -107,27 +52,6 @@ class MechelangeloThunderBorgDriver(Node):
         self.target_angular_radps = 0.0
         self.last_cmd_time = time.time()
         self.last_status_time = 0.0
-
-        ##added for encoder implementation
-        self.encoder = None
-        self.last_encoder_count = 0
-        self.last_encoder_time = time.time()
-
-        if self.enable_encoder:
-            self.encoder = QuadratureEncoder(
-                self.encoder_a_pin,
-                self.encoder_b_pin,
-                pull_up=self.encoder_pull_up,
-                invert=self.encoder_invert,
-                name='wheel_encoder',
-            )
-
-            self.last_encoder_count = self.encoder.get_count()
-
-            self.get_logger().info(
-                f'Encoder enabled on GPIO{self.encoder_a_pin} and GPIO{self.encoder_b_pin}'
-            )
-        ####
 
         self.tb = ThunderBorg.ThunderBorg()
         self.tb.Init()
@@ -213,14 +137,6 @@ class MechelangeloThunderBorgDriver(Node):
         self.declare_parameter('enable_comms_failsafe', True)
         self.declare_parameter('show_battery_led', True)
 
-        # Single encoder debug input ##added for encoder implementation
-        self.declare_parameter('enable_encoder', True)
-        self.declare_parameter('encoder_a_pin', 24)
-        self.declare_parameter('encoder_b_pin', 25)
-        self.declare_parameter('encoder_pull_up', False)
-        self.declare_parameter('encoder_invert', False)
-        self.declare_parameter('encoder_ticks_per_rev', 144.0)
-
         self.cmd_vel_topic = self.get_parameter('cmd_vel_topic').value
         self.wheel_separation_m = float(self.get_parameter('wheel_separation_m').value)
         self.max_linear_vel_mps = float(self.get_parameter('max_linear_vel_mps').value)
@@ -235,12 +151,6 @@ class MechelangeloThunderBorgDriver(Node):
         self.status_period = float(self.get_parameter('status_period').value)
         self.enable_comms_failsafe = bool(self.get_parameter('enable_comms_failsafe').value)
         self.show_battery_led = bool(self.get_parameter('show_battery_led').value)
-        self.enable_encoder = bool(self.get_parameter('enable_encoder').value)
-        self.encoder_a_pin = int(self.get_parameter('encoder_a_pin').value) ##added for encoder implementation
-        self.encoder_b_pin = int(self.get_parameter('encoder_b_pin').value)
-        self.encoder_pull_up = bool(self.get_parameter('encoder_pull_up').value)
-        self.encoder_invert = bool(self.get_parameter('encoder_invert').value)
-        self.encoder_ticks_per_rev = float(self.get_parameter('encoder_ticks_per_rev').value)
 
         self.max_power = constrain(self.max_power, 0.0, 1.0)
 
@@ -375,7 +285,7 @@ class MechelangeloThunderBorgDriver(Node):
             self.last_status_time = now
             self.print_status(linear, angular, left_output, right_output)
 
-    def print_status(self, linear, angular, left_output, right_output):  ##replaced for encoder implementation
+    def print_status(self, linear, angular, left_output, right_output):
         try:
             fault1 = self.tb.GetDriveFault1()
             fault2 = self.tb.GetDriveFault2()
@@ -383,33 +293,12 @@ class MechelangeloThunderBorgDriver(Node):
             fault1 = 'unknown'
             fault2 = 'unknown'
 
-        encoder_text = ''
-
-        if self.encoder is not None:
-            now = time.time()
-            count = self.encoder.get_count()
-
-            dt = max(now - self.last_encoder_time, 1e-3)
-            delta = count - self.last_encoder_count
-
-            ticks_per_sec = delta / dt
-            rpm = (ticks_per_sec / self.encoder_ticks_per_rev) * 60.0
-
-            self.last_encoder_count = count
-            self.last_encoder_time = now
-
-            encoder_text = (
-                f' | ENC count={count:+7d}, '
-                f'speed={ticks_per_sec:+7.1f} ticks/s, '
-                f'rpm={rpm:+6.1f}'
-            )
-
         self.get_logger().info(
             f'cmd v={linear:+.3f} m/s, w={angular:+.3f} rad/s | '
             f'L out={left_output:+.2f}, R out={right_output:+.2f} | '
             f'Fault1={fault1}, Fault2={fault2}'
-            f'{encoder_text}'
         )
+
     def stop_all(self):
         try:
             self.tb.MotorsOff()
@@ -420,12 +309,6 @@ class MechelangeloThunderBorgDriver(Node):
 
     def close_hardware(self):
         self.stop_all()
-
-        try: ##added for encoder implementation
-            if self.encoder is not None:
-                self.encoder.close()
-        except Exception as exc:
-            self.get_logger().warn(f'Could not close encoder GPIO cleanly: {exc}')
 
         try:
             self.tb.SetCommsFailsafe(False)
