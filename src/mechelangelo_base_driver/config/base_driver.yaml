@@ -78,15 +78,26 @@
 
     # Shows battery level using the ThunderBorg LEDs.
     show_battery_led: true
-
+    
+    
     # ============================================================
-    # ENCODER DEBUG INPUT
+    # ENCODER DEBUG INPUTS
     # ============================================================
-    # This is one quadrature encoder only.
     # GPIO numbers are BCM GPIO numbers, not physical header pins.
-    enable_encoder: true
-    encoder_a_pin: 24
-    encoder_b_pin: 25
-    encoder_pull_up: false
-    encoder_invert: false
+    # Left encoder uses IO23 and IO22.
+    # Right encoder uses IO24 and IO25.
+
+    enable_encoders: true
+
+    left_encoder_a_pin: 23
+    left_encoder_b_pin: 22
+
+    right_encoder_a_pin: 24
+    right_encoder_b_pin: 25
+
+    encoder_pull_up: true
+
+    left_encoder_invert: false
+    right_encoder_invert: false
+
     encoder_ticks_per_rev: 144.0
