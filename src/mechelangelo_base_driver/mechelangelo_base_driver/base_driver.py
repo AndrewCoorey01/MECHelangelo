@@ -702,8 +702,8 @@ class MechelangeloThunderBorgDriver(Node):
 
         # Motor mapping and direction correction
         self.declare_parameter('motor1_is_right', True)
-        self.declare_parameter('left_motor_invert', False)
-        self.declare_parameter('right_motor_invert', False)
+        self.declare_parameter('left_motor_invert', True)
+        self.declare_parameter('right_motor_invert', True)
 
         # Control/safety settings
         self.declare_parameter('cmd_timeout', 0.5)

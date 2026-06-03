@@ -54,8 +54,8 @@
     # If forward command makes a wheel spin backward,
     # flip that wheel's invert value.
 
-    left_motor_invert: false
-    right_motor_invert: false
+    left_motor_invert: true
+    right_motor_invert: true
 
 
     # ============================================================
