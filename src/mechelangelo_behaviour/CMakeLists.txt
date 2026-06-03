@@ -77,11 +77,6 @@ add_executable(mechelangelo_behaviour
   src/behaviour.cpp
 )
 
-target_include_directories(mechelangelo_behaviour PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
-)
-
 ament_target_dependencies(mechelangelo_behaviour
   rclcpp
   sensor_msgs
@@ -96,10 +91,6 @@ ament_target_dependencies(mechelangelo_behaviour
 install(TARGETS
   mechelangelo_behaviour
   DESTINATION lib/${PROJECT_NAME}
-)
-
-install(DIRECTORY include/
-  DESTINATION include
 )
 
 if(BUILD_TESTING)

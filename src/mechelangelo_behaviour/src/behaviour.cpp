@@ -963,7 +963,7 @@
 
 
 
-#include "mechelangelo_behaviour/behaviour.hpp"
+#include "behaviour.hpp"
 
 #include <algorithm>
 #include <chrono>
