@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <limits>
 #include <memory>
-#include <vector>
 
 #include "std_msgs/msg/float32_multi_array.hpp"
 
@@ -40,13 +39,6 @@ static constexpr double kMinValidRange = 0.5; // m
 
 // Front scan window used while moving forward
 static constexpr double kFrontCheckAngle = 15.0 * M_PI / 180.0; // +/- 15 degrees
-
-// LaserScan noise suppression.
-// Random speckle dots are usually isolated single returns with no nearby neighbouring beams.
-// This filter keeps points that belong to a small local cluster and suppresses isolated returns.
-static constexpr int kNoiseNeighbourWindow = 3;             // check +/- 3 laser beams around each point
-static constexpr int kNoiseMinNeighbourCount = 1;          // require at least 1 nearby neighbour to keep a point
-static constexpr double kNoiseNeighbourDistance = 0.25;    // metres, max XY distance to count as a nearby neighbour
 
 // Human tracking tuning
 // /human_tracking message format:
@@ -86,106 +78,6 @@ static double g_human_centre_offset = 0.0;
 static double g_human_distance_m = -1.0;
 static rclcpp::Time g_last_human_tracking_time;
 
-// Published for RViz/debugging. Add /scan_filtered as a LaserScan display in RViz to see
-// the suppressed scan. The behaviour logic also uses this filtered scan internally.
-static rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr g_filtered_scan_publisher;
-
-static bool isLaserRangeUsableForFiltering(
-    const sensor_msgs::msg::LaserScan &scan,
-    double range)
-{
-    if (!std::isfinite(range))
-    {
-        return false;
-    }
-
-    if (range <= kMinValidRange)
-    {
-        return false;
-    }
-
-    if (scan.range_min > 0.0 && range < scan.range_min)
-    {
-        return false;
-    }
-
-    if (scan.range_max > 0.0 && range > scan.range_max)
-    {
-        return false;
-    }
-
-    return true;
-}
-
-static sensor_msgs::msg::LaserScan suppressIsolatedLaserNoise(
-    const sensor_msgs::msg::LaserScan &raw_scan)
-{
-    sensor_msgs::msg::LaserScan filtered_scan = raw_scan;
-
-    if (raw_scan.ranges.empty() || raw_scan.angle_increment == 0.0)
-    {
-        return filtered_scan;
-    }
-
-    const int scan_count = static_cast<int>(raw_scan.ranges.size());
-    std::vector<double> x_points(scan_count, std::numeric_limits<double>::quiet_NaN());
-    std::vector<double> y_points(scan_count, std::numeric_limits<double>::quiet_NaN());
-    std::vector<bool> usable(scan_count, false);
-
-    for (int i = 0; i < scan_count; ++i)
-    {
-        const double range = raw_scan.ranges[i];
-
-        if (!isLaserRangeUsableForFiltering(raw_scan, range))
-        {
-            continue;
-        }
-
-        const double angle = raw_scan.angle_min + i * raw_scan.angle_increment;
-        x_points[i] = range * std::cos(angle);
-        y_points[i] = range * std::sin(angle);
-        usable[i] = true;
-    }
-
-    for (int i = 0; i < scan_count; ++i)
-    {
-        if (!usable[i])
-        {
-            filtered_scan.ranges[i] = std::numeric_limits<float>::infinity();
-            continue;
-        }
-
-        int close_neighbour_count = 0;
-
-        const int start_index = std::max(0, i - kNoiseNeighbourWindow);
-        const int end_index = std::min(scan_count - 1, i + kNoiseNeighbourWindow);
-
-        for (int j = start_index; j <= end_index; ++j)
-        {
-            if (j == i || !usable[j])
-            {
-                continue;
-            }
-
-            const double dx = x_points[i] - x_points[j];
-            const double dy = y_points[i] - y_points[j];
-            const double distance = std::hypot(dx, dy);
-
-            if (distance <= kNoiseNeighbourDistance)
-            {
-                close_neighbour_count++;
-            }
-        }
-
-        if (close_neighbour_count < kNoiseMinNeighbourCount)
-        {
-            filtered_scan.ranges[i] = std::numeric_limits<float>::infinity();
-        }
-    }
-
-    return filtered_scan;
-}
-
 MechelangeloBehaviour::MechelangeloBehaviour()
     : Node("mechelangelo_behaviour"),
       blind_autonomous_active_(false),
@@ -205,10 +97,6 @@ MechelangeloBehaviour::MechelangeloBehaviour()
 
     cmd_vel_publisher_ = this->create_publisher<geometry_msgs::msg::Twist>(
         "/cmd_vel",
-        10);
-
-    g_filtered_scan_publisher = this->create_publisher<sensor_msgs::msg::LaserScan>(
-        "/scan_filtered",
         10);
 
     human_detected_subscriber_ = this->create_subscription<std_msgs::msg::Bool>(
@@ -816,14 +704,7 @@ bool MechelangeloBehaviour::isRangeValid(double range) const
 void MechelangeloBehaviour::laserScanCallback(
     const sensor_msgs::msg::LaserScan::SharedPtr msg)
 {
-    sensor_msgs::msg::LaserScan filtered_scan = suppressIsolatedLaserNoise(*msg);
-
-    latest_scan_ = filtered_scan;
-
-    if (g_filtered_scan_publisher)
-    {
-        g_filtered_scan_publisher->publish(filtered_scan);
-    }
+    latest_scan_ = *msg;
 }
 
 void MechelangeloBehaviour::humanDetectedCallback(
