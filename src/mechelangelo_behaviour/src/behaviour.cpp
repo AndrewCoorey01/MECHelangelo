@@ -993,6 +993,12 @@ static constexpr double kTurnSpeed = 0.6;           // rad/s
 static constexpr double kAngleGain = 0.8;           // proportional turning gain
 static constexpr double kAlignmentTolerance = 0.10; // radians, about 5.7 degrees
 
+// Smooth commanded stops so the physical base does not snap from motion to zero
+// in one control tick. At the 100 ms control period, these remove roughly
+// 0.04 m/s and 0.12 rad/s from the command each loop.
+static constexpr double kStopLinearDecel = 0.4;  // m/s^2
+static constexpr double kStopAngularDecel = 1.2; // rad/s^2
+
 // Stop this far before a real obstacle/wall.
 static constexpr double kStopDistance = 1.5; // m for simulation
 // static constexpr double kStopDistance = 0.75; // m for physical robot testing
@@ -1005,6 +1011,11 @@ static constexpr double kMinValidRange = 0.5; // m
 
 // Front scan window used while moving forward.
 static constexpr double kFrontCheckAngle = 15.0 * M_PI / 180.0; // +/- 15 degrees
+
+// When several neighbouring beams are effectively tied for the longest
+// distance, steer toward the middle of that opening instead of whichever beam
+// happens to appear first in the scan array.
+static constexpr double kLongestRangeTieTolerance = 0.05; // m
 
 // ------------------------------------------------------
 // LaserScan noise suppression constants
@@ -1206,14 +1217,45 @@ void MechelangeloBehaviour::controlLoop()
         clearObstacleMarkers();
         twist.linear.x = 0.0;
 
+        double live_longest_angle = 0.0;
+        double live_longest_range = 0.0;
+
+        if (!getLongestRange(live_longest_angle, live_longest_range))
+        {
+            RCLCPP_WARN_THROTTLE(
+                this->get_logger(),
+                *this->get_clock(),
+                2000,
+                "ALIGNING: Lost valid filtered LaserScan data. Returning to search.");
+
+            stopRobot(twist);
+            current_state_ = NavigationState::SEARCHING;
+            break;
+        }
+
+        // Use the live LiDAR bearing as feedback. As the robot physically
+        // rotates, the chosen open direction should move toward 0 rad
+        // (straight ahead) in the robot frame. This works without encoders or
+        // an IMU because the LiDAR itself observes the rotation relative to the
+        // surrounding room.
+        target_angle_ = live_longest_angle;
+        target_range_ = live_longest_range;
+
         if (std::fabs(target_angle_) <= kAlignmentTolerance)
         {
-            RCLCPP_INFO(
-                this->get_logger(),
-                "ALIGNING: Aligned with chosen laser direction. Starting forward movement.");
+            stopRobot(twist);
 
-            twist.angular.z = 0.0;
-            current_state_ = NavigationState::MOVING;
+            if (std::fabs(twist.angular.z) <= 1e-6)
+            {
+                RCLCPP_INFO(
+                    this->get_logger(),
+                    "ALIGNING: Longest filtered scan is ahead at %.2f deg, range %.2f m. Starting forward movement.",
+                    target_angle_ * 180.0 / M_PI,
+                    target_range_);
+
+                current_state_ = NavigationState::MOVING;
+            }
+
             break;
         }
 
@@ -1224,16 +1266,13 @@ void MechelangeloBehaviour::controlLoop()
 
         twist.angular.z = turn_cmd;
 
-        // Estimate turn progress without odometry.
-        target_angle_ -= turn_cmd * kControlPeriodSeconds;
-        target_angle_ = normaliseAngle(target_angle_);
-
         RCLCPP_INFO_THROTTLE(
             this->get_logger(),
             *this->get_clock(),
             1000,
-            "ALIGNING: Remaining angle %.2f deg, angular command %.2f rad/s",
+            "ALIGNING: Longest filtered scan at %.2f deg, range %.2f m, angular command %.2f rad/s",
             target_angle_ * 180.0 / M_PI,
+            target_range_,
             twist.angular.z);
 
         break;
@@ -1482,12 +1521,26 @@ void MechelangeloBehaviour::controlLoop()
 
 void MechelangeloBehaviour::stopRobot(geometry_msgs::msg::Twist &twist)
 {
-    twist.linear.x = 0.0;
-    twist.linear.y = 0.0;
-    twist.linear.z = 0.0;
-    twist.angular.x = 0.0;
-    twist.angular.y = 0.0;
-    twist.angular.z = 0.0;
+    const double linear_step = kStopLinearDecel * kControlPeriodSeconds;
+    const double angular_step = kStopAngularDecel * kControlPeriodSeconds;
+
+    auto rampTowardZero = [](double value, double max_step)
+    {
+        if (std::fabs(value) <= max_step)
+        {
+            return 0.0;
+        }
+
+        return value - std::copysign(max_step, value);
+    };
+
+    twist.linear.x = rampTowardZero(current_twist_.linear.x, linear_step);
+    twist.linear.y = rampTowardZero(current_twist_.linear.y, linear_step);
+    twist.linear.z = rampTowardZero(current_twist_.linear.z, linear_step);
+
+    twist.angular.x = rampTowardZero(current_twist_.angular.x, angular_step);
+    twist.angular.y = rampTowardZero(current_twist_.angular.y, angular_step);
+    twist.angular.z = rampTowardZero(current_twist_.angular.z, angular_step);
 }
 
 void MechelangeloBehaviour::laserScanCallback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
@@ -1837,7 +1890,57 @@ bool MechelangeloBehaviour::getLongestRange(double &out_angle, double &out_range
         return false;
     }
 
-    out_angle = normaliseAngle(latest_scan_.angle_min + static_cast<double>(max_index) * latest_scan_.angle_increment);
+    const double tied_range_threshold = std::max(kMinValidRange, max_range - kLongestRangeTieTolerance);
+    const int scan_count = static_cast<int>(latest_scan_.ranges.size());
+    std::vector<bool> near_longest(scan_count, false);
+
+    for (int i = 0; i < scan_count; ++i)
+    {
+        const double range = latest_scan_.ranges[i];
+        near_longest[i] = isRangeValid(range) && range >= tied_range_threshold;
+    }
+
+    int best_start_index = max_index;
+    int best_count = 0;
+
+    for (int start_index = 0; start_index < scan_count; ++start_index)
+    {
+        if (!near_longest[start_index])
+        {
+            continue;
+        }
+
+        const int previous_index = (start_index - 1 + scan_count) % scan_count;
+        if (near_longest[previous_index])
+        {
+            continue;
+        }
+
+        int count = 0;
+
+        while (count < scan_count && near_longest[(start_index + count) % scan_count])
+        {
+            count++;
+        }
+
+        if (count > best_count)
+        {
+            best_count = count;
+            best_start_index = start_index;
+        }
+    }
+
+    if (best_count == 0)
+    {
+        best_count = scan_count;
+        best_start_index = 0;
+    }
+
+    const double best_mid_index = std::fmod(
+        static_cast<double>(best_start_index) + 0.5 * static_cast<double>(std::max(0, best_count - 1)),
+        static_cast<double>(scan_count));
+
+    out_angle = normaliseAngle(latest_scan_.angle_min + best_mid_index * latest_scan_.angle_increment);
     out_range = max_range;
 
     return true;
