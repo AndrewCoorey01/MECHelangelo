@@ -1217,30 +1217,6 @@ void MechelangeloBehaviour::controlLoop()
         clearObstacleMarkers();
         twist.linear.x = 0.0;
 
-        double live_longest_angle = 0.0;
-        double live_longest_range = 0.0;
-
-        if (!getLongestRange(live_longest_angle, live_longest_range))
-        {
-            RCLCPP_WARN_THROTTLE(
-                this->get_logger(),
-                *this->get_clock(),
-                2000,
-                "ALIGNING: Lost valid filtered LaserScan data. Returning to search.");
-
-            stopRobot(twist);
-            current_state_ = NavigationState::SEARCHING;
-            break;
-        }
-
-        // Use the live LiDAR bearing as feedback. As the robot physically
-        // rotates, the chosen open direction should move toward 0 rad
-        // (straight ahead) in the robot frame. This works without encoders or
-        // an IMU because the LiDAR itself observes the rotation relative to the
-        // surrounding room.
-        target_angle_ = live_longest_angle;
-        target_range_ = live_longest_range;
-
         if (std::fabs(target_angle_) <= kAlignmentTolerance)
         {
             stopRobot(twist);
@@ -1266,11 +1242,18 @@ void MechelangeloBehaviour::controlLoop()
 
         twist.angular.z = turn_cmd;
 
+        // Keep turning toward the single heading chosen in SEARCHING.
+        // Do not recompute the global longest range here: in a real room that
+        // target can jump between different walls/openings and make the robot
+        // oscillate left/right.
+        target_angle_ -= turn_cmd * kControlPeriodSeconds;
+        target_angle_ = normaliseAngle(target_angle_);
+
         RCLCPP_INFO_THROTTLE(
             this->get_logger(),
             *this->get_clock(),
             1000,
-            "ALIGNING: Longest filtered scan at %.2f deg, range %.2f m, angular command %.2f rad/s",
+            "ALIGNING: Turning toward locked scan heading. Remaining angle %.2f deg, chosen range %.2f m, angular command %.2f rad/s",
             target_angle_ * 180.0 / M_PI,
             target_range_,
             twist.angular.z);

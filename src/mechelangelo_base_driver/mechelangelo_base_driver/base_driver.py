@@ -967,11 +967,11 @@ class MechelangeloThunderBorgDriver(Node):
             self.last_left_encoder_count = left_count
             self.last_left_encoder_time = now
 
-            text += (
-                f' | L ENC count={left_count:+7d}, '
-                f'speed={left_tps:+7.1f} ticks/s, '
-                f'rpm={left_rpm:+6.1f}'
-            )
+            # text += (
+            #     f' | L ENC count={left_count:+7d}, '
+            #     f'speed={left_tps:+7.1f} ticks/s, '
+            #     f'rpm={left_rpm:+6.1f}'
+            # )
 
         if self.right_encoder is not None:
             right_count = self.right_encoder.get_count()
@@ -984,11 +984,11 @@ class MechelangeloThunderBorgDriver(Node):
             self.last_right_encoder_count = right_count
             self.last_right_encoder_time = now
 
-            text += (
-                f' | R ENC count={right_count:+7d}, '
-                f'speed={right_tps:+7.1f} ticks/s, '
-                f'rpm={right_rpm:+6.1f}'
-            )
+            # text += (
+            #     f' | R ENC count={right_count:+7d}, '
+            #     f'speed={right_tps:+7.1f} ticks/s, '
+            #     f'rpm={right_rpm:+6.1f}'
+            # )
 
         return text
 
@@ -1002,12 +1002,12 @@ class MechelangeloThunderBorgDriver(Node):
 
         encoder_text = self.encoder_status_text()
 
-        self.get_logger().info(
-            f'cmd v={linear:+.3f} m/s, w={angular:+.3f} rad/s | '
-            f'L out={left_output:+.2f}, R out={right_output:+.2f} | '
-            f'Fault1={fault1}, Fault2={fault2}'
-            f'{encoder_text}'
-        )
+        # self.get_logger().info(
+        #     f'cmd v={linear:+.3f} m/s, w={angular:+.3f} rad/s | '
+        #     f'L out={left_output:+.2f}, R out={right_output:+.2f} | '
+        #     f'Fault1={fault1}, Fault2={fault2}'
+        #     f'{encoder_text}'
+        # )
 
     def stop_all(self):
         try:
