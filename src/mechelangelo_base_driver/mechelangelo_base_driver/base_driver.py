@@ -690,14 +690,14 @@ class MechelangeloThunderBorgDriver(Node):
         self.declare_parameter('cmd_vel_topic', 'cmd_vel')
 
         # Robot geometry
-        self.declare_parameter('wheel_separation_m', 0.50)
+        self.declare_parameter('wheel_separation_m', 0.42)
 
         # Velocity limits accepted from /cmd_vel
         self.declare_parameter('max_linear_vel_mps', 0.15)
         self.declare_parameter('max_angular_vel_radps', 0.60)
 
         # ThunderBorg output scaling
-        self.declare_parameter('max_power', 0.75)
+        self.declare_parameter('max_power', 1.0)
         self.declare_parameter('deadband', 0.03)
 
         # Motor mapping and direction correction

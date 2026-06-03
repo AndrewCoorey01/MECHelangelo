@@ -1,3 +1,7 @@
+# SCRATCH COPY — setup.py as of 2026-06-03
+# Saved before arm_pose_bridge was registered as a console_scripts entry point.
+# The arm_pose_bridge node did not exist in this version.
+
 from setuptools import find_packages, setup
 import os
 from glob import glob
@@ -32,8 +36,6 @@ setup(
             'pose_tracking_human_ros = mechelangelo_perception.pose_tracking_human_ros:main',
             # MQTT → ROS bridge for arm angles (used on physical robot)
             'mqtt_bridge = mechelangelo_perception.mqtt_bridge:main',
-            # Simulation arm bridge: /arm_pose → Gazebo SetModelConfiguration
-            'arm_pose_bridge = mechelangelo_perception.arm_pose_bridge:main',
         ],
     },
 )

@@ -37,7 +37,7 @@ LEFT_INVERT = False
 RIGHT_INVERT = False
 
 # Start conservative.
-MAX_POWER = 0.75
+MAX_POWER = 1.0
 
 # Keyboard increments.
 SPEED_STEP = 0.05

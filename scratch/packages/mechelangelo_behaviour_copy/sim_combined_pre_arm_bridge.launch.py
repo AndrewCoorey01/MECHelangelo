@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
 """
+SCRATCH COPY — sim_combined.launch.py as of 2026-06-03
+Saved before arm_pose_bridge node was added.
+
+FUNCTIONALITY OF THIS VERSION:
+  Starts human_pose_tracking (sim camera → /human_tracking) and
+  human_pose_mimicry (laptop webcam → /arm_pose).
+  /arm_pose was published but nothing consumed it in simulation —
+  the robot arms were completely passive and unresponsive.
+  The arm_pose_bridge node added in the next version converts
+  /arm_pose messages into Gazebo SetModelConfiguration service calls
+  so the joints actually move.
+
 sim_combined.launch.py — Full simulation perception pipeline.
 
 Starts BOTH perception nodes simultaneously for end-to-end sim testing:
@@ -36,7 +48,6 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-from launch.actions import TimerAction
 
 
 def generate_launch_description():
@@ -94,22 +105,6 @@ def generate_launch_description():
                 '--device', usb_device,
                 '--arm-topic', arm_topic,
                 '--flask-port', '5001',
-            ],
-        ),
-
-        # ── Node 3: Arm pose → Gazebo joint bridge ────────────────────
-        # Subscribes to /arm_pose and calls /gazebo/set_model_configuration
-        # to directly position the arm joints in simulation.
-        # Delayed 3 s to give Gazebo time to finish spawning the robot.
-        TimerAction(
-            period=3.0,
-            actions=[
-                Node(
-                    package='mechelangelo_perception',
-                    executable='arm_pose_bridge',
-                    name='arm_pose_bridge',
-                    output='screen',
-                ),
             ],
         ),
     ])
