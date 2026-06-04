@@ -1010,7 +1010,7 @@ static constexpr int kStopDurationLoops = 30;
 static constexpr double kMinValidRange = 0.5; // m
 
 // Front scan window used while moving forward.
-static constexpr double kFrontCheckAngle = 15.0 * M_PI / 180.0; // +/- 15 degrees
+static constexpr double kFrontCheckAngle = 30 * M_PI / 180.0; // +/- 30 degrees
 
 // When several neighbouring beams are effectively tied for the longest
 // distance, steer toward the middle of that opening instead of whichever beam
