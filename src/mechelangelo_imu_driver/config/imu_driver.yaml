@@ -1,0 +1,9 @@
+sensehat_imu:
+    ros__parameters:
+        en_imu: true
+        en_mag: true
+        en_pressure: true
+        en_humidity: true
+        en_temp: true
+        frame_id: sensehat_frame
+        timer_period: 0.02   # seconds (50 Hz)

@@ -144,7 +144,6 @@
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <nav_msgs/msg/odometry.hpp>
-#include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
@@ -207,7 +206,6 @@ private:
     // ROS callbacks
     // ------------------------------------------------------
     void laserScanCallback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
-    void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg);
     void humanDetectedCallback(const std_msgs::msg::Bool::SharedPtr msg);
     void humanTrackingCallback(const std_msgs::msg::Float32MultiArray::SharedPtr msg);
 
@@ -254,7 +252,6 @@ private:
     // ROS publishers/subscribers/timers
     // ------------------------------------------------------
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr laser_scan_subscriber_;
-    rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_subscriber_;
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_publisher_;
 
     // Filtered scan debug output. View this in RViz instead of /scan.
@@ -277,7 +274,6 @@ private:
     // ------------------------------------------------------
     sensor_msgs::msg::LaserScan latest_scan_;
     std::vector<LaserSegment> latest_segments_;
-    sensor_msgs::msg::Imu latest_imu_;
     geometry_msgs::msg::Twist current_twist_;
 
     // ------------------------------------------------------
@@ -305,11 +301,6 @@ private:
     double target_angle_;
     double target_range_;
     int stop_counter_;
-
-    // IMU-assisted rotation tracking for ALIGNING state.
-    bool imu_available_;        // true once at least one /imu message has arrived
-    double align_start_yaw_;    // yaw recorded at the moment ALIGNING begins
-    bool align_yaw_initialised_; // true once align_start_yaw_ has been captured
 
     // ------------------------------------------------------
     // Random tools

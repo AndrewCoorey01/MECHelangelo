@@ -331,7 +331,7 @@
     <joint name="imu_joint" type="fixed">
       <parent>base_link</parent>
       <child>imu_link</child>
-      <pose>0.0 0 0.068 0 0 0</pose>
+      <pose>0 0 0.37 0 0 0</pose>
     </joint>
 
     <joint name="scan_joint" type="fixed">

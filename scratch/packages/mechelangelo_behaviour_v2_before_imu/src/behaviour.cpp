@@ -1075,9 +1075,6 @@ MechelangeloBehaviour::MechelangeloBehaviour()
   target_angle_(0.0),
   target_range_(0.0),
   stop_counter_(0),
-  imu_available_(false),
-  align_start_yaw_(0.0),
-  align_yaw_initialised_(false),
   random_engine_(std::random_device{}()),
   turn_dist_(-1.0, 1.0)
 {
@@ -1085,11 +1082,6 @@ MechelangeloBehaviour::MechelangeloBehaviour()
         "/scan",
         rclcpp::SensorDataQoS(),
         std::bind(&MechelangeloBehaviour::laserScanCallback, this, std::placeholders::_1));
-
-    imu_subscriber_ = this->create_subscription<sensor_msgs::msg::Imu>(
-        "/imu",
-        rclcpp::SensorDataQoS(),
-        std::bind(&MechelangeloBehaviour::imuCallback, this, std::placeholders::_1));
 
     cmd_vel_publisher_ = this->create_publisher<geometry_msgs::msg::Twist>(
         "/cmd_vel",
@@ -1155,7 +1147,6 @@ void MechelangeloBehaviour::blindAutonomous()
     target_angle_ = 0.0;
     target_range_ = 0.0;
     stop_counter_ = 0;
-    align_yaw_initialised_ = false;
     clearObstacleMarkers();
 }
 
@@ -1210,7 +1201,6 @@ void MechelangeloBehaviour::controlLoop()
 
         target_angle_ = longest_angle;
         target_range_ = longest_range;
-        align_yaw_initialised_ = false;
 
         RCLCPP_INFO(
             this->get_logger(),
@@ -1227,73 +1217,45 @@ void MechelangeloBehaviour::controlLoop()
         clearObstacleMarkers();
         twist.linear.x = 0.0;
 
-        if (!imu_available_)
-        {
-            // IMU not yet publishing — fall back to open-loop time integration.
-            if (std::fabs(target_angle_) <= kAlignmentTolerance)
-            {
-                stopRobot(twist);
-                if (std::fabs(twist.angular.z) <= 1e-6)
-                {
-                    RCLCPP_INFO(this->get_logger(),
-                        "ALIGNING (open-loop): Aligned. Starting forward movement.");
-                    current_state_ = NavigationState::MOVING;
-                }
-                break;
-            }
-
-            const double turn_cmd = std::clamp(
-                target_angle_ * kAngleGain, -kTurnSpeed, kTurnSpeed);
-            twist.angular.z = turn_cmd;
-            target_angle_ -= turn_cmd * kControlPeriodSeconds;
-            target_angle_ = normaliseAngle(target_angle_);
-
-            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
-                "ALIGNING: No IMU data yet — using open-loop time estimate. "
-                "Remaining %.2f deg", target_angle_ * 180.0 / M_PI);
-            break;
-        }
-
-        // IMU-confirmed alignment: compare actual yaw turned vs. required angle.
-        tf2::Quaternion q;
-        tf2::fromMsg(latest_imu_.orientation, q);
-        const double current_yaw = tf2::getYaw(q);
-
-        if (!align_yaw_initialised_)
-        {
-            align_start_yaw_ = current_yaw;
-            align_yaw_initialised_ = true;
-        }
-
-        // How much has the robot actually rotated since ALIGNING began.
-        const double yaw_turned = normaliseAngle(current_yaw - align_start_yaw_);
-
-        // How many degrees still remain.
-        const double remaining_angle = normaliseAngle(target_angle_ - yaw_turned);
-
-        if (std::fabs(remaining_angle) <= kAlignmentTolerance)
+        if (std::fabs(target_angle_) <= kAlignmentTolerance)
         {
             stopRobot(twist);
+
             if (std::fabs(twist.angular.z) <= 1e-6)
             {
-                RCLCPP_INFO(this->get_logger(),
-                    "ALIGNING: IMU confirmed rotation. Turned %.2f deg (target %.2f deg). Starting forward movement.",
-                    yaw_turned * 180.0 / M_PI,
-                    target_angle_ * 180.0 / M_PI);
+                RCLCPP_INFO(
+                    this->get_logger(),
+                    "ALIGNING: Longest filtered scan is ahead at %.2f deg, range %.2f m. Starting forward movement.",
+                    target_angle_ * 180.0 / M_PI,
+                    target_range_);
+
                 current_state_ = NavigationState::MOVING;
             }
+
             break;
         }
 
         const double turn_cmd = std::clamp(
-            remaining_angle * kAngleGain, -kTurnSpeed, kTurnSpeed);
+            target_angle_ * kAngleGain,
+            -kTurnSpeed,
+            kTurnSpeed);
+
         twist.angular.z = turn_cmd;
 
-        RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
-            "ALIGNING: IMU-confirmed. Target %.2f deg, turned %.2f deg, remaining %.2f deg, cmd %.2f rad/s",
+        // Keep turning toward the single heading chosen in SEARCHING.
+        // Do not recompute the global longest range here: in a real room that
+        // target can jump between different walls/openings and make the robot
+        // oscillate left/right.
+        target_angle_ -= turn_cmd * kControlPeriodSeconds;
+        target_angle_ = normaliseAngle(target_angle_);
+
+        RCLCPP_INFO_THROTTLE(
+            this->get_logger(),
+            *this->get_clock(),
+            1000,
+            "ALIGNING: Turning toward locked scan heading. Remaining angle %.2f deg, chosen range %.2f m, angular command %.2f rad/s",
             target_angle_ * 180.0 / M_PI,
-            yaw_turned * 180.0 / M_PI,
-            remaining_angle * 180.0 / M_PI,
+            target_range_,
             twist.angular.z);
 
         break;
@@ -1572,12 +1534,6 @@ void MechelangeloBehaviour::laserScanCallback(const sensor_msgs::msg::LaserScan:
     latest_segments_ = buildLaserSegments(filtered_scan);
 
     filtered_scan_publisher_->publish(filtered_scan);
-}
-
-void MechelangeloBehaviour::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
-{
-    latest_imu_ = *msg;
-    imu_available_ = true;
 }
 
 void MechelangeloBehaviour::humanDetectedCallback(const std_msgs::msg::Bool::SharedPtr msg)
