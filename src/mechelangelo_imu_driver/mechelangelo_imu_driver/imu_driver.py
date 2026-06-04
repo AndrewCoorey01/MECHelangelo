@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+import math
+import os
+import shutil
 import sys
 from typing import Optional
 
@@ -7,13 +10,56 @@ import rclpy
 from rclpy.node import Node
 from rclpy.timer import Timer
 from rclpy.qos import qos_profile_sensor_data
-from tf_transformations import quaternion_from_euler
+from ament_index_python.packages import get_package_share_directory
 
 from geometry_msgs.msg import Quaternion, Vector3
 from sensor_msgs.msg import Imu, Temperature, MagneticField, FluidPressure as Pressure, RelativeHumidity as Humidity
 from std_msgs.msg import Header
 
 from sense_hat import SenseHat
+
+
+def _euler_to_quaternion(roll: float, pitch: float, yaw: float) -> list:
+    """Convert Euler angles (RPY, radians) to [x, y, z, w] quaternion.
+
+    Equivalent to tf_transformations.quaternion_from_euler(roll, pitch, yaw)
+    using the default sxyz (intrinsic XYZ) convention.
+    """
+    cr = math.cos(roll * 0.5)
+    sr = math.sin(roll * 0.5)
+    cp = math.cos(pitch * 0.5)
+    sp = math.sin(pitch * 0.5)
+    cy = math.cos(yaw * 0.5)
+    sy = math.sin(yaw * 0.5)
+    return [
+        sr * cp * cy - cr * sp * sy,  # x
+        cr * sp * cy + sr * cp * sy,  # y
+        cr * cp * sy - sr * sp * cy,  # z
+        cr * cp * cy + sr * sp * sy,  # w
+    ]
+
+
+def _ensure_rtimu_config() -> None:
+    """Copy the bundled RTIMULib.ini to ~/.config/sense_hat/ if not already there.
+
+    sense_hat.py only searches ~/.config/sense_hat/ and /etc/ for the calibration
+    file. This function seeds the home location from the package-shipped file so
+    compass, accel, and gyro calibration values are not lost on first boot.
+    """
+    home_path = os.path.join(os.path.expanduser('~'), '.config', 'sense_hat')
+    os.makedirs(home_path, exist_ok=True)
+
+    dest = os.path.join(home_path, 'RTIMULib.ini')
+    if os.path.isfile(dest):
+        return
+
+    try:
+        pkg_share = get_package_share_directory('mechelangelo_imu_driver')
+        src = os.path.join(pkg_share, 'config', 'RTIMULib.ini')
+        if os.path.isfile(src):
+            shutil.copyfile(src, dest)
+    except Exception:
+        pass
 
 
 class SenseHatImuNode(Node):
@@ -32,6 +78,8 @@ class SenseHatImuNode(Node):
                 ('timer_period', 0.02),
             ]
         )
+
+        _ensure_rtimu_config()
 
         self._sensehat = SenseHat()
         self._sensehat.set_rotation(180)
@@ -94,7 +142,7 @@ class SenseHatImuNode(Node):
 
                 if self._mag_pub:
                     orientation = self._sensehat.get_orientation_radians()
-                    quat = quaternion_from_euler(
+                    quat = _euler_to_quaternion(
                         orientation['roll'], -orientation['pitch'], orientation['yaw'])
                     msg.orientation = Quaternion(
                         x=quat[0], y=quat[1], z=quat[2], w=quat[3])

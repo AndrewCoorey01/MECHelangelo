@@ -29,8 +29,8 @@
 // static constexpr double kAlignmentTolerance = 0.10; // radians, about 5.7 degrees
 
 // // Stop 1.5 m away from the object/wall in front
-// static constexpr double kStopDistance = 1.5; // m for simulation
-// // static constexpr double kStopDistance = 0.75; // m for physical
+// static constexpr double stop_distance_m_ = 1.5; // m for simulation
+// // static constexpr double stop_distance_m_ = 0.75; // m for physical
 
 // // 30 loops x 0.1 s = 3 seconds
 // static constexpr int kStopDurationLoops = 30;
@@ -439,7 +439,7 @@
 //         }
 
 //         // Stop when a valid front obstacle/wall is within 1.5 m.
-//         if (front_range <= kStopDistance)
+//         if (front_range <= stop_distance_m_)
 //         {
 //             RCLCPP_INFO(
 //                 this->get_logger(),
@@ -1000,8 +1000,8 @@ static constexpr double kStopLinearDecel = 0.4;  // m/s^2
 static constexpr double kStopAngularDecel = 1.2; // rad/s^2
 
 // Stop this far before a real obstacle/wall.
-static constexpr double kStopDistance = 1.5; // m for simulation
-// static constexpr double kStopDistance = 0.75; // m for physical robot testing
+// Loaded from the ROS parameter 'stop_distance_m'.
+// Default: 1.5 m (simulation). Physical robot: set to 0.75 in the launch file.
 
 // 30 loops x 0.1 s = 3 seconds.
 static constexpr int kStopDurationLoops = 30;
@@ -1074,6 +1074,7 @@ MechelangeloBehaviour::MechelangeloBehaviour()
   current_state_(NavigationState::SEARCHING),
   target_angle_(0.0),
   target_range_(0.0),
+  stop_distance_m_(1.5),
   stop_counter_(0),
   imu_available_(false),
   align_start_yaw_(0.0),
@@ -1081,6 +1082,11 @@ MechelangeloBehaviour::MechelangeloBehaviour()
   random_engine_(std::random_device{}()),
   turn_dist_(-1.0, 1.0)
 {
+    this->declare_parameter("stop_distance_m", 1.5);
+    stop_distance_m_ = this->get_parameter("stop_distance_m").as_double();
+
+    RCLCPP_INFO(this->get_logger(), "Stop distance: %.2f m", stop_distance_m_);
+
     laser_scan_subscriber_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
         "/scan",
         rclcpp::SensorDataQoS(),
@@ -1308,7 +1314,7 @@ void MechelangeloBehaviour::controlLoop()
         // Segment-based blocking is the main decision. This prevents a single
         // random dot from stopping the robot because the dot will not survive
         // the neighbour + segment filter.
-        if (blocked_by_segment || front_range <= kStopDistance)
+        if (blocked_by_segment || front_range <= stop_distance_m_)
         {
             if (blocking_segments.empty())
             {
@@ -1317,7 +1323,7 @@ void MechelangeloBehaviour::controlLoop()
                 LaserSegment fallback;
                 fallback.point_count = 1;
                 fallback.min_range = front_range;
-                fallback.midpoint.x = std::isfinite(front_range) ? front_range : kStopDistance;
+                fallback.midpoint.x = std::isfinite(front_range) ? front_range : stop_distance_m_;
                 fallback.midpoint.y = 0.0;
                 fallback.midpoint.z = 0.0;
                 blocking_segments.push_back(fallback);
@@ -2066,7 +2072,7 @@ bool MechelangeloBehaviour::findBlockingObstaclesInFront(
 
     for (const LaserSegment &segment : latest_segments_)
     {
-        if (segment.min_range <= kStopDistance &&
+        if (segment.min_range <= stop_distance_m_ &&
             segmentOverlapsAngleWindow(segment, -kFrontCheckAngle, kFrontCheckAngle))
         {
             blocking_segments.push_back(segment);

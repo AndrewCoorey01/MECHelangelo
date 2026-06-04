@@ -304,6 +304,7 @@ private:
 
     double target_angle_;
     double target_range_;
+    double stop_distance_m_;
     int stop_counter_;
 
     // IMU-assisted rotation tracking for ALIGNING state.
