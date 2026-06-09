@@ -16,8 +16,10 @@ def generate_launch_description():
     pkg_gazebo_ros = get_package_share_directory('gazebo_ros')
 
     world = os.path.join(gazebo_pkg, 'worlds', 'Gallery_Empty_Room.world')
-    sdf_file = os.path.join(gazebo_pkg, 'models', 'mechelangelo_dual_arms', 'model.sdf')
-    urdf_file = os.path.join(description_pkg, 'urdf', 'mechelangelo_dual_arms.urdf')
+    # sdf_file = os.path.join(gazebo_pkg, 'models', 'mechelangelo_dual_arms', 'model.sdf')
+    # urdf_file = os.path.join(description_pkg, 'urdf', 'mechelangelo_dual_arms.urdf')
+    sdf_file = os.path.join(gazebo_pkg, 'models', 'mechelangelo_final', 'model.sdf') ##final model with cad model arms and updated body
+    urdf_file = os.path.join(description_pkg, 'urdf', 'mechelangelo_final.urdf')
 
     with open(urdf_file, 'r') as f:
         robot_description = f.read()
