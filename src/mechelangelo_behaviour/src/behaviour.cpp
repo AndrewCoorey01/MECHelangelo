@@ -968,6 +968,8 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <fstream>
+#include <iomanip>
 #include <limits>
 #include <functional>
 #include <memory>
@@ -1975,6 +1977,20 @@ bool MechelangeloBehaviour::getLongestRange(double &out_angle, double &out_range
 
     out_angle = normaliseAngle(latest_scan_.angle_min + best_mid_index * latest_scan_.angle_increment);
     out_range = max_range;
+
+    {
+        std::ofstream log("/home/andy/git/MECHelangelo/src/mechelangelo_behaviour/debug/longest_scan_debug.txt");
+        log << std::fixed << std::setprecision(4);
+        log << "=== Laser Scan Values ===\n";
+        for (int i = 0; i < static_cast<int>(latest_scan_.ranges.size()); ++i)
+        {
+            const double angle_deg = (latest_scan_.angle_min + static_cast<double>(i) * latest_scan_.angle_increment) * 180.0 / M_PI;
+            log << "  [" << std::setw(4) << i << "]  angle=" << std::setw(9) << angle_deg << " deg  range=" << latest_scan_.ranges[i] << " m\n";
+        }
+        log << "\n=== Result ===\n";
+        log << "  Longest range: " << out_range << " m\n";
+        log << "  At angle:      " << (out_angle * 180.0 / M_PI) << " deg\n";
+    }
 
     return true;
 }
