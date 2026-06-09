@@ -391,7 +391,7 @@
       </inertial>
 
       <visual name="left_id2_visual">
-        <pose>0 0 0 1.5708 0 3.1416</pose>
+        <pose>0 0 0 1.5708 0 0</pose>
         <geometry>
           <mesh>
             <uri>model://mechelangelo_final/meshes/Arms/ID2 DAE/id2.dae</uri>
@@ -407,7 +407,7 @@
       </visual>
 
       <collision name="left_id2_collision">
-        <pose>0 0 0 1.5708 0 3.1416</pose>
+        <pose>0 0 0 1.5708 0 0</pose>
         <geometry>
           <mesh>
             <uri>model://mechelangelo_final/meshes/Arms/ID2 DAE/id2.dae</uri>
@@ -680,7 +680,7 @@
       </inertial>
 
       <visual name="right_id2_visual">
-        <pose>0 0 0 -1.5708 0 -3.1416</pose>
+        <pose>0 0 0 -1.5708 0 0</pose>
         <geometry>
           <mesh>
             <uri>model://mechelangelo_final/meshes/Arms/ID2 DAE/id2.dae</uri>
@@ -696,7 +696,7 @@
       </visual>
 
       <collision name="right_id2_collision">
-        <pose>0 0 0 -1.5708 0 -3.1416</pose>
+        <pose>0 0 0 -1.5708 0 0</pose>
         <geometry>
           <mesh>
             <uri>model://mechelangelo_final/meshes/Arms/ID2 DAE/id2.dae</uri>
