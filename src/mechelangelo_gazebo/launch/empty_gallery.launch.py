@@ -115,7 +115,7 @@ def generate_launch_description():
 
     ld.add_action(DeclareLaunchArgument('x_pose', default_value='2'))
     ld.add_action(DeclareLaunchArgument('y_pose', default_value='2'))
-    ld.add_action(DeclareLaunchArgument('z_pose', default_value='0.5'))
+    ld.add_action(DeclareLaunchArgument('z_pose', default_value='0.0'))
     ld.add_action(DeclareLaunchArgument('roll', default_value='0.0'))
     ld.add_action(DeclareLaunchArgument('pitch', default_value='0'))
     ld.add_action(DeclareLaunchArgument('yaw', default_value='0'))

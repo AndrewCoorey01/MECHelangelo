@@ -13,9 +13,11 @@ arm_controller:
     joints:
       - left_joint1
       - left_joint2
+      - left_joint3
       - left_hand_joint
       - right_joint1
       - right_joint2
+      - right_joint3
       - right_hand_joint
 
     command_interfaces:
