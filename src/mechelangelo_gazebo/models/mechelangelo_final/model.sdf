@@ -17,12 +17,9 @@
         </inertia>
       </inertial>
       <collision name="base_collision">
-        <pose>0 0 0 0 0 0</pose>
+        <pose>0 0 0.10 0 0 0</pose>
         <geometry>
-          <mesh>
-            <uri>model://mechelangelo_final/meshes/base_final/final_design_body.dae</uri>
-            <scale>1 1 1</scale>
-          </mesh>
+          <mesh><uri>model://mechelangelo_final/meshes/base_final/final_design_body.dae</uri><scale>1 1 1</scale></mesh>
         </geometry>
       </collision>
       <visual name="base_visual">
@@ -55,13 +52,8 @@
         </inertia>
       </inertial>
       <collision name="wheel_left_collision">
-        <pose>0.113 0.203 0.075 0 0 0</pose>
-        <geometry>
-          <mesh>
-            <uri>model://mechelangelo_final/meshes/wheels/wheel.dae</uri>
-            <scale>1 1 1</scale>
-          </mesh>
-        </geometry>
+        <pose>0.113 0.203 0.075 1.5708 0 0</pose>
+        <geometry><cylinder><radius>0.075</radius><length>0.03</length></cylinder></geometry>
       </collision>
       <visual name="wheel_left_visual">
         <pose>0.113 0.203 0.075 0 0 0</pose>
@@ -87,13 +79,8 @@
         </inertia>
       </inertial>
       <collision name="wheel_right_collision">
-        <pose>0.113 -0.203 0.075 0 0 0</pose>
-        <geometry>
-          <mesh>
-            <uri>model://mechelangelo_final/meshes/wheels/wheel.dae</uri>
-            <scale>1 1 1</scale>
-          </mesh>
-        </geometry>
+        <pose>0.113 -0.203 0.075 1.5708 0 0</pose>
+        <geometry><cylinder><radius>0.075</radius><length>0.03</length></cylinder></geometry>
       </collision>
       <visual name="wheel_right_visual">
         <pose>0.113 -0.203 0.075 0 0 0</pose>
