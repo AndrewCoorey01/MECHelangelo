@@ -1,19 +1,19 @@
 === Mechelangelo Human Interaction Stats ===
-Last event: entered_interaction_state_successfully
-ROS time: 1781064834.458 s
+Last event: camera_human_detection_ignored_during_cooldown
+ROS time: 1781099606.841 s
 
-DVD exploration headings selected: 243
-Human detections accepted: 52087
-Human detections ignored during cooldown: 985
+DVD exploration headings selected: 3
+Human detections accepted: 504
+Human detections ignored during cooldown: 11
 
-Successful entries into interaction state: 67
-Completed 30 s interactions: 66
-Abandoned before reaching interaction: 51
+Successful entries into interaction state: 1
+Completed 30 s interactions: 1
+Abandoned before reaching interaction: 0
 Abandoned after reaching interaction: 0
 
-Interaction session active: yes
-Interaction elapsed: 0.000 / 30.000 s
-Human detection cooldown active: no
+Interaction session active: no
+Human detection cooldown active: yes
+Cooldown remaining: 8.922 s
 
 Rear safety radius during HUMAN_DETECTED: 1.000 m for rear +/-45.000 deg around 180 deg
 Front/side safety radius during HUMAN_DETECTED: 1.500 m

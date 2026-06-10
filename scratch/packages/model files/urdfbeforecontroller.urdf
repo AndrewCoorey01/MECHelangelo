@@ -231,14 +231,14 @@
     <visual name="left_id4_visual">
       <origin xyz="0 0 0" rpy="1.5708 0 0"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/Arms/ID4_Dae/ID4.dae" scale="1 1 1"/>
+        <mesh filename="package://mechelangelo_description/meshes/Arms/ID4 Dae/ID4.dae" scale="1 1 1"/>
       </geometry>
       <material name="hot_red"/>
     </visual>
     <collision name="left_id4_collision">
       <origin xyz="0 0 0" rpy="1.5708 0 0"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/Arms/ID4_Dae/ID4.dae" scale="1 1 1"/>
+        <mesh filename="package://mechelangelo_description/meshes/Arms/ID4 Dae/ID4.dae" scale="1 1 1"/>
       </geometry>
     </collision>
   </link>
@@ -258,14 +258,14 @@
     <visual name="left_id3_visual">
       <origin xyz="0 0 0" rpy="-1.5708 0 0"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/Arms/ID3_Dae/ID3.dae" scale="1 1 1"/>
+        <mesh filename="package://mechelangelo_description/meshes/Arms/ID3 Dae/ID3.dae" scale="1 1 1"/>
       </geometry>
       <material name="hot_red"/>
     </visual>
     <collision name="left_id3_collision">
       <origin xyz="0 0 0" rpy="-1.5708 0 0"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/Arms/ID3_Dae/ID3.dae" scale="1 1 1"/>
+        <mesh filename="package://mechelangelo_description/meshes/Arms/ID3 Dae/ID3.dae" scale="1 1 1"/>
       </geometry>
     </collision>
   </link>
@@ -288,14 +288,14 @@
     <visual name="left_id2_visual">
       <origin xyz="0 0 0" rpy="1.5708 0 0"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/Arms/ID2_DAE/id2.dae" scale="1 1 1"/>
+        <mesh filename="package://mechelangelo_description/meshes/Arms/ID2 DAE/id2.dae" scale="1 1 1"/>
       </geometry>
       <material name="hot_blue"/>
     </visual>
     <collision name="left_id2_collision">
       <origin xyz="0 0 0" rpy="1.5708 0 0"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/Arms/ID2_DAE/id2.dae" scale="1 1 1"/>
+        <mesh filename="package://mechelangelo_description/meshes/Arms/ID2 DAE/id2.dae" scale="1 1 1"/>
       </geometry>
     </collision>
   </link>
@@ -304,7 +304,7 @@
     <parent link="left_id3_link"/>
     <child link="left_id2_link"/>
     <origin xyz="0 0.09337 0" rpy="0 0 0"/>
-    <axis xyz="1 0 0"/>
+    <axis xyz="0 1 0"/>
     <!-- Physical servo range: 240 deg total. URDF zero = physical servo centre at 120 deg, so limits are +/-120 deg. -->
     <limit lower="-2.0944" upper="2.0944" effort="20" velocity="1.5"/>
   </joint>
@@ -318,14 +318,14 @@
     <visual name="left_id1_visual">
       <origin xyz="0 0 0" rpy="1.5708 0 3.1416"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/Arms/ID1_DAE/ID1.dae" scale="1 1 1"/>
+        <mesh filename="package://mechelangelo_description/meshes/Arms/ID1 DAE/ID1.dae" scale="1 1 1"/>
       </geometry>
       <material name="hot_red"/>
     </visual>
     <collision name="left_id1_collision">
       <origin xyz="0 0 0" rpy="1.5708 0 3.1416"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/Arms/ID1_DAE/ID1.dae" scale="1 1 1"/>
+        <mesh filename="package://mechelangelo_description/meshes/Arms/ID1 DAE/ID1.dae" scale="1 1 1"/>
       </geometry>
     </collision>
   </link>
@@ -345,14 +345,14 @@
     <visual name="left_hand_visual">
       <origin xyz="0 0 0" rpy="1.5708 0 0"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/Arms/hand_part_DAE/hand_part.dae" scale="1 1 1"/>
+        <mesh filename="package://mechelangelo_description/meshes/Arms/hand part DAE/hand_part.dae" scale="1 1 1"/>
       </geometry>
       <material name="hot_blue"/>
     </visual>
     <collision name="left_hand_collision">
       <origin xyz="0 0 0" rpy="1.5708 0 0"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/Arms/hand_part_DAE/hand_part.dae" scale="1 1 1"/>
+        <mesh filename="package://mechelangelo_description/meshes/Arms/hand part DAE/hand_part.dae" scale="1 1 1"/>
       </geometry>
     </collision>
   </link>
@@ -361,7 +361,7 @@
     <parent link="left_id1_link"/>
     <child link="left_hand_link"/>
     <origin xyz="0 0.09337 0" rpy="0 0 0"/>
-    <axis xyz="1 0 0"/>
+    <axis xyz="0 1 0"/>
     <!-- Physical servo range: 240 deg total. URDF zero = physical servo centre at 120 deg, so limits are +/-120 deg. -->
     <limit lower="-2.0944" upper="2.0944" effort="10" velocity="1.0"/>
   </joint>
@@ -378,14 +378,14 @@
     <visual name="right_id4_visual">
       <origin xyz="0 0 0" rpy="-1.5708 0 0"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/Arms/ID4_Dae/ID4.dae" scale="1 1 1"/>
+        <mesh filename="package://mechelangelo_description/meshes/Arms/ID4 Dae/ID4.dae" scale="1 1 1"/>
       </geometry>
       <material name="hot_red"/>
     </visual>
     <collision name="right_id4_collision">
       <origin xyz="0 0 0" rpy="-1.5708 0 0"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/Arms/ID4_Dae/ID4.dae" scale="1 1 1"/>
+        <mesh filename="package://mechelangelo_description/meshes/Arms/ID4 Dae/ID4.dae" scale="1 1 1"/>
       </geometry>
     </collision>
   </link>
@@ -405,14 +405,14 @@
     <visual name="right_id3_visual">
       <origin xyz="0 0 0" rpy="1.5708 0 0"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/Arms/ID3_Dae/ID3.dae" scale="1 1 1"/>
+        <mesh filename="package://mechelangelo_description/meshes/Arms/ID3 Dae/ID3.dae" scale="1 1 1"/>
       </geometry>
       <material name="hot_red"/>
     </visual>
     <collision name="right_id3_collision">
       <origin xyz="0 0 0" rpy="1.5708 0 0"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/Arms/ID3_Dae/ID3.dae" scale="1 1 1"/>
+        <mesh filename="package://mechelangelo_description/meshes/Arms/ID3 Dae/ID3.dae" scale="1 1 1"/>
       </geometry>
     </collision>
   </link>
@@ -435,14 +435,14 @@
     <visual name="right_id2_visual">
       <origin xyz="0 0 0" rpy="-1.5708 0 0"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/Arms/ID2_DAE/id2.dae" scale="1 1 1"/>
+        <mesh filename="package://mechelangelo_description/meshes/Arms/ID2 DAE/id2.dae" scale="1 1 1"/>
       </geometry>
       <material name="hot_blue"/>
     </visual>
     <collision name="right_id2_collision">
       <origin xyz="0 0 0" rpy="-1.5708 0 0"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/Arms/ID2_DAE/id2.dae" scale="1 1 1"/>
+        <mesh filename="package://mechelangelo_description/meshes/Arms/ID2 DAE/id2.dae" scale="1 1 1"/>
       </geometry>
     </collision>
   </link>
@@ -451,7 +451,7 @@
     <parent link="right_id3_link"/>
     <child link="right_id2_link"/>
     <origin xyz="0 -0.09337 0" rpy="0 0 0"/>
-    <axis xyz="-1 0 0"/>
+    <axis xyz="0 1 0"/>
     <!-- Physical servo range: 240 deg total. URDF zero = physical servo centre at 120 deg, so limits are +/-120 deg. -->
     <limit lower="-2.0944" upper="2.0944" effort="20" velocity="1.5"/>
   </joint>
@@ -465,14 +465,14 @@
     <visual name="right_id1_visual">
       <origin xyz="0 0 0" rpy="-1.5708 0 -3.1416"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/Arms/ID1_DAE/ID1.dae" scale="1 1 1"/>
+        <mesh filename="package://mechelangelo_description/meshes/Arms/ID1 DAE/ID1.dae" scale="1 1 1"/>
       </geometry>
       <material name="hot_red"/>
     </visual>
     <collision name="right_id1_collision">
       <origin xyz="0 0 0" rpy="-1.5708 0 -3.1416"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/Arms/ID1_DAE/ID1.dae" scale="1 1 1"/>
+        <mesh filename="package://mechelangelo_description/meshes/Arms/ID1 DAE/ID1.dae" scale="1 1 1"/>
       </geometry>
     </collision>
   </link>
@@ -492,14 +492,14 @@
     <visual name="right_hand_visual">
       <origin xyz="0 0 0" rpy="-1.5708 0 0"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/Arms/hand_part_DAE/hand_part.dae" scale="1 1 1"/>
+        <mesh filename="package://mechelangelo_description/meshes/Arms/hand part DAE/hand_part.dae" scale="1 1 1"/>
       </geometry>
       <material name="hot_blue"/>
     </visual>
     <collision name="right_hand_collision">
       <origin xyz="0 0 0" rpy="-1.5708 0 0"/>
       <geometry>
-        <mesh filename="package://mechelangelo_description/meshes/Arms/hand_part_DAE/hand_part.dae" scale="1 1 1"/>
+        <mesh filename="package://mechelangelo_description/meshes/Arms/hand part DAE/hand_part.dae" scale="1 1 1"/>
       </geometry>
     </collision>
   </link>
@@ -508,75 +508,9 @@
     <parent link="right_id1_link"/>
     <child link="right_hand_link"/>
     <origin xyz="0 -0.09337 0" rpy="0 0 0"/>
-    <axis xyz="-1 0 0"/>
+    <axis xyz="0 1 0"/>
     <!-- Physical servo range: 240 deg total. URDF zero = physical servo centre at 120 deg, so limits are +/-120 deg. -->
     <limit lower="-2.0944" upper="2.0944" effort="10" velocity="1.0"/>
   </joint>
-
-  <!-- =========================
-       ROS2 CONTROL HARDWARE INTERFACE
-       gazebo_ros2_control reads these tags to configure the Gazebo hardware plugin.
-       Active joints: left/right joint1 (shoulder yaw), joint2 (elbow pitch), hand_joint (wrist).
-       joint3 links are fixed so they are excluded.
-       ========================= -->
-  <ros2_control name="mechelangelo_arm_control" type="system">
-    <hardware>
-      <plugin>gazebo_ros2_control/GazeboSystem</plugin>
-    </hardware>
-
-    <joint name="left_joint1">
-      <command_interface name="position">
-        <param name="min">-2.0944</param>
-        <param name="max">2.0944</param>
-      </command_interface>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
-
-    <joint name="left_joint2">
-      <command_interface name="position">
-        <param name="min">-2.0944</param>
-        <param name="max">2.0944</param>
-      </command_interface>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
-
-    <joint name="left_hand_joint">
-      <command_interface name="position">
-        <param name="min">-2.0944</param>
-        <param name="max">2.0944</param>
-      </command_interface>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
-
-    <joint name="right_joint1">
-      <command_interface name="position">
-        <param name="min">-2.0944</param>
-        <param name="max">2.0944</param>
-      </command_interface>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
-
-    <joint name="right_joint2">
-      <command_interface name="position">
-        <param name="min">-2.0944</param>
-        <param name="max">2.0944</param>
-      </command_interface>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
-
-    <joint name="right_hand_joint">
-      <command_interface name="position">
-        <param name="min">-2.0944</param>
-        <param name="max">2.0944</param>
-      </command_interface>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
-  </ros2_control>
 
 </robot>
