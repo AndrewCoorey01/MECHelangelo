@@ -1,0 +1,748 @@
+=== DVD Bounce Heading Selection ===
+DVD heading selections so far: 243
+Successful interaction entries: 66
+Completed 30 s interactions: 66
+Abandoned before interaction: 51
+Abandoned after interaction: 0
+Cooldown ignored detections: 985
+
+Open beam rule: inf OR range >= 4.5000 m
+Minimum accepted sector width: 18.0000 deg
+Sector edge margin: 8.0000 deg
+Preferred bounce band: +/-55.0000 to +/-150.0000 deg
+Fallback bounce band: +/-35.0000 to +/-165.0000 deg
+
+Accepted open sectors: 1
+Widest open sector beams: 355
+Preferred left candidates: 190
+Preferred right candidates: 0
+Fallback candidates: 260
+
+=== Result ===
+Selected behaviour: preferred random side-bounce
+Selected side: left/positive
+Selected index: 567
+Selected angle: 103.8942 deg
+Representative range: 5.7930 m
+
+=== Laser Scan Values ===
+  [   0]  angle=-179.9999 deg  range=5.0988 m  open=yes  preferred=no
+  [   1]  angle=-179.4992 deg  range=5.0686 m  open=yes  preferred=no
+  [   2]  angle=-178.9985 deg  range=5.0392 m  open=yes  preferred=no
+  [   3]  angle=-178.4978 deg  range=5.0104 m  open=yes  preferred=no
+  [   4]  angle=-177.9971 deg  range=4.9824 m  open=yes  preferred=no
+  [   5]  angle=-177.4964 deg  range=4.9550 m  open=yes  preferred=no
+  [   6]  angle=-176.9957 deg  range=4.9283 m  open=yes  preferred=no
+  [   7]  angle=-176.4950 deg  range=4.9023 m  open=yes  preferred=no
+  [   8]  angle=-175.9943 deg  range=4.8769 m  open=yes  preferred=no
+  [   9]  angle=-175.4936 deg  range=4.8521 m  open=yes  preferred=no
+  [  10]  angle=-174.9929 deg  range=4.8280 m  open=yes  preferred=no
+  [  11]  angle=-174.4922 deg  range=4.8045 m  open=yes  preferred=no
+  [  12]  angle=-173.9915 deg  range=4.7815 m  open=yes  preferred=no
+  [  13]  angle=-173.4908 deg  range=4.7592 m  open=yes  preferred=no
+  [  14]  angle=-172.9901 deg  range=4.7374 m  open=yes  preferred=no
+  [  15]  angle=-172.4894 deg  range=4.7161 m  open=yes  preferred=no
+  [  16]  angle=-171.9887 deg  range=4.6955 m  open=yes  preferred=no
+  [  17]  angle=-171.4880 deg  range=4.6753 m  open=yes  preferred=no
+  [  18]  angle=-170.9873 deg  range=4.6557 m  open=yes  preferred=no
+  [  19]  angle=-170.4867 deg  range=4.6366 m  open=yes  preferred=no
+  [  20]  angle=-169.9860 deg  range=4.6180 m  open=yes  preferred=no
+  [  21]  angle=-169.4853 deg  range=4.5999 m  open=yes  preferred=no
+  [  22]  angle=-168.9846 deg  range=4.5822 m  open=yes  preferred=no
+  [  23]  angle=-168.4839 deg  range=4.5651 m  open=yes  preferred=no
+  [  24]  angle=-167.9832 deg  range=4.5484 m  open=yes  preferred=no
+  [  25]  angle=-167.4825 deg  range=4.5323 m  open=yes  preferred=no
+  [  26]  angle=-166.9818 deg  range=4.5165 m  open=yes  preferred=no
+  [  27]  angle=-166.4811 deg  range=4.5012 m  open=yes  preferred=no
+  [  28]  angle=-165.9804 deg  range=4.4864 m  open=no  preferred=no
+  [  29]  angle=-165.4797 deg  range=4.4720 m  open=no  preferred=no
+  [  30]  angle=-164.9790 deg  range=4.4580 m  open=no  preferred=no
+  [  31]  angle=-164.4783 deg  range=4.4445 m  open=no  preferred=no
+  [  32]  angle=-163.9776 deg  range=4.4314 m  open=no  preferred=no
+  [  33]  angle=-163.4769 deg  range=4.4186 m  open=no  preferred=no
+  [  34]  angle=-162.9762 deg  range=4.4063 m  open=no  preferred=no
+  [  35]  angle=-162.4755 deg  range=4.3944 m  open=no  preferred=no
+  [  36]  angle=-161.9748 deg  range=4.3829 m  open=no  preferred=no
+  [  37]  angle=-161.4741 deg  range=4.3718 m  open=no  preferred=no
+  [  38]  angle=-160.9734 deg  range=4.3611 m  open=no  preferred=no
+  [  39]  angle=-160.4728 deg  range=4.3508 m  open=no  preferred=no
+  [  40]  angle=-159.9721 deg  range=4.3408 m  open=no  preferred=no
+  [  41]  angle=-159.4714 deg  range=4.3312 m  open=no  preferred=no
+  [  42]  angle=-158.9707 deg  range=4.3220 m  open=no  preferred=no
+  [  43]  angle=-158.4700 deg  range=4.3132 m  open=no  preferred=no
+  [  44]  angle=-157.9693 deg  range=4.3047 m  open=no  preferred=no
+  [  45]  angle=-157.4686 deg  range=4.2966 m  open=no  preferred=no
+  [  46]  angle=-156.9679 deg  range=4.2888 m  open=no  preferred=no
+  [  47]  angle=-156.4672 deg  range=4.2814 m  open=no  preferred=no
+  [  48]  angle=-155.9665 deg  range=4.2744 m  open=no  preferred=no
+  [  49]  angle=-155.4658 deg  range=4.2677 m  open=no  preferred=no
+  [  50]  angle=-154.9651 deg  range=4.2613 m  open=no  preferred=no
+  [  51]  angle=-154.4644 deg  range=4.2553 m  open=no  preferred=no
+  [  52]  angle=-153.9637 deg  range=4.2496 m  open=no  preferred=no
+  [  53]  angle=-153.4630 deg  range=4.2443 m  open=no  preferred=no
+  [  54]  angle=-152.9623 deg  range=4.2393 m  open=no  preferred=no
+  [  55]  angle=-152.4616 deg  range=4.2346 m  open=no  preferred=no
+  [  56]  angle=-151.9609 deg  range=4.2303 m  open=no  preferred=no
+  [  57]  angle=-151.4602 deg  range=4.2263 m  open=no  preferred=no
+  [  58]  angle=-150.9595 deg  range=4.2226 m  open=no  preferred=no
+  [  59]  angle=-150.4589 deg  range=4.2193 m  open=no  preferred=no
+  [  60]  angle=-149.9582 deg  range=4.2163 m  open=no  preferred=yes
+  [  61]  angle=-149.4575 deg  range=4.2136 m  open=no  preferred=yes
+  [  62]  angle=-148.9568 deg  range=4.2112 m  open=no  preferred=yes
+  [  63]  angle=-148.4561 deg  range=4.2092 m  open=no  preferred=yes
+  [  64]  angle=-147.9554 deg  range=4.2074 m  open=no  preferred=yes
+  [  65]  angle=-147.4547 deg  range=4.2061 m  open=no  preferred=yes
+  [  66]  angle=-146.9540 deg  range=4.2050 m  open=no  preferred=yes
+  [  67]  angle=-146.4533 deg  range=4.2042 m  open=no  preferred=yes
+  [  68]  angle=-145.9526 deg  range=4.2038 m  open=no  preferred=yes
+  [  69]  angle=-145.4519 deg  range=4.2037 m  open=no  preferred=yes
+  [  70]  angle=-144.9512 deg  range=4.2039 m  open=no  preferred=yes
+  [  71]  angle=-144.4505 deg  range=inf m  open=yes  preferred=yes
+  [  72]  angle=-143.9498 deg  range=inf m  open=yes  preferred=yes
+  [  73]  angle=-143.4491 deg  range=inf m  open=yes  preferred=yes
+  [  74]  angle=-142.9484 deg  range=inf m  open=yes  preferred=yes
+  [  75]  angle=-142.4477 deg  range=inf m  open=yes  preferred=yes
+  [  76]  angle=-141.9470 deg  range=inf m  open=yes  preferred=yes
+  [  77]  angle=-141.4463 deg  range=inf m  open=yes  preferred=yes
+  [  78]  angle=-140.9456 deg  range=inf m  open=yes  preferred=yes
+  [  79]  angle=-140.4450 deg  range=inf m  open=yes  preferred=yes
+  [  80]  angle=-139.9443 deg  range=inf m  open=yes  preferred=yes
+  [  81]  angle=-139.4436 deg  range=inf m  open=yes  preferred=yes
+  [  82]  angle=-138.9429 deg  range=inf m  open=yes  preferred=yes
+  [  83]  angle=-138.4422 deg  range=inf m  open=yes  preferred=yes
+  [  84]  angle=-137.9415 deg  range=inf m  open=yes  preferred=yes
+  [  85]  angle=-137.4408 deg  range=inf m  open=yes  preferred=yes
+  [  86]  angle=-136.9401 deg  range=4.2514 m  open=no  preferred=yes
+  [  87]  angle=-136.4394 deg  range=4.2572 m  open=no  preferred=yes
+  [  88]  angle=-135.9387 deg  range=4.2633 m  open=no  preferred=yes
+  [  89]  angle=-135.4380 deg  range=4.2698 m  open=no  preferred=yes
+  [  90]  angle=-134.9373 deg  range=4.2766 m  open=no  preferred=yes
+  [  91]  angle=-134.4366 deg  range=4.2837 m  open=no  preferred=yes
+  [  92]  angle=-133.9359 deg  range=4.2913 m  open=no  preferred=yes
+  [  93]  angle=-133.4352 deg  range=4.2991 m  open=no  preferred=yes
+  [  94]  angle=-132.9345 deg  range=4.3074 m  open=no  preferred=yes
+  [  95]  angle=-132.4338 deg  range=4.3160 m  open=no  preferred=yes
+  [  96]  angle=-131.9331 deg  range=4.3249 m  open=no  preferred=yes
+  [  97]  angle=-131.4324 deg  range=4.3342 m  open=no  preferred=yes
+  [  98]  angle=-130.9317 deg  range=4.3439 m  open=no  preferred=yes
+  [  99]  angle=-130.4311 deg  range=4.3540 m  open=no  preferred=yes
+  [ 100]  angle=-129.9304 deg  range=4.3645 m  open=no  preferred=yes
+  [ 101]  angle=-129.4297 deg  range=4.3753 m  open=no  preferred=yes
+  [ 102]  angle=-128.9290 deg  range=4.3866 m  open=no  preferred=yes
+  [ 103]  angle=-128.4283 deg  range=4.3982 m  open=no  preferred=yes
+  [ 104]  angle=-127.9276 deg  range=4.4102 m  open=no  preferred=yes
+  [ 105]  angle=-127.4269 deg  range=4.4226 m  open=no  preferred=yes
+  [ 106]  angle=-126.9262 deg  range=4.3142 m  open=no  preferred=yes
+  [ 107]  angle=-126.4255 deg  range=4.2052 m  open=no  preferred=yes
+  [ 108]  angle=-125.9248 deg  range=4.1019 m  open=no  preferred=yes
+  [ 109]  angle=-125.4241 deg  range=4.0039 m  open=no  preferred=yes
+  [ 110]  angle=-124.9234 deg  range=3.9107 m  open=no  preferred=yes
+  [ 111]  angle=-124.4227 deg  range=3.8220 m  open=no  preferred=yes
+  [ 112]  angle=-123.9220 deg  range=3.7375 m  open=no  preferred=yes
+  [ 113]  angle=-123.4213 deg  range=3.6570 m  open=no  preferred=yes
+  [ 114]  angle=-122.9206 deg  range=3.5801 m  open=no  preferred=yes
+  [ 115]  angle=-122.4199 deg  range=3.5067 m  open=no  preferred=yes
+  [ 116]  angle=-121.9192 deg  range=3.4364 m  open=no  preferred=yes
+  [ 117]  angle=-121.4185 deg  range=3.3692 m  open=no  preferred=yes
+  [ 118]  angle=-120.9178 deg  range=3.3048 m  open=no  preferred=yes
+  [ 119]  angle=-120.4172 deg  range=3.2431 m  open=no  preferred=yes
+  [ 120]  angle=-119.9165 deg  range=3.1839 m  open=no  preferred=yes
+  [ 121]  angle=-119.4158 deg  range=3.1270 m  open=no  preferred=yes
+  [ 122]  angle=-118.9151 deg  range=3.0723 m  open=no  preferred=yes
+  [ 123]  angle=-118.4144 deg  range=3.0198 m  open=no  preferred=yes
+  [ 124]  angle=-117.9137 deg  range=2.9692 m  open=no  preferred=yes
+  [ 125]  angle=-117.4130 deg  range=2.9206 m  open=no  preferred=yes
+  [ 126]  angle=-116.9123 deg  range=2.8737 m  open=no  preferred=yes
+  [ 127]  angle=-116.4116 deg  range=2.8285 m  open=no  preferred=yes
+  [ 128]  angle=-115.9109 deg  range=2.7849 m  open=no  preferred=yes
+  [ 129]  angle=-115.4102 deg  range=2.7429 m  open=no  preferred=yes
+  [ 130]  angle=-114.9095 deg  range=2.7023 m  open=no  preferred=yes
+  [ 131]  angle=-114.4088 deg  range=2.6630 m  open=no  preferred=yes
+  [ 132]  angle=-113.9081 deg  range=2.6252 m  open=no  preferred=yes
+  [ 133]  angle=-113.4074 deg  range=2.5885 m  open=no  preferred=yes
+  [ 134]  angle=-112.9067 deg  range=2.5531 m  open=no  preferred=yes
+  [ 135]  angle=-112.4060 deg  range=2.5188 m  open=no  preferred=yes
+  [ 136]  angle=-111.9053 deg  range=2.4856 m  open=no  preferred=yes
+  [ 137]  angle=-111.4046 deg  range=2.4535 m  open=no  preferred=yes
+  [ 138]  angle=-110.9039 deg  range=2.4223 m  open=no  preferred=yes
+  [ 139]  angle=-110.4033 deg  range=2.3921 m  open=no  preferred=yes
+  [ 140]  angle=-109.9026 deg  range=2.3629 m  open=no  preferred=yes
+  [ 141]  angle=-109.4019 deg  range=2.3345 m  open=no  preferred=yes
+  [ 142]  angle=-108.9012 deg  range=2.3070 m  open=no  preferred=yes
+  [ 143]  angle=-108.4005 deg  range=2.2803 m  open=no  preferred=yes
+  [ 144]  angle=-107.8998 deg  range=2.2543 m  open=no  preferred=yes
+  [ 145]  angle=-107.3991 deg  range=2.2291 m  open=no  preferred=yes
+  [ 146]  angle=-106.8984 deg  range=2.2047 m  open=no  preferred=yes
+  [ 147]  angle=-106.3977 deg  range=2.1809 m  open=no  preferred=yes
+  [ 148]  angle=-105.8970 deg  range=2.1578 m  open=no  preferred=yes
+  [ 149]  angle=-105.3963 deg  range=2.1354 m  open=no  preferred=yes
+  [ 150]  angle=-104.8956 deg  range=2.1136 m  open=no  preferred=yes
+  [ 151]  angle=-104.3949 deg  range=2.0923 m  open=no  preferred=yes
+  [ 152]  angle=-103.8942 deg  range=2.0717 m  open=no  preferred=yes
+  [ 153]  angle=-103.3935 deg  range=2.0516 m  open=no  preferred=yes
+  [ 154]  angle=-102.8928 deg  range=2.0321 m  open=no  preferred=yes
+  [ 155]  angle=-102.3921 deg  range=2.0130 m  open=no  preferred=yes
+  [ 156]  angle=-101.8914 deg  range=1.9945 m  open=no  preferred=yes
+  [ 157]  angle=-101.3907 deg  range=1.9765 m  open=no  preferred=yes
+  [ 158]  angle=-100.8900 deg  range=1.9589 m  open=no  preferred=yes
+  [ 159]  angle=-100.3894 deg  range=1.9418 m  open=no  preferred=yes
+  [ 160]  angle= -99.8887 deg  range=1.9251 m  open=no  preferred=yes
+  [ 161]  angle= -99.3880 deg  range=1.9089 m  open=no  preferred=yes
+  [ 162]  angle= -98.8873 deg  range=1.8931 m  open=no  preferred=yes
+  [ 163]  angle= -98.3866 deg  range=1.8776 m  open=no  preferred=yes
+  [ 164]  angle= -97.8859 deg  range=1.8626 m  open=no  preferred=yes
+  [ 165]  angle= -97.3852 deg  range=1.8480 m  open=no  preferred=yes
+  [ 166]  angle= -96.8845 deg  range=1.8337 m  open=no  preferred=yes
+  [ 167]  angle= -96.3838 deg  range=1.8198 m  open=no  preferred=yes
+  [ 168]  angle= -95.8831 deg  range=1.8062 m  open=no  preferred=yes
+  [ 169]  angle= -95.3824 deg  range=1.7929 m  open=no  preferred=yes
+  [ 170]  angle= -94.8817 deg  range=1.7800 m  open=no  preferred=yes
+  [ 171]  angle= -94.3810 deg  range=1.7674 m  open=no  preferred=yes
+  [ 172]  angle= -93.8803 deg  range=1.7551 m  open=no  preferred=yes
+  [ 173]  angle= -93.3796 deg  range=1.7431 m  open=no  preferred=yes
+  [ 174]  angle= -92.8789 deg  range=1.7315 m  open=no  preferred=yes
+  [ 175]  angle= -92.3782 deg  range=1.7201 m  open=no  preferred=yes
+  [ 176]  angle= -91.8775 deg  range=1.7089 m  open=no  preferred=yes
+  [ 177]  angle= -91.3768 deg  range=1.6981 m  open=no  preferred=yes
+  [ 178]  angle= -90.8762 deg  range=1.6875 m  open=no  preferred=yes
+  [ 179]  angle= -90.3755 deg  range=1.6772 m  open=no  preferred=yes
+  [ 180]  angle= -89.8748 deg  range=1.6671 m  open=no  preferred=yes
+  [ 181]  angle= -89.3741 deg  range=1.6572 m  open=no  preferred=yes
+  [ 182]  angle= -88.8734 deg  range=1.6477 m  open=no  preferred=yes
+  [ 183]  angle= -88.3727 deg  range=1.6383 m  open=no  preferred=yes
+  [ 184]  angle= -87.8720 deg  range=1.6292 m  open=no  preferred=yes
+  [ 185]  angle= -87.3713 deg  range=1.6203 m  open=no  preferred=yes
+  [ 186]  angle= -86.8706 deg  range=1.6116 m  open=no  preferred=yes
+  [ 187]  angle= -86.3699 deg  range=1.6031 m  open=no  preferred=yes
+  [ 188]  angle= -85.8692 deg  range=1.5949 m  open=no  preferred=yes
+  [ 189]  angle= -85.3685 deg  range=1.5868 m  open=no  preferred=yes
+  [ 190]  angle= -84.8678 deg  range=1.5789 m  open=no  preferred=yes
+  [ 191]  angle= -84.3671 deg  range=1.5713 m  open=no  preferred=yes
+  [ 192]  angle= -83.8664 deg  range=1.5638 m  open=no  preferred=yes
+  [ 193]  angle= -83.3657 deg  range=1.5565 m  open=no  preferred=yes
+  [ 194]  angle= -82.8650 deg  range=1.5495 m  open=no  preferred=yes
+  [ 195]  angle= -82.3643 deg  range=1.5426 m  open=no  preferred=yes
+  [ 196]  angle= -81.8636 deg  range=1.5358 m  open=no  preferred=yes
+  [ 197]  angle= -81.3629 deg  range=1.5293 m  open=no  preferred=yes
+  [ 198]  angle= -80.8623 deg  range=1.5229 m  open=no  preferred=yes
+  [ 199]  angle= -80.3616 deg  range=1.5167 m  open=no  preferred=yes
+  [ 200]  angle= -79.8609 deg  range=1.5106 m  open=no  preferred=yes
+  [ 201]  angle= -79.3602 deg  range=1.5047 m  open=no  preferred=yes
+  [ 202]  angle= -78.8595 deg  range=1.4990 m  open=no  preferred=yes
+  [ 203]  angle= -78.3588 deg  range=1.4934 m  open=no  preferred=yes
+  [ 204]  angle= -77.8581 deg  range=1.4880 m  open=no  preferred=yes
+  [ 205]  angle= -77.3574 deg  range=1.4827 m  open=no  preferred=yes
+  [ 206]  angle= -76.8567 deg  range=1.4776 m  open=no  preferred=yes
+  [ 207]  angle= -76.3560 deg  range=1.4727 m  open=no  preferred=yes
+  [ 208]  angle= -75.8553 deg  range=1.4678 m  open=no  preferred=yes
+  [ 209]  angle= -75.3546 deg  range=1.4632 m  open=no  preferred=yes
+  [ 210]  angle= -74.8539 deg  range=1.4586 m  open=no  preferred=yes
+  [ 211]  angle= -74.3532 deg  range=1.4542 m  open=no  preferred=yes
+  [ 212]  angle= -73.8525 deg  range=1.4500 m  open=no  preferred=yes
+  [ 213]  angle= -73.3518 deg  range=1.4458 m  open=no  preferred=yes
+  [ 214]  angle= -72.8511 deg  range=1.4418 m  open=no  preferred=yes
+  [ 215]  angle= -72.3504 deg  range=1.4380 m  open=no  preferred=yes
+  [ 216]  angle= -71.8497 deg  range=1.4342 m  open=no  preferred=yes
+  [ 217]  angle= -71.3490 deg  range=1.4306 m  open=no  preferred=yes
+  [ 218]  angle= -70.8484 deg  range=1.4272 m  open=no  preferred=yes
+  [ 219]  angle= -70.3477 deg  range=1.4238 m  open=no  preferred=yes
+  [ 220]  angle= -69.8470 deg  range=1.4206 m  open=no  preferred=yes
+  [ 221]  angle= -69.3463 deg  range=1.4175 m  open=no  preferred=yes
+  [ 222]  angle= -68.8456 deg  range=1.4145 m  open=no  preferred=yes
+  [ 223]  angle= -68.3449 deg  range=1.4116 m  open=no  preferred=yes
+  [ 224]  angle= -67.8442 deg  range=1.4089 m  open=no  preferred=yes
+  [ 225]  angle= -67.3435 deg  range=1.4062 m  open=no  preferred=yes
+  [ 226]  angle= -66.8428 deg  range=1.4037 m  open=no  preferred=yes
+  [ 227]  angle= -66.3421 deg  range=1.4013 m  open=no  preferred=yes
+  [ 228]  angle= -65.8414 deg  range=1.3991 m  open=no  preferred=yes
+  [ 229]  angle= -65.3407 deg  range=1.3969 m  open=no  preferred=yes
+  [ 230]  angle= -64.8400 deg  range=1.3948 m  open=no  preferred=yes
+  [ 231]  angle= -64.3393 deg  range=1.3929 m  open=no  preferred=yes
+  [ 232]  angle= -63.8386 deg  range=1.3911 m  open=no  preferred=yes
+  [ 233]  angle= -63.3379 deg  range=1.3893 m  open=no  preferred=yes
+  [ 234]  angle= -62.8372 deg  range=1.3877 m  open=no  preferred=yes
+  [ 235]  angle= -62.3365 deg  range=1.3862 m  open=no  preferred=yes
+  [ 236]  angle= -61.8358 deg  range=1.3848 m  open=no  preferred=yes
+  [ 237]  angle= -61.3351 deg  range=1.3836 m  open=no  preferred=yes
+  [ 238]  angle= -60.8345 deg  range=1.3824 m  open=no  preferred=yes
+  [ 239]  angle= -60.3338 deg  range=1.3813 m  open=no  preferred=yes
+  [ 240]  angle= -59.8331 deg  range=1.3804 m  open=no  preferred=yes
+  [ 241]  angle= -59.3324 deg  range=1.3795 m  open=no  preferred=yes
+  [ 242]  angle= -58.8317 deg  range=1.3787 m  open=no  preferred=yes
+  [ 243]  angle= -58.3310 deg  range=1.3781 m  open=no  preferred=yes
+  [ 244]  angle= -57.8303 deg  range=1.3776 m  open=no  preferred=yes
+  [ 245]  angle= -57.3296 deg  range=1.3771 m  open=no  preferred=yes
+  [ 246]  angle= -56.8289 deg  range=1.3768 m  open=no  preferred=yes
+  [ 247]  angle= -56.3282 deg  range=1.3766 m  open=no  preferred=yes
+  [ 248]  angle= -55.8275 deg  range=1.3765 m  open=no  preferred=yes
+  [ 249]  angle= -55.3268 deg  range=1.3765 m  open=no  preferred=yes
+  [ 250]  angle= -54.8261 deg  range=1.3766 m  open=no  preferred=no
+  [ 251]  angle= -54.3254 deg  range=1.3768 m  open=no  preferred=no
+  [ 252]  angle= -53.8247 deg  range=1.3771 m  open=no  preferred=no
+  [ 253]  angle= -53.3240 deg  range=1.3775 m  open=no  preferred=no
+  [ 254]  angle= -52.8233 deg  range=1.3780 m  open=no  preferred=no
+  [ 255]  angle= -52.3226 deg  range=1.3786 m  open=no  preferred=no
+  [ 256]  angle= -51.8219 deg  range=1.3794 m  open=no  preferred=no
+  [ 257]  angle= -51.3212 deg  range=1.3802 m  open=no  preferred=no
+  [ 258]  angle= -50.8206 deg  range=1.3811 m  open=no  preferred=no
+  [ 259]  angle= -50.3199 deg  range=1.3822 m  open=no  preferred=no
+  [ 260]  angle= -49.8192 deg  range=1.3833 m  open=no  preferred=no
+  [ 261]  angle= -49.3185 deg  range=1.3846 m  open=no  preferred=no
+  [ 262]  angle= -48.8178 deg  range=1.3860 m  open=no  preferred=no
+  [ 263]  angle= -48.3171 deg  range=1.3874 m  open=no  preferred=no
+  [ 264]  angle= -47.8164 deg  range=1.3890 m  open=no  preferred=no
+  [ 265]  angle= -47.3157 deg  range=1.3907 m  open=no  preferred=no
+  [ 266]  angle= -46.8150 deg  range=1.3925 m  open=no  preferred=no
+  [ 267]  angle= -46.3143 deg  range=1.3945 m  open=no  preferred=no
+  [ 268]  angle= -45.8136 deg  range=1.3965 m  open=no  preferred=no
+  [ 269]  angle= -45.3129 deg  range=1.3986 m  open=no  preferred=no
+  [ 270]  angle= -44.8122 deg  range=1.4009 m  open=no  preferred=no
+  [ 271]  angle= -44.3115 deg  range=inf m  open=yes  preferred=no
+  [ 272]  angle= -43.8108 deg  range=inf m  open=yes  preferred=no
+  [ 273]  angle= -43.3101 deg  range=inf m  open=yes  preferred=no
+  [ 274]  angle= -42.8094 deg  range=inf m  open=yes  preferred=no
+  [ 275]  angle= -42.3087 deg  range=inf m  open=yes  preferred=no
+  [ 276]  angle= -41.8080 deg  range=inf m  open=yes  preferred=no
+  [ 277]  angle= -41.3073 deg  range=inf m  open=yes  preferred=no
+  [ 278]  angle= -40.8067 deg  range=inf m  open=yes  preferred=no
+  [ 279]  angle= -40.3060 deg  range=inf m  open=yes  preferred=no
+  [ 280]  angle= -39.8053 deg  range=inf m  open=yes  preferred=no
+  [ 281]  angle= -39.3046 deg  range=inf m  open=yes  preferred=no
+  [ 282]  angle= -38.8039 deg  range=inf m  open=yes  preferred=no
+  [ 283]  angle= -38.3032 deg  range=inf m  open=yes  preferred=no
+  [ 284]  angle= -37.8025 deg  range=1.4451 m  open=no  preferred=no
+  [ 285]  angle= -37.3018 deg  range=1.4492 m  open=no  preferred=no
+  [ 286]  angle= -36.8011 deg  range=1.4534 m  open=no  preferred=no
+  [ 287]  angle= -36.3004 deg  range=1.4578 m  open=no  preferred=no
+  [ 288]  angle= -35.7997 deg  range=1.4623 m  open=no  preferred=no
+  [ 289]  angle= -35.2990 deg  range=1.4670 m  open=no  preferred=no
+  [ 290]  angle= -34.7983 deg  range=1.4718 m  open=no  preferred=no
+  [ 291]  angle= -34.2976 deg  range=1.4767 m  open=no  preferred=no
+  [ 292]  angle= -33.7969 deg  range=1.4818 m  open=no  preferred=no
+  [ 293]  angle= -33.2962 deg  range=1.4870 m  open=no  preferred=no
+  [ 294]  angle= -32.7955 deg  range=1.4924 m  open=no  preferred=no
+  [ 295]  angle= -32.2948 deg  range=1.4980 m  open=no  preferred=no
+  [ 296]  angle= -31.7941 deg  range=1.5037 m  open=no  preferred=no
+  [ 297]  angle= -31.2934 deg  range=1.5095 m  open=no  preferred=no
+  [ 298]  angle= -30.7928 deg  range=1.5156 m  open=no  preferred=no
+  [ 299]  angle= -30.2921 deg  range=1.5217 m  open=no  preferred=no
+  [ 300]  angle= -29.7914 deg  range=1.5281 m  open=no  preferred=no
+  [ 301]  angle= -29.2907 deg  range=1.5346 m  open=no  preferred=no
+  [ 302]  angle= -28.7900 deg  range=1.5413 m  open=no  preferred=no
+  [ 303]  angle= -28.2893 deg  range=1.5482 m  open=no  preferred=no
+  [ 304]  angle= -27.7886 deg  range=1.5552 m  open=no  preferred=no
+  [ 305]  angle= -27.2879 deg  range=1.5625 m  open=no  preferred=no
+  [ 306]  angle= -26.7872 deg  range=1.5699 m  open=no  preferred=no
+  [ 307]  angle= -26.2865 deg  range=1.5775 m  open=no  preferred=no
+  [ 308]  angle= -25.7858 deg  range=1.5854 m  open=no  preferred=no
+  [ 309]  angle= -25.2851 deg  range=1.5934 m  open=no  preferred=no
+  [ 310]  angle= -24.7844 deg  range=1.6016 m  open=no  preferred=no
+  [ 311]  angle= -24.2837 deg  range=1.6100 m  open=no  preferred=no
+  [ 312]  angle= -23.7830 deg  range=1.6187 m  open=no  preferred=no
+  [ 313]  angle= -23.2823 deg  range=1.6275 m  open=no  preferred=no
+  [ 314]  angle= -22.7816 deg  range=1.6366 m  open=no  preferred=no
+  [ 315]  angle= -22.2809 deg  range=1.6459 m  open=no  preferred=no
+  [ 316]  angle= -21.7802 deg  range=1.6555 m  open=no  preferred=no
+  [ 317]  angle= -21.2795 deg  range=1.6653 m  open=no  preferred=no
+  [ 318]  angle= -20.7789 deg  range=1.6753 m  open=no  preferred=no
+  [ 319]  angle= -20.2782 deg  range=1.6856 m  open=no  preferred=no
+  [ 320]  angle= -19.7775 deg  range=1.6961 m  open=no  preferred=no
+  [ 321]  angle= -19.2768 deg  range=1.7069 m  open=no  preferred=no
+  [ 322]  angle= -18.7761 deg  range=1.7180 m  open=no  preferred=no
+  [ 323]  angle= -18.2754 deg  range=1.7294 m  open=no  preferred=no
+  [ 324]  angle= -17.7747 deg  range=1.7410 m  open=no  preferred=no
+  [ 325]  angle= -17.2740 deg  range=1.7529 m  open=no  preferred=no
+  [ 326]  angle= -16.7733 deg  range=1.7652 m  open=no  preferred=no
+  [ 327]  angle= -16.2726 deg  range=1.7777 m  open=no  preferred=no
+  [ 328]  angle= -15.7719 deg  range=1.7906 m  open=no  preferred=no
+  [ 329]  angle= -15.2712 deg  range=1.8037 m  open=no  preferred=no
+  [ 330]  angle= -14.7705 deg  range=1.8173 m  open=no  preferred=no
+  [ 331]  angle= -14.2698 deg  range=1.8311 m  open=no  preferred=no
+  [ 332]  angle= -13.7691 deg  range=1.8453 m  open=no  preferred=no
+  [ 333]  angle= -13.2684 deg  range=1.8599 m  open=no  preferred=no
+  [ 334]  angle= -12.7677 deg  range=1.8749 m  open=no  preferred=no
+  [ 335]  angle= -12.2670 deg  range=1.8902 m  open=no  preferred=no
+  [ 336]  angle= -11.7663 deg  range=1.9060 m  open=no  preferred=no
+  [ 337]  angle= -11.2657 deg  range=1.9221 m  open=no  preferred=no
+  [ 338]  angle= -10.7650 deg  range=1.9387 m  open=no  preferred=no
+  [ 339]  angle= -10.2643 deg  range=1.9558 m  open=no  preferred=no
+  [ 340]  angle=  -9.7636 deg  range=1.9732 m  open=no  preferred=no
+  [ 341]  angle=  -9.2629 deg  range=1.9912 m  open=no  preferred=no
+  [ 342]  angle=  -8.7622 deg  range=2.0096 m  open=no  preferred=no
+  [ 343]  angle=  -8.2615 deg  range=2.0286 m  open=no  preferred=no
+  [ 344]  angle=  -7.7608 deg  range=2.0480 m  open=no  preferred=no
+  [ 345]  angle=  -7.2601 deg  range=2.0680 m  open=no  preferred=no
+  [ 346]  angle=  -6.7594 deg  range=2.0885 m  open=no  preferred=no
+  [ 347]  angle=  -6.2587 deg  range=2.1097 m  open=no  preferred=no
+  [ 348]  angle=  -5.7580 deg  range=2.1314 m  open=no  preferred=no
+  [ 349]  angle=  -5.2573 deg  range=2.1537 m  open=no  preferred=no
+  [ 350]  angle=  -4.7566 deg  range=2.1767 m  open=no  preferred=no
+  [ 351]  angle=  -4.2559 deg  range=2.2003 m  open=no  preferred=no
+  [ 352]  angle=  -3.7552 deg  range=2.2247 m  open=no  preferred=no
+  [ 353]  angle=  -3.2545 deg  range=2.2497 m  open=no  preferred=no
+  [ 354]  angle=  -2.7538 deg  range=2.2755 m  open=no  preferred=no
+  [ 355]  angle=  -2.2531 deg  range=2.3021 m  open=no  preferred=no
+  [ 356]  angle=  -1.7524 deg  range=2.3294 m  open=no  preferred=no
+  [ 357]  angle=  -1.2518 deg  range=2.3577 m  open=no  preferred=no
+  [ 358]  angle=  -0.7511 deg  range=2.3868 m  open=no  preferred=no
+  [ 359]  angle=  -0.2504 deg  range=2.4168 m  open=no  preferred=no
+  [ 360]  angle=   0.2503 deg  range=2.4477 m  open=no  preferred=no
+  [ 361]  angle=   0.7510 deg  range=2.4797 m  open=no  preferred=no
+  [ 362]  angle=   1.2517 deg  range=2.5127 m  open=no  preferred=no
+  [ 363]  angle=   1.7524 deg  range=2.5468 m  open=no  preferred=no
+  [ 364]  angle=   2.2531 deg  range=2.5820 m  open=no  preferred=no
+  [ 365]  angle=   2.7538 deg  range=2.6184 m  open=no  preferred=no
+  [ 366]  angle=   3.2545 deg  range=2.6561 m  open=no  preferred=no
+  [ 367]  angle=   3.7552 deg  range=2.6950 m  open=no  preferred=no
+  [ 368]  angle=   4.2559 deg  range=2.7354 m  open=no  preferred=no
+  [ 369]  angle=   4.7566 deg  range=2.7772 m  open=no  preferred=no
+  [ 370]  angle=   5.2573 deg  range=2.8205 m  open=no  preferred=no
+  [ 371]  angle=   5.7580 deg  range=2.8654 m  open=no  preferred=no
+  [ 372]  angle=   6.2587 deg  range=2.9119 m  open=no  preferred=no
+  [ 373]  angle=   6.7594 deg  range=2.9603 m  open=no  preferred=no
+  [ 374]  angle=   7.2601 deg  range=3.0105 m  open=no  preferred=no
+  [ 375]  angle=   7.7608 deg  range=3.0626 m  open=no  preferred=no
+  [ 376]  angle=   8.2615 deg  range=3.1169 m  open=no  preferred=no
+  [ 377]  angle=   8.7621 deg  range=3.1734 m  open=no  preferred=no
+  [ 378]  angle=   9.2628 deg  range=3.2322 m  open=no  preferred=no
+  [ 379]  angle=   9.7635 deg  range=3.2934 m  open=no  preferred=no
+  [ 380]  angle=  10.2642 deg  range=3.3573 m  open=no  preferred=no
+  [ 381]  angle=  10.7649 deg  range=3.4240 m  open=no  preferred=no
+  [ 382]  angle=  11.2656 deg  range=3.4937 m  open=no  preferred=no
+  [ 383]  angle=  11.7663 deg  range=3.5665 m  open=no  preferred=no
+  [ 384]  angle=  12.2670 deg  range=3.6428 m  open=no  preferred=no
+  [ 385]  angle=  12.7677 deg  range=3.7226 m  open=no  preferred=no
+  [ 386]  angle=  13.2684 deg  range=3.8063 m  open=no  preferred=no
+  [ 387]  angle=  13.7691 deg  range=3.8942 m  open=no  preferred=no
+  [ 388]  angle=  14.2698 deg  range=3.9866 m  open=no  preferred=no
+  [ 389]  angle=  14.7705 deg  range=4.0837 m  open=no  preferred=no
+  [ 390]  angle=  15.2712 deg  range=4.1861 m  open=no  preferred=no
+  [ 391]  angle=  15.7719 deg  range=4.2940 m  open=no  preferred=no
+  [ 392]  angle=  16.2726 deg  range=4.4080 m  open=no  preferred=no
+  [ 393]  angle=  16.7733 deg  range=4.5286 m  open=yes  preferred=no
+  [ 394]  angle=  17.2740 deg  range=4.6563 m  open=yes  preferred=no
+  [ 395]  angle=  17.7747 deg  range=4.7918 m  open=yes  preferred=no
+  [ 396]  angle=  18.2754 deg  range=4.9358 m  open=yes  preferred=no
+  [ 397]  angle=  18.7760 deg  range=5.0891 m  open=yes  preferred=no
+  [ 398]  angle=  19.2767 deg  range=5.2527 m  open=yes  preferred=no
+  [ 399]  angle=  19.7774 deg  range=inf m  open=yes  preferred=no
+  [ 400]  angle=  20.2781 deg  range=5.6150 m  open=yes  preferred=no
+  [ 401]  angle=  20.7788 deg  range=5.7600 m  open=yes  preferred=no
+  [ 402]  angle=  21.2795 deg  range=5.7480 m  open=yes  preferred=no
+  [ 403]  angle=  21.7802 deg  range=5.7364 m  open=yes  preferred=no
+  [ 404]  angle=  22.2809 deg  range=5.7254 m  open=yes  preferred=no
+  [ 405]  angle=  22.7816 deg  range=5.7148 m  open=yes  preferred=no
+  [ 406]  angle=  23.2823 deg  range=5.7047 m  open=yes  preferred=no
+  [ 407]  angle=  23.7830 deg  range=5.6951 m  open=yes  preferred=no
+  [ 408]  angle=  24.2837 deg  range=5.6859 m  open=yes  preferred=no
+  [ 409]  angle=  24.7844 deg  range=5.6772 m  open=yes  preferred=no
+  [ 410]  angle=  25.2851 deg  range=5.6690 m  open=yes  preferred=no
+  [ 411]  angle=  25.7858 deg  range=5.6612 m  open=yes  preferred=no
+  [ 412]  angle=  26.2865 deg  range=5.6539 m  open=yes  preferred=no
+  [ 413]  angle=  26.7872 deg  range=5.6470 m  open=yes  preferred=no
+  [ 414]  angle=  27.2879 deg  range=5.6406 m  open=yes  preferred=no
+  [ 415]  angle=  27.7886 deg  range=5.6346 m  open=yes  preferred=no
+  [ 416]  angle=  28.2893 deg  range=5.6291 m  open=yes  preferred=no
+  [ 417]  angle=  28.7899 deg  range=5.6239 m  open=yes  preferred=no
+  [ 418]  angle=  29.2906 deg  range=5.6193 m  open=yes  preferred=no
+  [ 419]  angle=  29.7913 deg  range=5.6150 m  open=yes  preferred=no
+  [ 420]  angle=  30.2920 deg  range=5.6112 m  open=yes  preferred=no
+  [ 421]  angle=  30.7927 deg  range=5.6079 m  open=yes  preferred=no
+  [ 422]  angle=  31.2934 deg  range=5.6049 m  open=yes  preferred=no
+  [ 423]  angle=  31.7941 deg  range=5.6024 m  open=yes  preferred=no
+  [ 424]  angle=  32.2948 deg  range=5.6004 m  open=yes  preferred=no
+  [ 425]  angle=  32.7955 deg  range=5.5987 m  open=yes  preferred=no
+  [ 426]  angle=  33.2962 deg  range=5.5975 m  open=yes  preferred=no
+  [ 427]  angle=  33.7969 deg  range=5.5967 m  open=yes  preferred=no
+  [ 428]  angle=  34.2976 deg  range=5.5964 m  open=yes  preferred=no
+  [ 429]  angle=  34.7983 deg  range=5.5964 m  open=yes  preferred=no
+  [ 430]  angle=  35.2990 deg  range=5.5969 m  open=yes  preferred=no
+  [ 431]  angle=  35.7997 deg  range=5.5979 m  open=yes  preferred=no
+  [ 432]  angle=  36.3004 deg  range=5.5992 m  open=yes  preferred=no
+  [ 433]  angle=  36.8011 deg  range=5.6010 m  open=yes  preferred=no
+  [ 434]  angle=  37.3018 deg  range=inf m  open=yes  preferred=no
+  [ 435]  angle=  37.8025 deg  range=inf m  open=yes  preferred=no
+  [ 436]  angle=  38.3032 deg  range=inf m  open=yes  preferred=no
+  [ 437]  angle=  38.8038 deg  range=inf m  open=yes  preferred=no
+  [ 438]  angle=  39.3045 deg  range=inf m  open=yes  preferred=no
+  [ 439]  angle=  39.8052 deg  range=inf m  open=yes  preferred=no
+  [ 440]  angle=  40.3059 deg  range=inf m  open=yes  preferred=no
+  [ 441]  angle=  40.8066 deg  range=inf m  open=yes  preferred=no
+  [ 442]  angle=  41.3073 deg  range=inf m  open=yes  preferred=no
+  [ 443]  angle=  41.8080 deg  range=inf m  open=yes  preferred=no
+  [ 444]  angle=  42.3087 deg  range=inf m  open=yes  preferred=no
+  [ 445]  angle=  42.8094 deg  range=inf m  open=yes  preferred=no
+  [ 446]  angle=  43.3101 deg  range=inf m  open=yes  preferred=no
+  [ 447]  angle=  43.8108 deg  range=5.6716 m  open=yes  preferred=no
+  [ 448]  angle=  44.3115 deg  range=5.6800 m  open=yes  preferred=no
+  [ 449]  angle=  44.8122 deg  range=5.6888 m  open=yes  preferred=no
+  [ 450]  angle=  45.3129 deg  range=5.6981 m  open=yes  preferred=no
+  [ 451]  angle=  45.8136 deg  range=5.7079 m  open=yes  preferred=no
+  [ 452]  angle=  46.3143 deg  range=5.7181 m  open=yes  preferred=no
+  [ 453]  angle=  46.8150 deg  range=5.7288 m  open=yes  preferred=no
+  [ 454]  angle=  47.3157 deg  range=5.7400 m  open=yes  preferred=no
+  [ 455]  angle=  47.8164 deg  range=5.7517 m  open=yes  preferred=no
+  [ 456]  angle=  48.3171 deg  range=5.7639 m  open=yes  preferred=no
+  [ 457]  angle=  48.8177 deg  range=5.7766 m  open=yes  preferred=no
+  [ 458]  angle=  49.3184 deg  range=5.7897 m  open=yes  preferred=no
+  [ 459]  angle=  49.8191 deg  range=5.8034 m  open=yes  preferred=no
+  [ 460]  angle=  50.3198 deg  range=5.8176 m  open=yes  preferred=no
+  [ 461]  angle=  50.8205 deg  range=5.8323 m  open=yes  preferred=no
+  [ 462]  angle=  51.3212 deg  range=5.8475 m  open=yes  preferred=no
+  [ 463]  angle=  51.8219 deg  range=5.8632 m  open=yes  preferred=no
+  [ 464]  angle=  52.3226 deg  range=5.8795 m  open=yes  preferred=no
+  [ 465]  angle=  52.8233 deg  range=5.8963 m  open=yes  preferred=no
+  [ 466]  angle=  53.3240 deg  range=5.9137 m  open=yes  preferred=no
+  [ 467]  angle=  53.8247 deg  range=5.9316 m  open=yes  preferred=no
+  [ 468]  angle=  54.3254 deg  range=5.9501 m  open=yes  preferred=no
+  [ 469]  angle=  54.8261 deg  range=5.9692 m  open=yes  preferred=no
+  [ 470]  angle=  55.3268 deg  range=5.9888 m  open=yes  preferred=yes
+  [ 471]  angle=  55.8275 deg  range=6.0091 m  open=yes  preferred=yes
+  [ 472]  angle=  56.3282 deg  range=6.0299 m  open=yes  preferred=yes
+  [ 473]  angle=  56.8289 deg  range=6.0514 m  open=yes  preferred=yes
+  [ 474]  angle=  57.3296 deg  range=6.0734 m  open=yes  preferred=yes
+  [ 475]  angle=  57.8303 deg  range=6.0961 m  open=yes  preferred=yes
+  [ 476]  angle=  58.3309 deg  range=6.1194 m  open=yes  preferred=yes
+  [ 477]  angle=  58.8316 deg  range=6.1434 m  open=yes  preferred=yes
+  [ 478]  angle=  59.3323 deg  range=6.1681 m  open=yes  preferred=yes
+  [ 479]  angle=  59.8330 deg  range=6.1934 m  open=yes  preferred=yes
+  [ 480]  angle=  60.3337 deg  range=6.2194 m  open=yes  preferred=yes
+  [ 481]  angle=  60.8344 deg  range=6.2461 m  open=yes  preferred=yes
+  [ 482]  angle=  61.3351 deg  range=6.2735 m  open=yes  preferred=yes
+  [ 483]  angle=  61.8358 deg  range=6.3016 m  open=yes  preferred=yes
+  [ 484]  angle=  62.3365 deg  range=6.3305 m  open=yes  preferred=yes
+  [ 485]  angle=  62.8372 deg  range=6.3601 m  open=yes  preferred=yes
+  [ 486]  angle=  63.3379 deg  range=6.3905 m  open=yes  preferred=yes
+  [ 487]  angle=  63.8386 deg  range=6.4217 m  open=yes  preferred=yes
+  [ 488]  angle=  64.3393 deg  range=6.4537 m  open=yes  preferred=yes
+  [ 489]  angle=  64.8400 deg  range=6.4865 m  open=yes  preferred=yes
+  [ 490]  angle=  65.3407 deg  range=6.5202 m  open=yes  preferred=yes
+  [ 491]  angle=  65.8414 deg  range=6.5547 m  open=yes  preferred=yes
+  [ 492]  angle=  66.3421 deg  range=6.5900 m  open=yes  preferred=yes
+  [ 493]  angle=  66.8428 deg  range=6.6263 m  open=yes  preferred=yes
+  [ 494]  angle=  67.3435 deg  range=6.6635 m  open=yes  preferred=yes
+  [ 495]  angle=  67.8442 deg  range=6.7016 m  open=yes  preferred=yes
+  [ 496]  angle=  68.3448 deg  range=6.7406 m  open=yes  preferred=yes
+  [ 497]  angle=  68.8455 deg  range=6.7807 m  open=yes  preferred=yes
+  [ 498]  angle=  69.3462 deg  range=6.8217 m  open=yes  preferred=yes
+  [ 499]  angle=  69.8469 deg  range=6.8638 m  open=yes  preferred=yes
+  [ 500]  angle=  70.3476 deg  range=6.9069 m  open=yes  preferred=yes
+  [ 501]  angle=  70.8483 deg  range=6.9511 m  open=yes  preferred=yes
+  [ 502]  angle=  71.3490 deg  range=6.9964 m  open=yes  preferred=yes
+  [ 503]  angle=  71.8497 deg  range=7.0429 m  open=yes  preferred=yes
+  [ 504]  angle=  72.3504 deg  range=7.0905 m  open=yes  preferred=yes
+  [ 505]  angle=  72.8511 deg  range=7.1393 m  open=yes  preferred=yes
+  [ 506]  angle=  73.3518 deg  range=7.1893 m  open=yes  preferred=yes
+  [ 507]  angle=  73.8525 deg  range=7.2406 m  open=yes  preferred=yes
+  [ 508]  angle=  74.3532 deg  range=7.2932 m  open=yes  preferred=yes
+  [ 509]  angle=  74.8539 deg  range=7.3471 m  open=yes  preferred=yes
+  [ 510]  angle=  75.3546 deg  range=7.4025 m  open=yes  preferred=yes
+  [ 511]  angle=  75.8553 deg  range=7.4592 m  open=yes  preferred=yes
+  [ 512]  angle=  76.3560 deg  range=7.5173 m  open=yes  preferred=yes
+  [ 513]  angle=  76.8567 deg  range=7.5770 m  open=yes  preferred=yes
+  [ 514]  angle=  77.3574 deg  range=7.6382 m  open=yes  preferred=yes
+  [ 515]  angle=  77.8581 deg  range=7.7010 m  open=yes  preferred=yes
+  [ 516]  angle=  78.3587 deg  range=7.7655 m  open=yes  preferred=yes
+  [ 517]  angle=  78.8594 deg  range=7.7529 m  open=yes  preferred=yes
+  [ 518]  angle=  79.3601 deg  range=7.6846 m  open=yes  preferred=yes
+  [ 519]  angle=  79.8608 deg  range=7.6180 m  open=yes  preferred=yes
+  [ 520]  angle=  80.3615 deg  range=7.5532 m  open=yes  preferred=yes
+  [ 521]  angle=  80.8622 deg  range=7.4901 m  open=yes  preferred=yes
+  [ 522]  angle=  81.3629 deg  range=7.4285 m  open=yes  preferred=yes
+  [ 523]  angle=  81.8636 deg  range=7.3685 m  open=yes  preferred=yes
+  [ 524]  angle=  82.3643 deg  range=7.3101 m  open=yes  preferred=yes
+  [ 525]  angle=  82.8650 deg  range=7.2531 m  open=yes  preferred=yes
+  [ 526]  angle=  83.3657 deg  range=7.1975 m  open=yes  preferred=yes
+  [ 527]  angle=  83.8664 deg  range=7.1433 m  open=yes  preferred=yes
+  [ 528]  angle=  84.3671 deg  range=7.0905 m  open=yes  preferred=yes
+  [ 529]  angle=  84.8678 deg  range=7.0389 m  open=yes  preferred=yes
+  [ 530]  angle=  85.3685 deg  range=6.9887 m  open=yes  preferred=yes
+  [ 531]  angle=  85.8692 deg  range=6.9396 m  open=yes  preferred=yes
+  [ 532]  angle=  86.3699 deg  range=6.8918 m  open=yes  preferred=yes
+  [ 533]  angle=  86.8706 deg  range=6.8452 m  open=yes  preferred=yes
+  [ 534]  angle=  87.3713 deg  range=6.7997 m  open=yes  preferred=yes
+  [ 535]  angle=  87.8720 deg  range=6.7553 m  open=yes  preferred=yes
+  [ 536]  angle=  88.3726 deg  range=6.7120 m  open=yes  preferred=yes
+  [ 537]  angle=  88.8733 deg  range=6.6698 m  open=yes  preferred=yes
+  [ 538]  angle=  89.3740 deg  range=6.6286 m  open=yes  preferred=yes
+  [ 539]  angle=  89.8747 deg  range=6.5884 m  open=yes  preferred=yes
+  [ 540]  angle=  90.3754 deg  range=6.5491 m  open=yes  preferred=yes
+  [ 541]  angle=  90.8761 deg  range=6.5109 m  open=yes  preferred=yes
+  [ 542]  angle=  91.3768 deg  range=6.4736 m  open=yes  preferred=yes
+  [ 543]  angle=  91.8775 deg  range=6.4371 m  open=yes  preferred=yes
+  [ 544]  angle=  92.3782 deg  range=6.4016 m  open=yes  preferred=yes
+  [ 545]  angle=  92.8789 deg  range=6.3670 m  open=yes  preferred=yes
+  [ 546]  angle=  93.3796 deg  range=6.3332 m  open=yes  preferred=yes
+  [ 547]  angle=  93.8803 deg  range=6.3002 m  open=yes  preferred=yes
+  [ 548]  angle=  94.3810 deg  range=6.2681 m  open=yes  preferred=yes
+  [ 549]  angle=  94.8817 deg  range=6.2368 m  open=yes  preferred=yes
+  [ 550]  angle=  95.3824 deg  range=6.2062 m  open=yes  preferred=yes
+  [ 551]  angle=  95.8831 deg  range=6.1764 m  open=yes  preferred=yes
+  [ 552]  angle=  96.3838 deg  range=6.1474 m  open=yes  preferred=yes
+  [ 553]  angle=  96.8845 deg  range=6.1191 m  open=yes  preferred=yes
+  [ 554]  angle=  97.3852 deg  range=6.0915 m  open=yes  preferred=yes
+  [ 555]  angle=  97.8859 deg  range=6.0646 m  open=yes  preferred=yes
+  [ 556]  angle=  98.3865 deg  range=6.0385 m  open=yes  preferred=yes
+  [ 557]  angle=  98.8872 deg  range=6.0130 m  open=yes  preferred=yes
+  [ 558]  angle=  99.3879 deg  range=5.9881 m  open=yes  preferred=yes
+  [ 559]  angle=  99.8886 deg  range=5.9640 m  open=yes  preferred=yes
+  [ 560]  angle= 100.3893 deg  range=5.9405 m  open=yes  preferred=yes
+  [ 561]  angle= 100.8900 deg  range=5.9176 m  open=yes  preferred=yes
+  [ 562]  angle= 101.3907 deg  range=5.8953 m  open=yes  preferred=yes
+  [ 563]  angle= 101.8914 deg  range=5.8737 m  open=yes  preferred=yes
+  [ 564]  angle= 102.3921 deg  range=5.8526 m  open=yes  preferred=yes
+  [ 565]  angle= 102.8928 deg  range=5.8322 m  open=yes  preferred=yes
+  [ 566]  angle= 103.3935 deg  range=5.8123 m  open=yes  preferred=yes
+  [ 567]  angle= 103.8942 deg  range=5.7930 m  open=yes  preferred=yes
+  [ 568]  angle= 104.3949 deg  range=5.7743 m  open=yes  preferred=yes
+  [ 569]  angle= 104.8956 deg  range=5.7562 m  open=yes  preferred=yes
+  [ 570]  angle= 105.3963 deg  range=5.7385 m  open=yes  preferred=yes
+  [ 571]  angle= 105.8970 deg  range=5.7215 m  open=yes  preferred=yes
+  [ 572]  angle= 106.3977 deg  range=5.7049 m  open=yes  preferred=yes
+  [ 573]  angle= 106.8984 deg  range=5.6889 m  open=yes  preferred=yes
+  [ 574]  angle= 107.3991 deg  range=5.6735 m  open=yes  preferred=yes
+  [ 575]  angle= 107.8998 deg  range=5.6585 m  open=yes  preferred=yes
+  [ 576]  angle= 108.4004 deg  range=5.6440 m  open=yes  preferred=yes
+  [ 577]  angle= 108.9011 deg  range=5.6301 m  open=yes  preferred=yes
+  [ 578]  angle= 109.4018 deg  range=5.6166 m  open=yes  preferred=yes
+  [ 579]  angle= 109.9025 deg  range=5.6036 m  open=yes  preferred=yes
+  [ 580]  angle= 110.4032 deg  range=5.5912 m  open=yes  preferred=yes
+  [ 581]  angle= 110.9039 deg  range=5.5792 m  open=yes  preferred=yes
+  [ 582]  angle= 111.4046 deg  range=5.5676 m  open=yes  preferred=yes
+  [ 583]  angle= 111.9053 deg  range=5.5566 m  open=yes  preferred=yes
+  [ 584]  angle= 112.4060 deg  range=5.5460 m  open=yes  preferred=yes
+  [ 585]  angle= 112.9067 deg  range=5.5359 m  open=yes  preferred=yes
+  [ 586]  angle= 113.4074 deg  range=5.5262 m  open=yes  preferred=yes
+  [ 587]  angle= 113.9081 deg  range=5.5170 m  open=yes  preferred=yes
+  [ 588]  angle= 114.4088 deg  range=5.5082 m  open=yes  preferred=yes
+  [ 589]  angle= 114.9095 deg  range=5.4999 m  open=yes  preferred=yes
+  [ 590]  angle= 115.4102 deg  range=5.4920 m  open=yes  preferred=yes
+  [ 591]  angle= 115.9109 deg  range=5.4846 m  open=yes  preferred=yes
+  [ 592]  angle= 116.4116 deg  range=5.4776 m  open=yes  preferred=yes
+  [ 593]  angle= 116.9123 deg  range=5.4711 m  open=yes  preferred=yes
+  [ 594]  angle= 117.4130 deg  range=5.4649 m  open=yes  preferred=yes
+  [ 595]  angle= 117.9137 deg  range=5.4592 m  open=yes  preferred=yes
+  [ 596]  angle= 118.4143 deg  range=5.4540 m  open=yes  preferred=yes
+  [ 597]  angle= 118.9150 deg  range=5.4491 m  open=yes  preferred=yes
+  [ 598]  angle= 119.4157 deg  range=5.4447 m  open=yes  preferred=yes
+  [ 599]  angle= 119.9164 deg  range=5.4407 m  open=yes  preferred=yes
+  [ 600]  angle= 120.4171 deg  range=5.4371 m  open=yes  preferred=yes
+  [ 601]  angle= 120.9178 deg  range=5.4340 m  open=yes  preferred=yes
+  [ 602]  angle= 121.4185 deg  range=5.4312 m  open=yes  preferred=yes
+  [ 603]  angle= 121.9192 deg  range=5.4289 m  open=yes  preferred=yes
+  [ 604]  angle= 122.4199 deg  range=5.4270 m  open=yes  preferred=yes
+  [ 605]  angle= 122.9206 deg  range=5.4255 m  open=yes  preferred=yes
+  [ 606]  angle= 123.4213 deg  range=5.4245 m  open=yes  preferred=yes
+  [ 607]  angle= 123.9220 deg  range=5.4238 m  open=yes  preferred=yes
+  [ 608]  angle= 124.4227 deg  range=5.4235 m  open=yes  preferred=yes
+  [ 609]  angle= 124.9234 deg  range=5.4237 m  open=yes  preferred=yes
+  [ 610]  angle= 125.4241 deg  range=5.4243 m  open=yes  preferred=yes
+  [ 611]  angle= 125.9248 deg  range=inf m  open=yes  preferred=yes
+  [ 612]  angle= 126.4255 deg  range=4.7554 m  open=yes  preferred=yes
+  [ 613]  angle= 126.9262 deg  range=4.7382 m  open=yes  preferred=yes
+  [ 614]  angle= 127.4269 deg  range=4.7448 m  open=yes  preferred=yes
+  [ 615]  angle= 127.9276 deg  range=4.8076 m  open=yes  preferred=yes
+  [ 616]  angle= 128.4282 deg  range=5.4365 m  open=yes  preferred=yes
+  [ 617]  angle= 128.9289 deg  range=5.4400 m  open=yes  preferred=yes
+  [ 618]  angle= 129.4296 deg  range=5.4439 m  open=yes  preferred=yes
+  [ 619]  angle= 129.9303 deg  range=5.4483 m  open=yes  preferred=yes
+  [ 620]  angle= 130.4310 deg  range=5.4530 m  open=yes  preferred=yes
+  [ 621]  angle= 130.9317 deg  range=5.4582 m  open=yes  preferred=yes
+  [ 622]  angle= 131.4324 deg  range=5.4639 m  open=yes  preferred=yes
+  [ 623]  angle= 131.9331 deg  range=5.4699 m  open=yes  preferred=yes
+  [ 624]  angle= 132.4338 deg  range=5.4764 m  open=yes  preferred=yes
+  [ 625]  angle= 132.9345 deg  range=5.4833 m  open=yes  preferred=yes
+  [ 626]  angle= 133.4352 deg  range=5.4907 m  open=yes  preferred=yes
+  [ 627]  angle= 133.9359 deg  range=5.4984 m  open=yes  preferred=yes
+  [ 628]  angle= 134.4366 deg  range=5.5067 m  open=yes  preferred=yes
+  [ 629]  angle= 134.9373 deg  range=5.5154 m  open=yes  preferred=yes
+  [ 630]  angle= 135.4380 deg  range=5.5245 m  open=yes  preferred=yes
+  [ 631]  angle= 135.9387 deg  range=5.5341 m  open=yes  preferred=yes
+  [ 632]  angle= 136.4394 deg  range=5.5441 m  open=yes  preferred=yes
+  [ 633]  angle= 136.9401 deg  range=5.5546 m  open=yes  preferred=yes
+  [ 634]  angle= 137.4408 deg  range=5.5656 m  open=yes  preferred=yes
+  [ 635]  angle= 137.9414 deg  range=inf m  open=yes  preferred=yes
+  [ 636]  angle= 138.4421 deg  range=inf m  open=yes  preferred=yes
+  [ 637]  angle= 138.9428 deg  range=inf m  open=yes  preferred=yes
+  [ 638]  angle= 139.4435 deg  range=inf m  open=yes  preferred=yes
+  [ 639]  angle= 139.9442 deg  range=inf m  open=yes  preferred=yes
+  [ 640]  angle= 140.4449 deg  range=inf m  open=yes  preferred=yes
+  [ 641]  angle= 140.9456 deg  range=inf m  open=yes  preferred=yes
+  [ 642]  angle= 141.4463 deg  range=inf m  open=yes  preferred=yes
+  [ 643]  angle= 141.9470 deg  range=inf m  open=yes  preferred=yes
+  [ 644]  angle= 142.4477 deg  range=inf m  open=yes  preferred=yes
+  [ 645]  angle= 142.9484 deg  range=inf m  open=yes  preferred=yes
+  [ 646]  angle= 143.4491 deg  range=inf m  open=yes  preferred=yes
+  [ 647]  angle= 143.9498 deg  range=inf m  open=yes  preferred=yes
+  [ 648]  angle= 144.4505 deg  range=inf m  open=yes  preferred=yes
+  [ 649]  angle= 144.9512 deg  range=inf m  open=yes  preferred=yes
+  [ 650]  angle= 145.4519 deg  range=5.8088 m  open=yes  preferred=yes
+  [ 651]  angle= 145.9526 deg  range=5.8285 m  open=yes  preferred=yes
+  [ 652]  angle= 146.4533 deg  range=5.8489 m  open=yes  preferred=yes
+  [ 653]  angle= 146.9540 deg  range=5.8698 m  open=yes  preferred=yes
+  [ 654]  angle= 147.4547 deg  range=5.8913 m  open=yes  preferred=yes
+  [ 655]  angle= 147.9553 deg  range=5.9135 m  open=yes  preferred=yes
+  [ 656]  angle= 148.4560 deg  range=5.9362 m  open=yes  preferred=yes
+  [ 657]  angle= 148.9567 deg  range=5.9596 m  open=yes  preferred=yes
+  [ 658]  angle= 149.4574 deg  range=5.9837 m  open=yes  preferred=yes
+  [ 659]  angle= 149.9581 deg  range=6.0084 m  open=yes  preferred=yes
+  [ 660]  angle= 150.4588 deg  range=6.0338 m  open=yes  preferred=no
+  [ 661]  angle= 150.9595 deg  range=6.0598 m  open=yes  preferred=no
+  [ 662]  angle= 151.4602 deg  range=6.0866 m  open=yes  preferred=no
+  [ 663]  angle= 151.9609 deg  range=6.1140 m  open=yes  preferred=no
+  [ 664]  angle= 152.4616 deg  range=6.1422 m  open=yes  preferred=no
+  [ 665]  angle= 152.9623 deg  range=6.1711 m  open=yes  preferred=no
+  [ 666]  angle= 153.4630 deg  range=6.2007 m  open=yes  preferred=no
+  [ 667]  angle= 153.9637 deg  range=6.2311 m  open=yes  preferred=no
+  [ 668]  angle= 154.4644 deg  range=6.2623 m  open=yes  preferred=no
+  [ 669]  angle= 154.9651 deg  range=6.2943 m  open=yes  preferred=no
+  [ 670]  angle= 155.4658 deg  range=6.3271 m  open=yes  preferred=no
+  [ 671]  angle= 155.9665 deg  range=6.3608 m  open=yes  preferred=no
+  [ 672]  angle= 156.4672 deg  range=6.3953 m  open=yes  preferred=no
+  [ 673]  angle= 156.9679 deg  range=6.4306 m  open=yes  preferred=no
+  [ 674]  angle= 157.4686 deg  range=6.4669 m  open=yes  preferred=no
+  [ 675]  angle= 157.9692 deg  range=6.5040 m  open=yes  preferred=no
+  [ 676]  angle= 158.4699 deg  range=6.5421 m  open=yes  preferred=no
+  [ 677]  angle= 158.9706 deg  range=6.5812 m  open=yes  preferred=no
+  [ 678]  angle= 159.4713 deg  range=6.6212 m  open=yes  preferred=no
+  [ 679]  angle= 159.9720 deg  range=6.6622 m  open=yes  preferred=no
+  [ 680]  angle= 160.4727 deg  range=6.7043 m  open=yes  preferred=no
+  [ 681]  angle= 160.9734 deg  range=6.7474 m  open=yes  preferred=no
+  [ 682]  angle= 161.4741 deg  range=6.7915 m  open=yes  preferred=no
+  [ 683]  angle= 161.9748 deg  range=6.8368 m  open=yes  preferred=no
+  [ 684]  angle= 162.4755 deg  range=6.8268 m  open=yes  preferred=no
+  [ 685]  angle= 162.9762 deg  range=6.7516 m  open=yes  preferred=no
+  [ 686]  angle= 163.4769 deg  range=6.6785 m  open=yes  preferred=no
+  [ 687]  angle= 163.9776 deg  range=6.6075 m  open=yes  preferred=no
+  [ 688]  angle= 164.4783 deg  range=6.5384 m  open=yes  preferred=no
+  [ 689]  angle= 164.9790 deg  range=6.4713 m  open=yes  preferred=no
+  [ 690]  angle= 165.4797 deg  range=6.4060 m  open=yes  preferred=no
+  [ 691]  angle= 165.9804 deg  range=6.3425 m  open=yes  preferred=no
+  [ 692]  angle= 166.4811 deg  range=6.2808 m  open=yes  preferred=no
+  [ 693]  angle= 166.9818 deg  range=6.2207 m  open=yes  preferred=no
+  [ 694]  angle= 167.4825 deg  range=6.1622 m  open=yes  preferred=no
+  [ 695]  angle= 167.9831 deg  range=6.1052 m  open=yes  preferred=no
+  [ 696]  angle= 168.4838 deg  range=6.0498 m  open=yes  preferred=no
+  [ 697]  angle= 168.9845 deg  range=5.9958 m  open=yes  preferred=no
+  [ 698]  angle= 169.4852 deg  range=5.9432 m  open=yes  preferred=no
+  [ 699]  angle= 169.9859 deg  range=5.8919 m  open=yes  preferred=no
+  [ 700]  angle= 170.4866 deg  range=5.8420 m  open=yes  preferred=no
+  [ 701]  angle= 170.9873 deg  range=5.7934 m  open=yes  preferred=no
+  [ 702]  angle= 171.4880 deg  range=5.7460 m  open=yes  preferred=no
+  [ 703]  angle= 171.9887 deg  range=5.6998 m  open=yes  preferred=no
+  [ 704]  angle= 172.4894 deg  range=5.6548 m  open=yes  preferred=no
+  [ 705]  angle= 172.9901 deg  range=5.6109 m  open=yes  preferred=no
+  [ 706]  angle= 173.4908 deg  range=5.5680 m  open=yes  preferred=no
+  [ 707]  angle= 173.9915 deg  range=5.5263 m  open=yes  preferred=no
+  [ 708]  angle= 174.4922 deg  range=5.4856 m  open=yes  preferred=no
+  [ 709]  angle= 174.9929 deg  range=5.4459 m  open=yes  preferred=no
+  [ 710]  angle= 175.4936 deg  range=5.4072 m  open=yes  preferred=no
+  [ 711]  angle= 175.9943 deg  range=5.3695 m  open=yes  preferred=no
+  [ 712]  angle= 176.4950 deg  range=5.3326 m  open=yes  preferred=no
+  [ 713]  angle= 176.9957 deg  range=5.2967 m  open=yes  preferred=no
+  [ 714]  angle= 177.4964 deg  range=5.2617 m  open=yes  preferred=no
+  [ 715]  angle= 177.9970 deg  range=5.2275 m  open=yes  preferred=no
+  [ 716]  angle= 178.4977 deg  range=5.1941 m  open=yes  preferred=no
+  [ 717]  angle= 178.9984 deg  range=5.1616 m  open=yes  preferred=no
+  [ 718]  angle= 179.4991 deg  range=5.1298 m  open=yes  preferred=no
+  [ 719]  angle= 179.9998 deg  range=5.0989 m  open=yes  preferred=no
