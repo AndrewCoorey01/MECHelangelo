@@ -36,7 +36,7 @@ import requests
 
 # ── Config ────────────────────────────────────────────────────────
 
-PI4_URL = "http://192.168.10.1:5000/state"
+PI4_URL = "http://172.20.10.3:5000/state"
 POLL_HZ = 10.0
 REQUEST_TIMEOUT_SEC = 0.30
 
