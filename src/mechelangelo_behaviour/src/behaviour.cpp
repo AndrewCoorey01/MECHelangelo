@@ -5529,8 +5529,6 @@
 //     rclcpp::shutdown();
 //     return 0;
 // }
-
-
 /////////////////////////////////////////////////////////////////////////
 /// DVD bounce + adaptive human clearance waypoint / S-curve test
 
@@ -5579,9 +5577,9 @@ static constexpr double kStopAngularDecel = 1.2; // rad/s^2
 // Physical relative-turn control. The Sense HAT fused quaternion yaw is strongly
 // affected by magnetic interference inside the robot, so exploration turns use
 // the Z-axis gyroscope integrated over each individual turn instead.
-static constexpr double kPhysicalTurnMaxSpeed = 0.45;    // rad/s
-static constexpr double kPhysicalTurnMediumSpeed = 0.45; // rad/s
-static constexpr double kPhysicalTurnSlowSpeed = 0.45;   // rad/s
+static constexpr double kPhysicalTurnMaxSpeed = 0.30;    // rad/s
+static constexpr double kPhysicalTurnMediumSpeed = 0.18; // rad/s
+static constexpr double kPhysicalTurnSlowSpeed = 0.10;   // rad/s
 static constexpr double kPhysicalTurnMediumZone = 30.0 * M_PI / 180.0;
 static constexpr double kPhysicalTurnSlowZone = 10.0 * M_PI / 180.0;
 static constexpr double kGyroDeadband = 0.015;            // rad/s
@@ -5673,7 +5671,7 @@ static constexpr double kHumanTurnGain = 1.8;           // image offset to angul
 static constexpr double kHumanForwardGain = 0.35;       // distance error to linear speed
 static constexpr double kHumanCentreDeadZone = 0.06;    // normalised image width
 static constexpr double kHumanLostTimeout = 4.0;        // seconds, allow longer brief camera loss before returning to exploration
-static constexpr double kHumanRecoveryTurnSpeed = 0.25;   // rad/s, gentle reacquire turn using last known offset
+static constexpr double kHumanRecoveryTurnSpeed = 0.45;   // rad/s, minimum effective stationary reacquire turn
 static constexpr double kHumanRecoveryCreepSpeed = 0.00;  // m/s, keep zero while reacquiring to avoid blind motion
 
 // LiDAR validation for human distance.
@@ -5798,7 +5796,7 @@ static constexpr double kHumanLidarOnlyMotionTimeout = 2.50; // s
 // is allowed only while that LiDAR guard is fresh and safely beyond the human
 // minimum distance. Camera depth is never used.
 static constexpr double kHumanCameraGuidedMaxForwardSpeed = 0.10; // m/s
-static constexpr double kHumanCameraGuidedMaxAngularSpeed = 0.35; // rad/s
+static constexpr double kHumanCameraGuidedMaxAngularSpeed = 0.25; // rad/s, gentle camera-guided approach arc
 static constexpr double kHumanCameraGuardWindow = 10.0 * M_PI / 180.0;
 static constexpr double kHumanCameraGuardRangeAlpha = 0.45;
 
@@ -5822,7 +5820,7 @@ static constexpr double kHumanPlannerLinearAcceleration = 0.30;   // m/s^2
 static constexpr double kHumanPlannerAngularAcceleration = 0.90;  // rad/s^2
 static constexpr double kHumanPlannerMaxForwardSpeed = 0.16;
 static constexpr double kHumanPlannerMaxReverseSpeed = 0.14;
-static constexpr double kHumanPlannerMaxAngularSpeed = 0.45;
+static constexpr double kHumanPlannerMaxAngularSpeed = 0.30;
 static constexpr double kHumanPlannerBubbleExitMargin = -0.08;
 static constexpr int kHumanPlannerBubbleExitBlockedBeams = 5;
 static constexpr double kHumanPlannerSettleDuration = 0.80;
@@ -5880,7 +5878,7 @@ static constexpr double kHumanWaypointClearanceBuffer = 0.12; // m beyond measur
 static constexpr double kHumanWaypointMinimumLateralShift = 0.30; // m
 static constexpr double kHumanWaypointMaximumLateralShift = 0.60; // m
 static constexpr double kHumanWaypointArcSpeed = 0.16; // m/s
-static constexpr double kHumanWaypointArcAngularSpeed = 0.34; // rad/s
+static constexpr double kHumanWaypointArcAngularSpeed = 0.30; // rad/s, matches physical human-planner cap
 static constexpr double kHumanWaypointMinimumArcSeconds = 1.50;
 static constexpr double kHumanWaypointMaximumArcSeconds = 3.80;
 static constexpr double kHumanWaypointMaximumTotalSeconds = 8.50;
@@ -9744,10 +9742,10 @@ void MechelangeloBehaviour::controlLoop()
 
             const std::vector<double> angular_candidates =
                 g_human_escape_active
-                    ? std::vector<double>{-0.45, -0.30, -0.15, 0.0, 0.15, 0.30, 0.45}
+                    ? std::vector<double>{-0.30, -0.20, -0.10, 0.0, 0.10, 0.20, 0.30}
                     : (g_human_proactive_avoidance_active
                         ? std::vector<double>{-0.30, -0.20, -0.10, 0.0, 0.10, 0.20, 0.30}
-                        : std::vector<double>{-0.45, -0.30, -0.15, 0.0, 0.15, 0.30, 0.45});
+                        : std::vector<double>{-0.30, -0.20, -0.10, 0.0, 0.10, 0.20, 0.30});
 
             ArcCandidate best;
             for (const double linear : linear_candidates)
