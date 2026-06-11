@@ -1,13 +1,13 @@
 === Mechelangelo Human Interaction Stats ===
 Last event: camera_human_detection_ignored_during_cooldown
-ROS time: 112.867 s
+ROS time: 50.767 s
 
-DVD exploration headings selected: 4
-Human detections accepted: 708
-Human detections ignored during cooldown: 23
+DVD exploration headings selected: 2
+Human detections accepted: 360
+Human detections ignored during cooldown: 13
 
-Successful entries into interaction state: 2
-Completed 30 s interactions: 2
+Successful entries into interaction state: 1
+Completed 30 s interactions: 1
 Abandoned before reaching interaction: 0
 Abandoned after reaching interaction: 0
 
@@ -16,24 +16,24 @@ Persistent target confidence: LOST
 Camera-guided fallback active: no
 Camera-guided LiDAR guard valid: no
 Camera-guided guard range: inf m
-Camera-guided cycles: 198
+Camera-guided cycles: 9
 Persistent target point: x=0.000 y=0.000 m
 Proactive avoidance stage: NONE
-Persistent target locks: 508
-LiDAR target reassociations: 508
+Persistent target locks: 350
+LiDAR target reassociations: 350
 Reposition hysteresis active: no
 Committed reposition active: no
 Reposition commits: 0
 Settle attempts: 2
-Settle successes: 2
-Settle rejected/restarted: 0
+Settle successes: 1
+Settle rejected/restarted: 1
 Reposition candidates rejected for weak improvement: 0
 
-Latest human range: 1.975 m
-Latest human offset: 0.000
+Latest human range: 1.951 m
+Latest human offset: -0.000
 Latest blocked beams: 0
-Latest minimum clearance: 2.072 m
-Latest minimum bubble margin: 0.472 m
+Latest minimum clearance: 2.029 m
+Latest minimum bubble margin: 0.429 m
 Latest committed reposition heading: 0.000 deg
 
 Fused human valid: no
@@ -42,24 +42,24 @@ Fused human range: -1.000 m
 Fused human safety range: -1.000 m
 Associated LiDAR cluster valid: no
 Associated cluster points: 0
-Associated cluster angle: 6.510 deg
-Associated cluster median range: 2.114 m
-Associated cluster safety range: 2.089 m
-LiDAR associations successful: 508
-LiDAR associations failed: 198
+Associated cluster angle: 1.993 deg
+Associated cluster median range: 1.958 m
+Associated cluster safety range: 1.934 m
+LiDAR associations successful: 350
+LiDAR associations failed: 9
 
 Planner command active: no
 Planner linear command: 0.000 m/s
 Planner angular command: 0.000 rad/s
-Planner score: 33.149
-Predicted minimum human distance: 1.928 m
-Predicted final human range: 1.928 m
-Predicted final human bearing: -0.000 deg
+Planner score: 32.728
+Predicted minimum human distance: 1.911 m
+Predicted final human range: 1.911 m
+Predicted final human bearing: 0.000 deg
 Safe planner candidates: 25
 Rejected for human distance: 0
 Rejected for obstacle clearance: 0
 Rejected for camera view: 10
-Planner commands selected: 119
+Planner commands selected: 60
 Planner cycles with no safe command: 0
 Minimum-distance supervisor stops: 0
 Visual recovery cycles: 0
@@ -81,8 +81,8 @@ Adaptive target forward shift: 0.000 m
 Adaptive arc duration per phase: 0.000 s
 Adaptive trigger streak: 0
 No-safe-command streak: 0
-Latest rear clearance: 3.875 m
-Latest front clearance: 2.072 m
+Latest rear clearance: 4.490 m
+Latest front clearance: 2.029 m
 Too-close backoffs: 0
 Step-back voice prompts: 0
 Proactive approach avoidance active: no
@@ -97,8 +97,8 @@ Projected straight-path blocked beams: 0
 Projected straight-path bubble margin: inf m
 Arms-down pose name: arm_down
 Behaviour interaction topic active: no
-Mimicry arm poses forwarded: 410
-Inactive/default mimicry poses ignored: 1658
+Mimicry arm poses forwarded: 206
+Inactive/default mimicry poses ignored: 594
 
 Interaction session active: no
 Human detection cooldown active: yes

@@ -49,10 +49,33 @@ def generate_launch_description():
         ),
 
         Node(
+            package='mechelangelo_perception',
+            executable='dual_ultrasonic',
+            name='dual_ultrasonic_node',
+            output='screen',
+            parameters=[{
+                'left_trigger_gpio': 17,
+                'left_echo_gpio': 22,
+                'right_trigger_gpio': 27,
+                'right_echo_gpio': 23,
+                'left_topic': '/ultrasonic/left',
+                'right_topic': '/ultrasonic/right',
+                'left_frame_id': 'ultrasonic_left',
+                'right_frame_id': 'ultrasonic_right',
+                'min_range_m': 0.02,
+                'max_range_m': 4.0,
+                'field_of_view_rad': 0.45,
+                'inter_trigger_period_s': 0.07,
+                'echo_timeout_s': 0.03,
+                'median_window': 5,
+            }],
+        ),
+
+        Node(
             package='mechelangelo_behaviour',
-            executable='mechelangelo_behaviour',
+            executable='mechelangelo_behaviour_physical',
             name='mechelangelo_behaviour',
-            parameters=[{'stop_distance_m': 1.5}],
+            parameters=[{'stop_distance_m': 0.75}],
             output='screen',
         ),
     ])
