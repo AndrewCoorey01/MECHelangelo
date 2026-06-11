@@ -22,7 +22,7 @@
     # into left and right ThunderBorg motor commands.
 
     max_linear_vel_mps: 0.15
-    max_angular_vel_radps: 0.60
+    max_angular_vel_radps: 0.45
 
 
     # ============================================================

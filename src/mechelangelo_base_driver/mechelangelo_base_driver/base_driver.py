@@ -93,7 +93,7 @@ class MechelangeloThunderBorgDriver(Node):
         self.declare_parameter('cmd_vel_topic', 'cmd_vel')
         self.declare_parameter('wheel_separation_m', 0.42)
         self.declare_parameter('max_linear_vel_mps', 0.15)
-        self.declare_parameter('max_angular_vel_radps', 0.60)
+        self.declare_parameter('max_angular_vel_radps', 0.45)
         self.declare_parameter('max_power', 1.0)
         self.declare_parameter('deadband', 0.03)
         self.declare_parameter('motor1_is_right', True)

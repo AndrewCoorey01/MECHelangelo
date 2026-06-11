@@ -35,9 +35,10 @@ static constexpr double kControlPeriodSeconds = 0.1;
 
 // Movement tuning.
 static constexpr double kForwardSpeed = 0.26;       // m/s
-static constexpr double kTurnSpeed = 0.6;           // rad/s
-static constexpr double kAngleGain = 0.8;           // proportional turning gain
-static constexpr double kAlignmentTolerance = 0.10; // radians, about 5.7 degrees
+static constexpr double kTurnSpeed = 0.45;          // rad/s, physical rotation cap
+static constexpr double kAngleGain = 0.55;          // proportional turning gain
+static constexpr double kAlignmentTolerance = 0.14; // radians, about 8.0 degrees
+static constexpr double kTurnAngularAcceleration = 0.45; // rad/s^2
 
 // Smooth commanded stops so the physical base does not snap from motion to zero
 // in one control tick. At the 100 ms control period, these remove roughly
@@ -149,8 +150,8 @@ static constexpr double kUltrasonicNoEchoApproachSpeed = 0.07;   // m/s
 static constexpr double kUltrasonicApproachMaxSpeed = 0.16;      // m/s
 static constexpr double kUltrasonicApproachAcceleration = 0.24;  // m/s^2
 static constexpr double kUltrasonicApproachDeceleration = 0.50;  // m/s^2
-static constexpr double kUltrasonicAngularAcceleration = 0.90;   // rad/s^2
-static constexpr double kUltrasonicHumanTurnGain = 1.8;
+static constexpr double kUltrasonicAngularAcceleration = 0.45;   // rad/s^2
+static constexpr double kUltrasonicHumanTurnGain = 1.2;
 static constexpr double kUltrasonicHumanMaxTurnSpeed = 0.45;     // rad/s
 static constexpr double kUltrasonicCentreDeadZone = 0.05;        // normalised image width
 static constexpr double kUltrasonicRotateOnlyOffset = 0.28;      // normalised image width
@@ -1594,8 +1595,15 @@ void MechelangeloBehaviour::controlLoop()
                 break;
             }
 
-            const double turn_cmd = std::clamp(
+            const double desired_turn_cmd = std::clamp(
                 target_angle_ * kAngleGain, -kTurnSpeed, kTurnSpeed);
+            const double max_turn_step =
+                kTurnAngularAcceleration * kControlPeriodSeconds;
+            const double turn_cmd =
+                current_twist_.angular.z + std::clamp(
+                    desired_turn_cmd - current_twist_.angular.z,
+                    -max_turn_step,
+                    max_turn_step);
             twist.angular.z = turn_cmd;
             target_angle_ -= turn_cmd * kControlPeriodSeconds;
             target_angle_ = normaliseAngle(target_angle_);
@@ -1637,8 +1645,15 @@ void MechelangeloBehaviour::controlLoop()
             break;
         }
 
-        const double turn_cmd = std::clamp(
+        const double desired_turn_cmd = std::clamp(
             remaining_angle * kAngleGain, -kTurnSpeed, kTurnSpeed);
+        const double max_turn_step =
+            kTurnAngularAcceleration * kControlPeriodSeconds;
+        const double turn_cmd =
+            current_twist_.angular.z + std::clamp(
+                desired_turn_cmd - current_twist_.angular.z,
+                -max_turn_step,
+                max_turn_step);
         twist.angular.z = turn_cmd;
 
         RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
