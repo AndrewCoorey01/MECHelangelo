@@ -5529,6 +5529,5739 @@
 //     rclcpp::shutdown();
 //     return 0;
 // }
+// /////////////////////////////////////////////////////////////////////////
+// /// DVD bounce + adaptive human clearance waypoint / S-curve test
+
+// #include "behaviour.hpp"
+
+// #include <algorithm>
+// #include <chrono>
+// #include <cmath>
+// #include <cstdlib>
+// #include <fstream>
+// #include <iomanip>
+// #include <limits>
+// #include <functional>
+// #include <memory>
+// #include <random>
+// #include <string>
+// #include <vector>
+
+// #include "std_msgs/msg/string.hpp"
+
+// using namespace std::chrono_literals;
+
+// #ifndef M_PI
+// #define M_PI 3.14159265358979323846
+// #endif
+
+// // ------------------------------------------------------
+// // Behaviour constants
+// // ------------------------------------------------------
+
+// // Control loop runs every 100 ms.
+// static constexpr double kControlPeriodSeconds = 0.1;
+
+// // Movement tuning.
+// static constexpr double kForwardSpeed = 0.26;       // m/s
+// static constexpr double kTurnSpeed = 0.6;           // rad/s
+// static constexpr double kAngleGain = 0.8;           // proportional turning gain
+// static constexpr double kAlignmentTolerance = 0.10; // radians, about 5.7 degrees
+
+// // Smooth commanded stops so the physical base does not snap from motion to zero
+// // in one control tick. At the 100 ms control period, these remove roughly
+// // 0.04 m/s and 0.12 rad/s from the command each loop.
+// static constexpr double kStopLinearDecel = 0.4;  // m/s^2
+// static constexpr double kStopAngularDecel = 1.2; // rad/s^2
+
+// // Physical relative-turn control. The Sense HAT fused quaternion yaw is strongly
+// // affected by magnetic interference inside the robot, so exploration turns use
+// // the Z-axis gyroscope integrated over each individual turn instead.
+// static constexpr double kPhysicalTurnMaxSpeed = 0.30;    // rad/s
+// static constexpr double kPhysicalTurnMediumSpeed = 0.18; // rad/s
+// static constexpr double kPhysicalTurnSlowSpeed = 0.10;   // rad/s
+// static constexpr double kPhysicalTurnMediumZone = 30.0 * M_PI / 180.0;
+// static constexpr double kPhysicalTurnSlowZone = 10.0 * M_PI / 180.0;
+// static constexpr double kGyroDeadband = 0.015;            // rad/s
+// static constexpr int kGyroBiasSampleCount = 8;            // about 0.5 s at 16 Hz
+// static constexpr double kImuFreshTimeout = 0.40;          // seconds
+// static constexpr double kMaximumTurnTime = 20.0;          // seconds
+
+// // Stop this far before a real obstacle/wall.
+// // Loaded from the ROS parameter 'stop_distance_m'.
+// // Default: 1.5 m (simulation). Physical robot: set to 0.75 in the launch file.
+
+// // 30 loops x 0.1 s = 3 seconds.
+// static constexpr int kStopDurationLoops = 30;
+
+// // Ignore returns too close to the robot body / lidar blind spot.
+// static constexpr double kMinValidRange = 0.5; // m
+
+// // Front scan window used while moving forward.
+// static constexpr double kFrontCheckAngle = 30 * M_PI / 180.0; // +/- 30 degrees
+
+// // When several neighbouring beams are effectively tied for the longest
+// // distance, steer toward the middle of that opening instead of whichever beam
+// // happens to appear first in the scan array.
+// static constexpr double kLongestRangeTieTolerance = 0.05; // m
+
+// // ------------------------------------------------------
+// // DVD-style bounce exploration tuning
+// // ------------------------------------------------------
+// // The autonomous gallery behaviour is intended to move like a DVD screensaver:
+// // drive straight until the front is blocked, stop at a safe distance, then pick
+// // a new safe side-bounce angle instead of always chasing the longest wall.
+// //
+// // A beam is considered open if it is infinity OR farther than this clearance.
+// // Infinity is useful in large rooms because it means the LiDAR did not hit
+// // anything within range.
+// static constexpr double kDvdOpenClearanceDistance = 4.5; // m
+
+// // Ignore very narrow open gaps. This prevents the robot from aiming through
+// // thin laser cracks between obstacles.
+// static constexpr double kDvdMinSectorWidth = 18.0 * M_PI / 180.0; // radians
+
+// // Trim candidate angles away from the edge of an open sector.
+// static constexpr double kDvdSectorEdgeMargin = 8.0 * M_PI / 180.0; // radians
+
+// // Preferred bounce band after the robot stops at a wall.
+// // These angles are relative to the robot's current forward direction:
+// //   0 deg   = back into the wall/obstacle it just stopped for
+// //   +/-90   = side-bounce
+// //   +/-180  = drive exactly back along the previous path
+// // The robot randomly chooses inside this safe side band when possible.
+// static constexpr double kDvdPreferredMinTurnAngle = 55.0 * M_PI / 180.0;  // radians
+// static constexpr double kDvdPreferredMaxTurnAngle = 150.0 * M_PI / 180.0; // radians
+
+// // Fallback band used if the preferred side-bounce band has no safe candidates.
+// // This still avoids the front wall and avoids exact reverse.
+// static constexpr double kDvdAvoidFrontAngle = 35.0 * M_PI / 180.0;  // radians
+// static constexpr double kDvdAvoidReverseAngle = 165.0 * M_PI / 180.0; // radians
+
+// // ------------------------------------------------------
+// // LaserScan noise suppression constants
+// // ------------------------------------------------------
+// // The filter is based on the previous LaserProcessing::countSegments()
+// // approach: valid objects form segments of neighbouring points. Random
+// // dots are usually isolated or only one/two points, so they get replaced
+// // with infinity and will not stop the robot.
+
+// // Stage 1: local neighbour test.
+// // static constexpr int kNoiseNeighbourWindow = 4;          // check +/- 4 beams
+// // static constexpr int kNoiseMinNeighbourCount = 2;        // require at least 2 close neighbours
+// // static constexpr double kNoiseNeighbourDistance = 0.22;  // m in local XY space
+
+// // // Stage 2: segment extraction test.
+// // static constexpr double kSegmentJoinDistance = 0.18;     // m max gap between consecutive points
+// // static constexpr int kSegmentMinPoints = 4;              // reject tiny speckle clusters
+// // static constexpr double kSegmentMinLength = 0.05;        // m reject near-zero length segments
+
+
+// static constexpr int kNoiseNeighbourWindow = 4;
+// static constexpr int kNoiseMinNeighbourCount = 1;
+// static constexpr double kNoiseNeighbourDistance = 0.30;
+
+// static constexpr double kSegmentJoinDistance = 0.25;
+// static constexpr int kSegmentMinPoints = 2;
+// static constexpr double kSegmentMinLength = 0.015;
+
+// // ------------------------------------------------------
+// // Human tracking tuning
+// // ------------------------------------------------------
+// // /human_tracking message format:
+// // data[0] = detected, data[1] = centre_offset, data[2] = distance_m
+// // centre_offset is normalised image offset from centre: -0.5 left, 0 centre, +0.5 right.
+// static constexpr double kHumanTargetDistance = 1.5;     // m
+// static constexpr double kHumanDistanceTolerance = 0.15; // m
+// static constexpr double kHumanMaxForwardSpeed = 0.16;   // m/s, slower approach helps keep person in camera
+// static constexpr double kHumanMaxReverseSpeed = 0.12;   // m/s
+// static constexpr double kHumanMaxTurnSpeed = 0.50;      // rad/s, gentler human tracking so the camera does not swing off target
+// static constexpr double kHumanTurnGain = 1.8;           // image offset to angular speed
+// static constexpr double kHumanForwardGain = 0.35;       // distance error to linear speed
+// static constexpr double kHumanCentreDeadZone = 0.06;    // normalised image width
+// static constexpr double kHumanLostTimeout = 4.0;        // seconds, allow longer brief camera loss before returning to exploration
+// static constexpr double kHumanRecoveryTurnSpeed = 0.45;   // rad/s, minimum effective stationary reacquire turn
+// static constexpr double kHumanRecoveryCreepSpeed = 0.00;  // m/s, keep zero while reacquiring to avoid blind motion
+
+// // LiDAR validation for human distance.
+// static constexpr double kCameraHorizontalFov = 60.0 * M_PI / 180.0;
+// static constexpr double kHumanLidarWindow = 10.0 * M_PI / 180.0;
+// static constexpr double kLidarCameraMaxDisagreement = 0.4;
+// static constexpr double kHumanLidarStopDistance = 1.65;
+// static constexpr double kHumanLidarStopTolerance = 0.20;
+
+// // Once the robot reaches a usable interaction pose, hold it instead of
+// // continuing to creep forward or dropping straight back into DVD exploration
+// // when the detector flickers for a moment.
+// static constexpr double kHumanInteractionHoldTimeout = 5.0;       // seconds to hold pose through brief detector loss
+// static constexpr double kHumanInteractionHoldMaxOffset = 0.18;    // human must be reasonably centred to latch interaction hold
+// static constexpr double kHumanRecoveryRotateOffsetThreshold = 0.15; // do not rotate during recovery if human was basically centred
+// static constexpr double kHumanInteractionHoldRangeSlack = 0.25;   // extra distance slack while staying latched
+
+// // Human interaction session timing. Once a valid interaction pose is reached,
+// // hold interaction for this long, then return to DVD exploration and ignore
+// // camera-triggered human interrupts for a short cooldown period.
+// static constexpr double kHumanInteractionDurationSeconds = 10.0;
+// static constexpr double kHumanDetectionCooldownSeconds = 10.0;
+
+// // Safety zone.
+// static constexpr double kSafetyZoneRadius = 1.5;
+// static constexpr double kSafetyZoneIntruderThreshold = 0.3;
+// static constexpr double kSafetyZoneHumanExclusionAngle = 25.0 * M_PI / 180.0;
+
+// // During HUMAN_DETECTED, the robot is allowed to have a closer wall behind it
+// // because the arms and human interaction are mainly front/side constrained.
+// // This avoids false blocking when the base turns imperfectly and the rear of
+// // the LiDAR/base drifts slightly toward the wall it just stopped near.
+// static constexpr double kHumanRearSafetyRadius = 1.0; // m, rear-only during human approach/interaction
+// static constexpr double kHumanRearSectorHalfAngle = 45.0 * M_PI / 180.0; // rear cone around +/-180 deg
+
+// // In human reposition mode, the 1.5 m bubble is a requirement for arm interaction,
+// // not a hard stop for base motion. These smaller radii are the true emergency
+// // stop distances while the robot is trying to move out of a bad interaction pose.
+// static constexpr double kHumanModeFrontSideHardStopRadius = 0.85; // m
+// static constexpr double kHumanModeRearHardStopRadius = 1.0;       // m, keep rear at 1 m as requested
+
+// // ------------------------------------------------------
+// // Human interaction repositioning tuning
+// // ------------------------------------------------------
+// // The robot needs a clear space around itself before arm interaction.
+// // If the human is visible but the 1.5 m arm bubble is blocked by a wall or
+// // obstacle, the robot does not drive straight at the human. Instead it samples
+// // short forward/arc moves and chooses the one predicted to clear the bubble
+// // while still keeping the human in view.
+// static constexpr double kInteractionBubbleRadius = 1.5;                 // m, arm movement clearance around robot
+// static constexpr double kInteractionBubbleSafetyMargin = 0.10;          // m, extra buffer added to the bubble check
+// static constexpr double kInteractionHumanExclusionAngle = 25.0 * M_PI / 180.0; // ignore tracked human cone
+// static constexpr int kInteractionAllowedBlockedBeams = 3;               // tolerate a few filtered/noisy beams
+// static constexpr double kInteractionRepositionLookahead = 0.65;         // m, predicted short move distance
+// static constexpr double kInteractionRepositionSpeed = 0.11;             // m/s, enough movement to escape a bad pose
+// static constexpr double kInteractionRepositionTurnGain = 0.85;          // rad/s per rad target heading
+// static constexpr double kInteractionRepositionMaxAngularSpeed = 0.45;   // rad/s, still below normal exploration turning
+// static constexpr double kInteractionPathHalfWidth = 0.45;               // m, collision corridor half-width
+// static constexpr double kInteractionPathForwardBuffer = 0.25;           // m, extra forward collision buffer
+// static constexpr double kInteractionMaxCandidateAngle = 60.0 * M_PI / 180.0;
+// static constexpr double kInteractionRecenterFirstOffset = 0.38;         // if human is near camera edge, re-centre before repositioning
+// static constexpr double kInteractionViewLossOffset = 0.48;              // heavy penalty if predicted offset approaches camera edge
+// static constexpr double kInteractionParallelBiasAngle = 35.0 * M_PI / 180.0; // prefer shallow wall-parallel arcs
+
+
+// // Reposition smoothing and interaction-state hysteresis.
+// // The robot commits to one short arc instead of selecting a new direction every
+// // 100 ms. It then stops briefly and verifies several scans before interaction.
+// static constexpr double kInteractionRepositionCommitSeconds = 0.80;
+// static constexpr double kInteractionSettleDurationSeconds = 0.80;
+// static constexpr int kInteractionSettleRequiredGoodSamples = 5;
+// static constexpr int kInteractionRepositionEnterBlockedBeams = 12;
+// static constexpr int kInteractionRepositionExitBlockedBeams = 5;
+// static constexpr double kInteractionRepositionEnterMinMargin = -0.20; // m inside required bubble
+// static constexpr double kInteractionRepositionExitMinMargin = -0.08;  // tolerate small scan/geometry error
+// static constexpr int kInteractionMinBlockedImprovementBeams = 4;
+// static constexpr double kInteractionMinBlockedImprovementFraction = 0.10;
+// static constexpr double kInteractionMinClearanceImprovement = 0.08; // m
+// static constexpr double kInteractionCommandSmoothingAlpha = 0.35;
+
+
+// // ------------------------------------------------------
+// // Fused human tracking + safe local arc planner
+// // ------------------------------------------------------
+// // Camera provides only the person's bearing and visibility. Human distance is
+// // always taken from LiDAR: preferably a coherent associated segment, otherwise
+// // the nearest valid LiDAR return in a narrow cone around the camera bearing.
+// // Camera-reported depth is intentionally ignored because the real camera has no
+// // depth capability.
+// static constexpr double kHumanAssociationWindow = 16.0 * M_PI / 180.0;
+// static constexpr int kHumanAssociationMinPoints = 2; //was 3
+// static constexpr double kHumanAssociationRangeScale = 1.50;
+// static constexpr double kHumanFusionBearingAlpha = 0.45;
+// static constexpr double kHumanFusionRangeAlpha = 0.35;
+// static constexpr double kHumanFusionSafetyRangeAlphaDown = 0.70;
+// static constexpr double kHumanFusionSafetyRangeAlphaUp = 0.25;
+// static constexpr double kHumanFusionMaxRangeStep = 0.35;
+// static constexpr double kHumanLidarFreshTimeout = 0.60;
+// static constexpr double kHumanVisualFreshTimeout = 0.60;
+
+// // Persistent human target lock. A camera-confirmed LiDAR cluster is stored as a
+// // point in the robot frame, propagated through the robot's own motion and then
+// // reassociated using both Cartesian position and cluster shape. This prevents a
+// // nearby wall from replacing the human when the camera briefly loses them.
+// static constexpr double kHumanTargetCartesianGate = 0.75; // m
+// static constexpr double kHumanTargetRangeGate = 0.80;     // m
+// static constexpr double kHumanTargetBearingGate = 20.0 * M_PI / 180.0;
+// static constexpr double kHumanTargetVisualBearingGate = 26.0 * M_PI / 180.0;
+// static constexpr double kHumanTargetLidarTrackTimeout = 1.50; // s
+// static constexpr double kHumanTargetPredictionTimeout = 3.00; // s
+// static constexpr double kHumanTargetPositionAlphaConfirmed = 0.45;
+// static constexpr double kHumanTargetPositionAlphaLidarOnly = 0.25;
+// static constexpr double kHumanTargetCameraBearingAlpha = 0.25;
+// static constexpr double kHumanTargetSizePenaltyScale = 20.0;
+// static constexpr double kHumanLidarOnlyMaxForwardSpeed = 0.08;
+// static constexpr double kHumanLidarOnlyMaxAngularSpeed = 0.25;
+// static constexpr double kHumanLidarOnlyMotionTimeout = 2.50; // s
+
+// // Camera-guided, LiDAR-ranged fallback. If no coherent human segment can be
+// // associated, the camera still supplies bearing while the nearest valid LiDAR
+// // return in this narrow cone supplies the only distance estimate. Translation
+// // is allowed only while that LiDAR guard is fresh and safely beyond the human
+// // minimum distance. Camera depth is never used.
+// static constexpr double kHumanCameraGuidedMaxForwardSpeed = 0.10; // m/s
+// static constexpr double kHumanCameraGuidedMaxAngularSpeed = 0.25; // rad/s, gentle camera-guided approach arc
+// static constexpr double kHumanCameraGuardWindow = 10.0 * M_PI / 180.0;
+// static constexpr double kHumanCameraGuardRangeAlpha = 0.45;
+
+// // Human distance safety. The planner aims farther than the absolute limit so
+// // sensor delay, base momentum and turning translation do not take the robot
+// // inside 1.5 m.
+// static constexpr double kHumanAbsoluteMinimumDistance = 1.50;
+// static constexpr double kHumanPlannerMinimumDistance = 1.65;
+// static constexpr double kHumanDesiredInteractionDistance = 1.80;
+// static constexpr double kHumanDesiredInteractionTolerance = 0.18;
+// static constexpr double kHumanSlowdownDistance = 2.15;
+
+// // Dynamic-window-style arc planner. Commands are selected for a short horizon,
+// // held briefly, and acceleration-limited between control cycles.
+// static constexpr double kHumanPlannerHorizon = 1.20;
+// static constexpr double kHumanPlannerSimulationStep = 0.15;
+// static constexpr double kHumanPlannerCommandDuration = 0.35;
+// static constexpr double kHumanPlannerMaxViewAngle = 30.0 * M_PI / 180.0;
+// static constexpr double kHumanPlannerInteractionViewAngle = 12.0 * M_PI / 180.0;
+// static constexpr double kHumanPlannerLinearAcceleration = 0.30;   // m/s^2
+// static constexpr double kHumanPlannerAngularAcceleration = 0.90;  // rad/s^2
+// static constexpr double kHumanPlannerMaxForwardSpeed = 0.16;
+// static constexpr double kHumanPlannerMaxReverseSpeed = 0.14;
+// static constexpr double kHumanPlannerMaxAngularSpeed = 0.30;
+// static constexpr double kHumanPlannerBubbleExitMargin = -0.08;
+// static constexpr int kHumanPlannerBubbleExitBlockedBeams = 5;
+// static constexpr double kHumanPlannerSettleDuration = 0.80;
+// static constexpr int kHumanPlannerSettleGoodSamples = 5;
+
+// // Forced wall escape. Normal repositioning is allowed to prefer a stable human
+// // pose, but if the interaction bubble remains badly blocked without improving,
+// // the controller temporarily switches objectives and commits to moving away
+// // from the obstruction while keeping the human safely in view.
+// static constexpr double kHumanEscapeStagnationDuration = 1.10;
+// static constexpr double kHumanEscapeCommitDuration = 1.80;
+// static constexpr double kHumanEscapeMaximumDuration = 7.00;
+// static constexpr double kHumanEscapePlanningHorizon = 4.00;
+// static constexpr double kHumanEscapeSimulationStep = 0.20;
+// static constexpr double kHumanEscapeMaxViewAngle = 35.0 * M_PI / 180.0;
+// static constexpr double kHumanEscapeMaximumRange = 2.80;
+// static constexpr int kHumanEscapeBlockedBeamThreshold = 20;
+// static constexpr double kHumanEscapeMarginThreshold = -0.15;
+// static constexpr int kHumanEscapeBlockedImprovement = 8;
+// static constexpr double kHumanEscapeMarginImprovement = 0.06;
+// static constexpr double kHumanEscapeStationaryPenalty = 28.0;
+
+
+// // Deterministic close-wall recovery. This is only used after the sampled arc
+// // planner has repeatedly found no safe command. It creates an S-shaped lateral
+// // shift: back away to make human-distance room, arc away from the wall, then
+// // counter-steer to face the human again. Emergency scan checks remain active on
+// // every control cycle.
+// static constexpr int kHumanNoSafeFallbackTriggerCycles = 5; // 0.5 s at 10 Hz
+// static constexpr double kHumanDeterministicBackoffTargetRange = 2.15; // m
+// static constexpr double kHumanDeterministicBackoffMaxSeconds = 2.50;
+// static constexpr double kHumanDeterministicBackoffSpeed = 0.14; // m/s
+// static constexpr double kHumanDeterministicClearArcSpeed = 0.14; // m/s
+// static constexpr double kHumanDeterministicReturnArcSpeed = 0.12; // m/s
+// static constexpr double kHumanDeterministicArcAngularSpeed = 0.32; // rad/s
+// static constexpr double kHumanDeterministicClearArcSeconds = 1.35;
+// static constexpr double kHumanDeterministicReturnArcSeconds = 1.35;
+// static constexpr double kHumanDeterministicRearClearance = 1.15; // m
+// static constexpr double kHumanDeterministicFrontClearance = 1.00; // m
+// static constexpr double kHumanDeterministicRearConeHalfAngle = 40.0 * M_PI / 180.0;
+// static constexpr double kHumanDeterministicFrontConeHalfAngle = 35.0 * M_PI / 180.0;
+// static constexpr double kHumanDeterministicMaxHumanBearing = 30.0 * M_PI / 180.0;
+
+// // Adaptive clearance waypoint / S-curve recovery.
+// // Instead of repeatedly applying tiny local corrections, the controller computes
+// // one proportional lateral shift from the current interaction-bubble deficit.
+// // Two opposite constant-curvature arcs then create an S-shaped path that finishes
+// // approximately parallel to the original human approach heading.
+// static constexpr int kHumanWaypointTriggerCycles = 4; // 0.4 s persistent blockage
+// static constexpr double kHumanWaypointActivationMaxRange = 3.20; // m from human
+// static constexpr double kHumanWaypointImmediateMargin = -0.28; // m, severe enough to start immediately
+// static constexpr double kHumanWaypointEntryMargin = -0.12; // m
+// static constexpr int kHumanWaypointEntryBlockedBeams = 20;
+// static constexpr double kHumanWaypointClearanceBuffer = 0.12; // m beyond measured deficit
+// static constexpr double kHumanWaypointMinimumLateralShift = 0.30; // m
+// static constexpr double kHumanWaypointMaximumLateralShift = 0.60; // m
+// static constexpr double kHumanWaypointArcSpeed = 0.16; // m/s
+// static constexpr double kHumanWaypointArcAngularSpeed = 0.30; // rad/s, matches physical human-planner cap
+// static constexpr double kHumanWaypointMinimumArcSeconds = 1.50;
+// static constexpr double kHumanWaypointMaximumArcSeconds = 3.80;
+// static constexpr double kHumanWaypointMaximumTotalSeconds = 8.50;
+// static constexpr double kHumanWaypointViewSoftLimit = 24.0 * M_PI / 180.0;
+// static constexpr double kHumanWaypointViewHardLimit = 31.0 * M_PI / 180.0;
+// static constexpr double kHumanWaypointCompletionMargin = -0.05; // m
+// static constexpr int kHumanWaypointCompletionBlockedBeams = 8;
+
+// // If the robot encounters a human closer than the planner safety band, reverse
+// // until a usable interaction distance is restored. If there is not enough room
+// // behind the robot, publish a voice-prompt placeholder instead of moving.
+// static constexpr double kHumanTooCloseBackoffTrigger = 1.66; // m
+// static constexpr double kHumanTooCloseBackoffRelease = 1.85; // m
+// static constexpr double kHumanTooCloseReverseSpeed = 0.14; // m/s
+// static constexpr double kHumanTooCloseMaxAngularSpeed = 0.12; // rad/s
+// static constexpr double kHumanStepBackPromptRepeatSeconds = 5.0;
+
+// // A forced escape must create real lateral displacement. The earlier controller
+// // could select straight reverse motion even when the wall-repulsion vector was
+// // almost exactly sideways. These values force a curved trajectory toward the
+// // free side while still enforcing the camera-view and human-distance limits.
+// static constexpr double kHumanEscapeMinimumAngularSpeed = 0.18; // rad/s
+// static constexpr double kHumanEscapeMinimumLateralDisplacement = 0.18; // m over prediction horizon
+// static constexpr double kHumanEscapeStrongLateralDirection = 0.35; // abs(sin(direction))
+// static constexpr double kHumanEscapeWrongSidePenalty = 24.0;
+// static constexpr double kHumanEscapeInsufficientLateralPenalty = 24.0;
+
+// // Proactive wall avoidance during the first human approach.
+// //
+// // IMPORTANT: merely losing a small amount of clearance is not enough to enter
+// // repositioning. A current non-human LiDAR return must first enter the 2.0 m
+// // warning zone, and that return must threaten either the swept base corridor or
+// // the final interaction bubble. This prevents clear paths from activating a
+// // stale wall-avoidance direction.
+// static constexpr double kHumanApproachLookaheadDistance = 0.65; // m, retained for diagnostics/scoring
+// static constexpr double kHumanApproachObstacleWarningDistance = 2.00; // m, begin checking path risk
+// static constexpr double kHumanApproachObstacleReleaseDistance = 2.15; // m, hysteresis release
+// static constexpr double kHumanApproachCorridorHalfWidth = 0.55; // m, swept base corridor
+// static constexpr double kHumanApproachCorridorForwardBuffer = 0.20; // m
+// static constexpr int kHumanApproachRiskEnterCycles = 3; // consecutive risky scans
+// static constexpr int kHumanApproachRiskExitCycles = 4;  // consecutive clear scans
+// static constexpr double kHumanApproachAvoidanceTurnOffset = 35.0 * M_PI / 180.0;
+// static constexpr double kHumanApproachReturnTurnOffset = 12.0 * M_PI / 180.0;
+// static constexpr double kHumanApproachAvoidanceMaxViewAngle = 32.0 * M_PI / 180.0;
+// static constexpr double kHumanApproachPreferredViewAngle = 24.0 * M_PI / 180.0;
+// static constexpr double kHumanApproachAvoidanceMaxAngularSpeed = 0.30;
+// static constexpr double kHumanApproachClearWallMinImprovement = 0.20; // m
+// static constexpr double kHumanApproachClearWallThreatFraction = 0.60;
+// static constexpr double kHumanApproachAvoidanceZeroTurnPenalty = 10.0;
+// static constexpr double kHumanApproachAvoidanceWrongSidePenalty = 12.0;
+
+// // Keep both arms in the named arm_down pose whenever the robot is exploring,
+// // approaching, repositioning, escaping or settling. Mimicry takes control only
+// // after the internal interaction state has started.
+// static constexpr double kArmDownRepublishPeriod = 0.50;
+
+// // ------------------------------------------------------
+// // Gyroscope-based relative-turn state
+// // ------------------------------------------------------
+// // File-scope state keeps this physical patch within behaviour.cpp and avoids a
+// // matching behaviour.hpp change. Each new ALIGNING state collects stationary
+// // gyro samples, subtracts that zero-rate bias, and integrates rotation magnitude.
+// static bool g_latest_imu_time_valid = false;
+// static rclcpp::Time g_latest_imu_receive_time;
+
+// static bool g_align_gyro_calibrating = false;
+// static bool g_align_gyro_active = false;
+// static double g_align_gyro_angle = 0.0;
+// static double g_align_gyro_bias = 0.0;
+// static double g_align_gyro_bias_sum = 0.0;
+// static int g_align_gyro_bias_samples = 0;
+// static rclcpp::Time g_align_last_imu_time;
+// static rclcpp::Time g_align_start_time;
+
+// // Converts the IMU's gyro-Z sign into robot yaw sign for persistent human-target
+// // propagation. Alignment itself uses rotation magnitude, so it is unaffected by
+// // this setting. Keep +1.0 for standard ROS axes; set the ROS parameter to -1.0
+// // if a physical left turn produces a negative angular_velocity.z value.
+// static double g_gyro_z_to_robot_yaw_sign = 1.0;
+
+
+// // Last confirmed visual human observation. Kept file-scope so this patch does not
+// // require behaviour.hpp changes. Used to pause/reacquire instead of immediately
+// // dropping back to DVD exploration when the camera briefly loses the person.
+// static bool g_last_visible_human_valid = false;
+// static double g_last_visible_human_centre_offset = 0.0;
+// static double g_last_visible_human_distance_m = -1.0;
+// static rclcpp::Time g_last_visible_human_time;
+
+// // File-scope latch so this test patch does not require behaviour.hpp changes.
+// // This becomes active once the robot is centred, at a usable interaction range,
+// // and has a clear 1.5 m arm bubble.
+// static bool g_interaction_hold_active = false;
+// static rclcpp::Time g_interaction_hold_time;
+// static double g_interaction_hold_range_m = -1.0;
+// static double g_interaction_hold_offset = 0.0;
+
+// // File-scope interaction session/cooldown and long-run stats. Keeping these
+// // outside the class avoids requiring behaviour.hpp changes for this test.
+// static bool g_interaction_session_active = false;
+// static rclcpp::Time g_interaction_session_start_time;
+// static bool g_human_detection_cooldown_active = false;
+// static rclcpp::Time g_human_detection_cooldown_start_time;
+
+// static int g_dvd_heading_selection_count = 0;
+// static int g_human_detection_accepted_count = 0;
+// static int g_human_detection_ignored_cooldown_count = 0;
+// static int g_human_interaction_success_count = 0;
+// static int g_human_interaction_completed_count = 0;
+// static int g_human_abandoned_before_interaction_count = 0;
+// static int g_human_abandoned_after_interaction_count = 0;
+
+
+// enum class HumanMotionPhase
+// {
+//     APPROACH,
+//     REPOSITION,
+//     ESCAPE,
+//     SETTLE,
+//     INTERACTION,
+//     RECOVERY
+// };
+
+// enum class HumanTargetConfidence
+// {
+//     LOST,
+//     PREDICTED,
+//     LIDAR_TRACKED,
+//     CONFIRMED
+// };
+
+// enum class ProactiveAvoidanceStage
+// {
+//     NONE,
+//     CLEAR_WALL,
+//     RETURN_TO_HUMAN
+// };
+
+
+// enum class DeterministicEscapeStage
+// {
+//     NONE,
+//     BACK_OFF,
+//     CLEAR_ARC,
+//     RETURN_ARC
+// };
+
+// static HumanMotionPhase g_human_motion_phase = HumanMotionPhase::APPROACH;
+// static bool g_reposition_hysteresis_active = false;
+// static bool g_reposition_command_active = false;
+// static rclcpp::Time g_reposition_command_start_time;
+// static double g_reposition_committed_heading = 0.0;
+// static double g_reposition_committed_linear = 0.0;
+// static double g_reposition_committed_angular = 0.0;
+// static int g_reposition_start_blocked_beams = 0;
+// static double g_reposition_start_min_margin = 0.0;
+// static rclcpp::Time g_interaction_settle_start_time;
+// static int g_interaction_settle_good_samples = 0;
+// static int g_interaction_settle_total_samples = 0;
+
+// static int g_human_reposition_commit_count = 0;
+// static int g_human_settle_attempt_count = 0;
+// static int g_human_settle_success_count = 0;
+// static int g_human_settle_rejected_count = 0;
+// static int g_human_reposition_no_improvement_count = 0;
+
+// static double g_debug_last_human_range = -1.0;
+// static double g_debug_last_human_offset = 0.0;
+// static int g_debug_last_blocked_beams = 0;
+// static double g_debug_last_min_clearance = std::numeric_limits<double>::infinity();
+// static double g_debug_last_min_margin = std::numeric_limits<double>::infinity();
+// static double g_debug_last_reposition_heading = 0.0;
+
+// // Fused human estimate in the robot frame.
+// static bool g_fused_human_valid = false;
+// static double g_fused_human_bearing = 0.0;
+// static double g_fused_human_range = -1.0;
+// static double g_fused_human_safety_range = -1.0;
+// static rclcpp::Time g_fused_human_update_time;
+// static rclcpp::Time g_fused_human_last_lidar_time;
+// static bool g_fused_human_lidar_ever_valid = false;
+
+// // Persistent target snapshot in the current robot frame. The fused bearing/range
+// // above are derived from this point so the target continues to move correctly
+// // through the scan as the base translates and rotates.
+// static HumanTargetConfidence g_human_target_confidence = HumanTargetConfidence::LOST;
+// static bool g_human_target_locked = false;
+// static double g_human_target_x = 0.0;
+// static double g_human_target_y = 0.0;
+// static double g_human_target_safety_range = -1.0;
+// static int g_human_target_snapshot_point_count = 0;
+// static double g_human_target_snapshot_angular_width = 0.0;
+// static rclcpp::Time g_human_target_last_confirmed_time;
+// static rclcpp::Time g_human_target_last_lidar_match_time;
+// static bool g_human_target_imu_yaw_valid = false;
+// static double g_human_target_last_imu_yaw = 0.0;
+// static int g_human_target_lock_count = 0;
+// static int g_human_target_lidar_reassociation_count = 0;
+// static int g_human_target_prediction_count = 0;
+// static int g_human_target_lost_count = 0;
+
+// // Diagnostic state for the camera-led fallback. This mode is intentionally not
+// // a separate navigation state: normal approach continues, with reduced speed,
+// // until a real LiDAR obstacle threatens the path or a human range guard becomes
+// // available.
+// static bool g_human_camera_guided_mode_active = false;
+// static bool g_human_camera_guided_lidar_guard_valid = false;
+// static double g_human_camera_guided_guard_range =
+//     std::numeric_limits<double>::infinity();
+// static int g_human_camera_guided_cycle_count = 0;
+
+// // Short-horizon command latch.
+// static bool g_human_planner_command_active = false;
+// static rclcpp::Time g_human_planner_command_start_time;
+// static double g_human_planner_linear = 0.0;
+// static double g_human_planner_angular = 0.0;
+// static double g_human_planner_score = -std::numeric_limits<double>::infinity();
+// static double g_human_planner_predicted_min_human_distance = -1.0;
+// static double g_human_planner_predicted_final_range = -1.0;
+// static double g_human_planner_predicted_final_bearing = 0.0;
+// static int g_human_planner_safe_candidates = 0;
+// static int g_human_planner_rejected_human_distance = 0;
+// static int g_human_planner_rejected_obstacle = 0;
+// static int g_human_planner_rejected_view = 0;
+
+// // Last associated LiDAR segment diagnostics.
+// static bool g_human_cluster_valid = false;
+// static int g_human_cluster_start_index = -1;
+// static int g_human_cluster_end_index = -1;
+// static int g_human_cluster_point_count = 0;
+// static double g_human_cluster_angle = 0.0;
+// static double g_human_cluster_median_range = -1.0;
+// static double g_human_cluster_safety_range = -1.0;
+// static double g_human_cluster_score = 0.0;
+
+// static int g_human_lidar_association_success_count = 0;
+// static int g_human_lidar_association_failure_count = 0;
+// static int g_human_planner_command_count = 0;
+// static int g_human_planner_no_safe_command_count = 0;
+// static int g_human_minimum_distance_stop_count = 0;
+// static int g_human_visual_recovery_count = 0;
+
+// // Stagnation and forced escape state.
+// static bool g_human_escape_active = false;
+// static bool g_human_stagnation_tracking = false;
+// static rclcpp::Time g_human_stagnation_start_time;
+// static rclcpp::Time g_human_escape_start_time;
+// static double g_human_stagnation_start_margin = 0.0;
+// static int g_human_stagnation_start_blocked_beams = 0;
+// static double g_human_escape_direction_angle = 0.0;
+// static int g_human_escape_direction_sign = 0;
+// static int g_human_escape_trigger_count = 0;
+// static int g_human_escape_complete_count = 0;
+// static int g_human_escape_timeout_count = 0;
+
+
+// // Deterministic fallback used when all sampled escape arcs are rejected.
+// static DeterministicEscapeStage g_human_deterministic_escape_stage =
+//     DeterministicEscapeStage::NONE;
+// static rclcpp::Time g_human_deterministic_escape_stage_start_time;
+// static int g_human_deterministic_escape_side_sign = 0;
+// static int g_human_no_safe_command_streak = 0;
+// static int g_human_deterministic_escape_trigger_count = 0;
+// static int g_human_deterministic_escape_complete_count = 0;
+// static int g_human_deterministic_escape_blocked_count = 0;
+
+// // Adaptive S-curve waypoint state. The existing deterministic stage enum is
+// // reused: BACK_OFF creates human-distance room when required, CLEAR_ARC moves
+// // toward the temporary clearance waypoint, and RETURN_ARC counter-steers back
+// // toward the human.
+// static int g_human_waypoint_trigger_streak = 0;
+// static double g_human_waypoint_clearance_deficit = 0.0;
+// static double g_human_waypoint_target_lateral = 0.0;
+// static double g_human_waypoint_target_forward = 0.0;
+// static double g_human_waypoint_arc_duration = 0.0;
+// static double g_human_waypoint_initial_margin = 0.0;
+// static int g_human_waypoint_start_count = 0;
+// static int g_human_waypoint_complete_count = 0;
+// static int g_human_waypoint_abort_count = 0;
+// static rclcpp::Time g_human_waypoint_total_start_time;
+
+// static double g_human_last_rear_clearance =
+//     std::numeric_limits<double>::infinity();
+// static double g_human_last_front_clearance =
+//     std::numeric_limits<double>::infinity();
+
+// // Too-close-human backoff and future voice interface.
+// static bool g_human_too_close_backoff_active = false;
+// static int g_human_too_close_backoff_count = 0;
+// static int g_human_step_back_prompt_count = 0;
+// static rclcpp::Time g_last_human_step_back_prompt_time;
+// static bool g_human_step_back_prompt_time_initialised = false;
+
+// // Proactive approach-path diagnostics. This becomes active when a short
+// // straight-ahead projection predicts that the robot would enter or worsen the
+// // interaction collision zone before reaching the human.
+// static bool g_human_proactive_avoidance_active = false;
+// static double g_human_proactive_direction_angle = 0.0;
+// static int g_human_proactive_trigger_count = 0;
+// static int g_human_proactive_risk_cycles = 0;
+// static int g_human_proactive_clear_cycles = 0;
+// static int g_human_proactive_threat_point_count = 0;
+// static double g_human_proactive_nearest_nonhuman_range =
+//     std::numeric_limits<double>::infinity();
+// static double g_human_proactive_nearest_threat_range =
+//     std::numeric_limits<double>::infinity();
+// static int g_human_proactive_projected_blocked_beams = 0;
+// static double g_human_proactive_projected_margin =
+//     std::numeric_limits<double>::infinity();
+// static ProactiveAvoidanceStage g_human_proactive_stage =
+//     ProactiveAvoidanceStage::NONE;
+// static rclcpp::Time g_human_proactive_stage_start_time;
+// static int g_human_proactive_side_sign = 0;
+// static int g_human_proactive_entry_threat_points = 0;
+// static double g_human_proactive_entry_nearest_threat =
+//     std::numeric_limits<double>::infinity();
+// static int g_human_proactive_return_count = 0;
+
+// // Named arm-pose keepalive. These are file-scope so behaviour.hpp does not need
+// // new publisher members for this test.
+// static rclcpp::Publisher<std_msgs::msg::String>::SharedPtr g_right_arm_pose_publisher;
+// static rclcpp::Publisher<std_msgs::msg::String>::SharedPtr g_left_arm_pose_publisher;
+// static rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr g_interaction_active_publisher;
+// static rclcpp::Publisher<std_msgs::msg::String>::SharedPtr g_voice_prompt_publisher;
+// static rclcpp::Subscription<std_msgs::msg::String>::SharedPtr g_right_mimicry_pose_subscriber;
+// static rclcpp::Subscription<std_msgs::msg::String>::SharedPtr g_left_mimicry_pose_subscriber;
+// static int g_arm_mimicry_forward_count = 0;
+// static int g_arm_mimicry_ignored_count = 0;
+// static rclcpp::Time g_last_arm_down_publish_time;
+// static bool g_arm_down_publish_time_initialised = false;
+// static rclcpp::Time g_last_interaction_active_publish_time;
+// static bool g_interaction_active_publish_time_initialised = false;
+// static bool g_last_interaction_active_value = false;
+// static std::string g_approach_arm_pose_name = "arm_down";
+
+// static constexpr const char *kHumanPlannerDebugLogFilename =
+//     "human_planner_debug.txt";
+
+// static constexpr const char *kHumanStatsLogFilename =
+//     "human_interaction_stats.txt";
+// static constexpr const char *kDvdDebugLogFilename =
+//     "dvd_bounce_debug.txt";
+
+// static std::string behaviourDebugDirectory()
+// {
+//     const char *home = std::getenv("HOME");
+//     std::vector<std::string> candidates;
+
+//     if (home != nullptr)
+//     {
+//         candidates.push_back(
+//             std::string(home) +
+//             "/ros2_ws/src/MECHelangelo/src/mechelangelo_behaviour/debug");
+//     }
+
+//     candidates.push_back("/home/andy/ros2_ws/src/MECHelangelo/src/mechelangelo_behaviour/debug");
+//     candidates.push_back("/home/pi/ros2_ws/src/MECHelangelo/src/mechelangelo_behaviour/debug");
+
+//     for (const std::string &candidate : candidates)
+//     {
+//         const std::string test_path = candidate + "/.write_test";
+//         std::ofstream test_file(test_path, std::ios::app);
+//         if (test_file.good())
+//         {
+//             return candidate;
+//         }
+//     }
+
+//     // Deliberately do not fall back to /tmp: if this path is wrong, the failed
+//     // file write makes it obvious that the workspace path needs to be adjusted.
+//     return "/home/andy/ros2_ws/src/MECHelangelo/src/mechelangelo_behaviour/debug";
+// }
+
+// static std::string debugLogPath(const std::string &filename)
+// {
+//     return behaviourDebugDirectory() + "/" + filename;
+// }
+
+// static double normaliseAngleForFileScope(double angle_rad)
+// {
+//     while (angle_rad > M_PI)
+//     {
+//         angle_rad -= 2.0 * M_PI;
+//     }
+
+//     while (angle_rad < -M_PI)
+//     {
+//         angle_rad += 2.0 * M_PI;
+//     }
+
+//     return angle_rad;
+// }
+
+// static bool isRearBeamAngle(double angle_rad)
+// {
+//     const double angle = normaliseAngleForFileScope(angle_rad);
+//     return std::fabs(angle) >= (M_PI - kHumanRearSectorHalfAngle);
+// }
+
+// static double humanModeSafetyRadiusForAngle(double angle_rad)
+// {
+//     // During HUMAN_DETECTED this is only the hard-stop safety radius for base
+//     // repositioning. The full arm-clearance radius is checked separately by
+//     // humanModeInteractionBubbleRadiusForAngle().
+//     return isRearBeamAngle(angle_rad)
+//         ? kHumanModeRearHardStopRadius
+//         : kHumanModeFrontSideHardStopRadius;
+// }
+
+// static double humanModeInteractionBubbleRadiusForAngle(double angle_rad)
+// {
+//     return isRearBeamAngle(angle_rad)
+//         ? kHumanRearSafetyRadius
+//         : (kInteractionBubbleRadius + kInteractionBubbleSafetyMargin);
+// }
+
+
+// static const char *humanMotionPhaseName(HumanMotionPhase phase)
+// {
+//     switch (phase)
+//     {
+//     case HumanMotionPhase::APPROACH: return "APPROACH";
+//     case HumanMotionPhase::REPOSITION: return "REPOSITION";
+//     case HumanMotionPhase::ESCAPE: return "ESCAPE";
+//     case HumanMotionPhase::SETTLE: return "SETTLE";
+//     case HumanMotionPhase::INTERACTION: return "INTERACTION";
+//     case HumanMotionPhase::RECOVERY: return "RECOVERY";
+//     default: return "UNKNOWN";
+//     }
+// }
+
+// static const char *humanTargetConfidenceName(HumanTargetConfidence confidence)
+// {
+//     switch (confidence)
+//     {
+//     case HumanTargetConfidence::CONFIRMED: return "CONFIRMED";
+//     case HumanTargetConfidence::LIDAR_TRACKED: return "LIDAR_TRACKED";
+//     case HumanTargetConfidence::PREDICTED: return "PREDICTED";
+//     case HumanTargetConfidence::LOST: return "LOST";
+//     default: return "UNKNOWN";
+//     }
+// }
+
+// static const char *proactiveAvoidanceStageName(ProactiveAvoidanceStage stage)
+// {
+//     switch (stage)
+//     {
+//     case ProactiveAvoidanceStage::CLEAR_WALL: return "CLEAR_WALL";
+//     case ProactiveAvoidanceStage::RETURN_TO_HUMAN: return "RETURN_TO_HUMAN";
+//     case ProactiveAvoidanceStage::NONE: return "NONE";
+//     default: return "UNKNOWN";
+//     }
+// }
+
+
+// static const char *deterministicEscapeStageName(DeterministicEscapeStage stage)
+// {
+//     switch (stage)
+//     {
+//     case DeterministicEscapeStage::BACK_OFF: return "BACK_OFF";
+//     case DeterministicEscapeStage::CLEAR_ARC: return "CLEAR_ARC";
+//     case DeterministicEscapeStage::RETURN_ARC: return "RETURN_ARC";
+//     case DeterministicEscapeStage::NONE: return "NONE";
+//     default: return "UNKNOWN";
+//     }
+// }
+
+// static void publishHumanStepBackPrompt(const rclcpp::Time &now)
+// {
+//     const bool repeat_elapsed =
+//         !g_human_step_back_prompt_time_initialised ||
+//         (now - g_last_human_step_back_prompt_time).seconds() >=
+//             kHumanStepBackPromptRepeatSeconds;
+
+//     if (!repeat_elapsed)
+//     {
+//         return;
+//     }
+
+//     if (g_voice_prompt_publisher)
+//     {
+//         std_msgs::msg::String prompt;
+//         // A future audio node can subscribe to /voice_prompt and speak this text.
+//         prompt.data = "Please take one step back so I have enough room to interact safely.";
+//         g_voice_prompt_publisher->publish(prompt);
+//     }
+
+//     g_last_human_step_back_prompt_time = now;
+//     g_human_step_back_prompt_time_initialised = true;
+//     g_human_step_back_prompt_count++;
+// }
+
+// static void publishArmsDown(const rclcpp::Time &now, bool force = false)
+// {
+//     if (!g_right_arm_pose_publisher || !g_left_arm_pose_publisher)
+//     {
+//         return;
+//     }
+
+//     const bool period_elapsed = !g_arm_down_publish_time_initialised ||
+//         (now - g_last_arm_down_publish_time).seconds() >=
+//             kArmDownRepublishPeriod;
+
+//     if (!force && !period_elapsed)
+//     {
+//         return;
+//     }
+
+//     std_msgs::msg::String pose;
+//     pose.data = g_approach_arm_pose_name;
+//     g_right_arm_pose_publisher->publish(pose);
+//     g_left_arm_pose_publisher->publish(pose);
+//     g_last_arm_down_publish_time = now;
+//     g_arm_down_publish_time_initialised = true;
+// }
+
+// static void publishInteractionActive(
+//     const rclcpp::Time &now,
+//     bool active,
+//     bool force = false)
+// {
+//     if (!g_interaction_active_publisher)
+//     {
+//         return;
+//     }
+
+//     const bool value_changed =
+//         active != g_last_interaction_active_value;
+//     const bool period_elapsed =
+//         !g_interaction_active_publish_time_initialised ||
+//         (now - g_last_interaction_active_publish_time).seconds() >= 0.50;
+
+//     if (!force && !value_changed && !period_elapsed)
+//     {
+//         return;
+//     }
+
+//     std_msgs::msg::Bool msg;
+//     msg.data = active;
+//     g_interaction_active_publisher->publish(msg);
+//     g_last_interaction_active_publish_time = now;
+//     g_interaction_active_publish_time_initialised = true;
+//     g_last_interaction_active_value = active;
+// }
+
+// static void resetHumanMotionController()
+// {
+//     g_human_motion_phase = HumanMotionPhase::APPROACH;
+//     g_reposition_hysteresis_active = false;
+//     g_reposition_command_active = false;
+//     g_reposition_committed_heading = 0.0;
+//     g_reposition_committed_linear = 0.0;
+//     g_reposition_committed_angular = 0.0;
+//     g_reposition_start_blocked_beams = 0;
+//     g_reposition_start_min_margin = 0.0;
+//     g_interaction_settle_good_samples = 0;
+//     g_interaction_settle_total_samples = 0;
+
+//     g_fused_human_valid = false;
+//     g_fused_human_bearing = 0.0;
+//     g_fused_human_range = -1.0;
+//     g_fused_human_safety_range = -1.0;
+//     g_fused_human_lidar_ever_valid = false;
+//     g_human_target_confidence = HumanTargetConfidence::LOST;
+//     g_human_target_locked = false;
+//     g_human_target_x = 0.0;
+//     g_human_target_y = 0.0;
+//     g_human_target_safety_range = -1.0;
+//     g_human_target_snapshot_point_count = 0;
+//     g_human_target_snapshot_angular_width = 0.0;
+//     g_human_target_imu_yaw_valid = false;
+//     g_human_planner_command_active = false;
+//     g_human_planner_linear = 0.0;
+//     g_human_planner_angular = 0.0;
+//     g_human_escape_active = false;
+//     g_human_stagnation_tracking = false;
+//     g_human_escape_direction_angle = 0.0;
+//     g_human_escape_direction_sign = 0;
+//     g_human_deterministic_escape_stage = DeterministicEscapeStage::NONE;
+//     g_human_deterministic_escape_side_sign = 0;
+//     g_human_no_safe_command_streak = 0;
+//     g_human_waypoint_trigger_streak = 0;
+//     g_human_waypoint_clearance_deficit = 0.0;
+//     g_human_waypoint_target_lateral = 0.0;
+//     g_human_waypoint_target_forward = 0.0;
+//     g_human_waypoint_arc_duration = 0.0;
+//     g_human_waypoint_initial_margin = 0.0;
+//     g_human_too_close_backoff_active = false;
+//     g_human_proactive_avoidance_active = false;
+//     g_human_proactive_direction_angle = 0.0;
+//     g_human_proactive_risk_cycles = 0;
+//     g_human_proactive_clear_cycles = 0;
+//     g_human_proactive_threat_point_count = 0;
+//     g_human_proactive_nearest_nonhuman_range =
+//         std::numeric_limits<double>::infinity();
+//     g_human_proactive_nearest_threat_range =
+//         std::numeric_limits<double>::infinity();
+//     g_human_proactive_projected_blocked_beams = 0;
+//     g_human_proactive_projected_margin =
+//         std::numeric_limits<double>::infinity();
+//     g_human_proactive_stage = ProactiveAvoidanceStage::NONE;
+//     g_human_proactive_side_sign = 0;
+//     g_human_proactive_entry_threat_points = 0;
+//     g_human_proactive_entry_nearest_threat =
+//         std::numeric_limits<double>::infinity();
+//     g_human_cluster_valid = false;
+//     g_human_cluster_start_index = -1;
+//     g_human_cluster_end_index = -1;
+//     g_human_cluster_point_count = 0;
+//     g_human_camera_guided_mode_active = false;
+//     g_human_camera_guided_lidar_guard_valid = false;
+//     g_human_camera_guided_guard_range =
+//         std::numeric_limits<double>::infinity();
+// }
+
+// static bool humanDetectionCooldownActive(const rclcpp::Time &now)
+// {
+//     if (!g_human_detection_cooldown_active)
+//     {
+//         return false;
+//     }
+
+//     return (now - g_human_detection_cooldown_start_time).seconds() <
+//         kHumanDetectionCooldownSeconds;
+// }
+
+// static double humanDetectionCooldownRemaining(const rclcpp::Time &now)
+// {
+//     if (!g_human_detection_cooldown_active)
+//     {
+//         return 0.0;
+//     }
+
+//     const double elapsed = (now - g_human_detection_cooldown_start_time).seconds();
+//     return std::max(0.0, kHumanDetectionCooldownSeconds - elapsed);
+// }
+
+// static void writeHumanInteractionStatsLog(
+//     const std::string &event,
+//     const rclcpp::Time &now)
+// {
+//     std::ofstream log(debugLogPath(kHumanStatsLogFilename));
+//     log << std::fixed << std::setprecision(3);
+//     log << "=== Mechelangelo Human Interaction Stats ===\n";
+//     log << "Last event: " << event << "\n";
+//     log << "ROS time: " << now.seconds() << " s\n\n";
+
+//     log << "DVD exploration headings selected: " << g_dvd_heading_selection_count << "\n";
+//     log << "Human detections accepted: " << g_human_detection_accepted_count << "\n";
+//     log << "Human detections ignored during cooldown: "
+//         << g_human_detection_ignored_cooldown_count << "\n\n";
+
+//     log << "Successful entries into interaction state: "
+//         << g_human_interaction_success_count << "\n";
+//     log << "Completed 30 s interactions: "
+//         << g_human_interaction_completed_count << "\n";
+//     log << "Abandoned before reaching interaction: "
+//         << g_human_abandoned_before_interaction_count << "\n";
+//     log << "Abandoned after reaching interaction: "
+//         << g_human_abandoned_after_interaction_count << "\n\n";
+
+//     log << "Current human motion phase: "
+//         << humanMotionPhaseName(g_human_motion_phase) << "\n";
+//     log << "Persistent target confidence: "
+//         << humanTargetConfidenceName(g_human_target_confidence) << "\n";
+//     log << "Camera-guided fallback active: "
+//         << (g_human_camera_guided_mode_active ? "yes" : "no") << "\n";
+//     log << "Camera-guided LiDAR guard valid: "
+//         << (g_human_camera_guided_lidar_guard_valid ? "yes" : "no") << "\n";
+//     log << "Camera-guided guard range: "
+//         << g_human_camera_guided_guard_range << " m\n";
+//     log << "Camera-guided cycles: "
+//         << g_human_camera_guided_cycle_count << "\n";
+//     log << "Persistent target point: x=" << g_human_target_x
+//         << " y=" << g_human_target_y << " m\n";
+//     log << "Proactive avoidance stage: "
+//         << proactiveAvoidanceStageName(g_human_proactive_stage) << "\n";
+//     log << "Persistent target locks: " << g_human_target_lock_count << "\n";
+//     log << "LiDAR target reassociations: "
+//         << g_human_target_lidar_reassociation_count << "\n";
+//     log << "Reposition hysteresis active: "
+//         << (g_reposition_hysteresis_active ? "yes" : "no") << "\n";
+//     log << "Committed reposition active: "
+//         << (g_reposition_command_active ? "yes" : "no") << "\n";
+//     log << "Reposition commits: " << g_human_reposition_commit_count << "\n";
+//     log << "Settle attempts: " << g_human_settle_attempt_count << "\n";
+//     log << "Settle successes: " << g_human_settle_success_count << "\n";
+//     log << "Settle rejected/restarted: " << g_human_settle_rejected_count << "\n";
+//     log << "Reposition candidates rejected for weak improvement: "
+//         << g_human_reposition_no_improvement_count << "\n\n";
+
+//     log << "Latest human range: " << g_debug_last_human_range << " m\n";
+//     log << "Latest human offset: " << g_debug_last_human_offset << "\n";
+//     log << "Latest blocked beams: " << g_debug_last_blocked_beams << "\n";
+//     log << "Latest minimum clearance: " << g_debug_last_min_clearance << " m\n";
+//     log << "Latest minimum bubble margin: " << g_debug_last_min_margin << " m\n";
+//     log << "Latest committed reposition heading: "
+//         << g_debug_last_reposition_heading * 180.0 / M_PI << " deg\n\n";
+
+//     log << "Fused human valid: " << (g_fused_human_valid ? "yes" : "no") << "\n";
+//     log << "Fused human bearing: " << g_fused_human_bearing * 180.0 / M_PI << " deg\n";
+//     log << "Fused human range: " << g_fused_human_range << " m\n";
+//     log << "Fused human safety range: " << g_fused_human_safety_range << " m\n";
+//     log << "Associated LiDAR cluster valid: " << (g_human_cluster_valid ? "yes" : "no") << "\n";
+//     log << "Associated cluster points: " << g_human_cluster_point_count << "\n";
+//     log << "Associated cluster angle: " << g_human_cluster_angle * 180.0 / M_PI << " deg\n";
+//     log << "Associated cluster median range: " << g_human_cluster_median_range << " m\n";
+//     log << "Associated cluster safety range: " << g_human_cluster_safety_range << " m\n";
+//     log << "LiDAR associations successful: " << g_human_lidar_association_success_count << "\n";
+//     log << "LiDAR associations failed: " << g_human_lidar_association_failure_count << "\n\n";
+
+//     log << "Planner command active: " << (g_human_planner_command_active ? "yes" : "no") << "\n";
+//     log << "Planner linear command: " << g_human_planner_linear << " m/s\n";
+//     log << "Planner angular command: " << g_human_planner_angular << " rad/s\n";
+//     log << "Planner score: " << g_human_planner_score << "\n";
+//     log << "Predicted minimum human distance: " << g_human_planner_predicted_min_human_distance << " m\n";
+//     log << "Predicted final human range: " << g_human_planner_predicted_final_range << " m\n";
+//     log << "Predicted final human bearing: " << g_human_planner_predicted_final_bearing * 180.0 / M_PI << " deg\n";
+//     log << "Safe planner candidates: " << g_human_planner_safe_candidates << "\n";
+//     log << "Rejected for human distance: " << g_human_planner_rejected_human_distance << "\n";
+//     log << "Rejected for obstacle clearance: " << g_human_planner_rejected_obstacle << "\n";
+//     log << "Rejected for camera view: " << g_human_planner_rejected_view << "\n";
+//     log << "Planner commands selected: " << g_human_planner_command_count << "\n";
+//     log << "Planner cycles with no safe command: " << g_human_planner_no_safe_command_count << "\n";
+//     log << "Minimum-distance supervisor stops: " << g_human_minimum_distance_stop_count << "\n";
+//     log << "Visual recovery cycles: " << g_human_visual_recovery_count << "\n";
+//     log << "Forced escape active: " << (g_human_escape_active ? "yes" : "no") << "\n";
+//     log << "Forced escapes triggered: " << g_human_escape_trigger_count << "\n";
+//     log << "Forced escapes completed: " << g_human_escape_complete_count << "\n";
+//     log << "Forced escape timeouts: " << g_human_escape_timeout_count << "\n";
+//     log << "Escape direction: " << g_human_escape_direction_angle * 180.0 / M_PI << " deg\n";
+//     log << "Deterministic escape stage: "
+//         << deterministicEscapeStageName(g_human_deterministic_escape_stage) << "\n";
+//     log << "Deterministic escape triggers: "
+//         << g_human_deterministic_escape_trigger_count << "\n";
+//     log << "Deterministic escape completions: "
+//         << g_human_deterministic_escape_complete_count << "\n";
+//     log << "Deterministic escape blocked/voice cases: "
+//         << g_human_deterministic_escape_blocked_count << "\n";
+//     log << "Adaptive waypoint starts: " << g_human_waypoint_start_count << "\n";
+//     log << "Adaptive waypoint completions: " << g_human_waypoint_complete_count << "\n";
+//     log << "Adaptive waypoint aborts: " << g_human_waypoint_abort_count << "\n";
+//     log << "Adaptive clearance deficit: " << g_human_waypoint_clearance_deficit << " m\n";
+//     log << "Adaptive target lateral shift: " << g_human_waypoint_target_lateral << " m\n";
+//     log << "Adaptive target forward shift: " << g_human_waypoint_target_forward << " m\n";
+//     log << "Adaptive arc duration per phase: " << g_human_waypoint_arc_duration << " s\n";
+//     log << "Adaptive trigger streak: " << g_human_waypoint_trigger_streak << "\n";
+//     log << "No-safe-command streak: " << g_human_no_safe_command_streak << "\n";
+//     log << "Latest rear clearance: " << g_human_last_rear_clearance << " m\n";
+//     log << "Latest front clearance: " << g_human_last_front_clearance << " m\n";
+//     log << "Too-close backoffs: " << g_human_too_close_backoff_count << "\n";
+//     log << "Step-back voice prompts: " << g_human_step_back_prompt_count << "\n";
+//     log << "Proactive approach avoidance active: "
+//         << (g_human_proactive_avoidance_active ? "yes" : "no") << "\n";
+//     log << "Proactive approach triggers: "
+//         << g_human_proactive_trigger_count << "\n";
+//     log << "Proactive risky scan streak: "
+//         << g_human_proactive_risk_cycles << "\n";
+//     log << "Proactive clear scan streak: "
+//         << g_human_proactive_clear_cycles << "\n";
+//     log << "Current proactive threat points: "
+//         << g_human_proactive_threat_point_count << "\n";
+//     log << "Nearest non-human return: "
+//         << g_human_proactive_nearest_nonhuman_range << " m\n";
+//     log << "Nearest route/final-pose threat: "
+//         << g_human_proactive_nearest_threat_range << " m\n";
+//     log << "Proactive avoidance direction: "
+//         << g_human_proactive_direction_angle * 180.0 / M_PI << " deg\n";
+//     log << "Projected straight-path blocked beams: "
+//         << g_human_proactive_projected_blocked_beams << "\n";
+//     log << "Projected straight-path bubble margin: "
+//         << g_human_proactive_projected_margin << " m\n";
+//     log << "Arms-down pose name: " << g_approach_arm_pose_name << "\n";
+//     log << "Behaviour interaction topic active: "
+//         << (g_last_interaction_active_value ? "yes" : "no") << "\n";
+//     log << "Mimicry arm poses forwarded: " << g_arm_mimicry_forward_count << "\n";
+//     log << "Inactive/default mimicry poses ignored: " << g_arm_mimicry_ignored_count << "\n\n";
+
+//     log << "Interaction session active: "
+//         << (g_interaction_session_active ? "yes" : "no") << "\n";
+//     if (g_interaction_session_active)
+//     {
+//         log << "Interaction elapsed: "
+//             << (now - g_interaction_session_start_time).seconds() << " / "
+//             << kHumanInteractionDurationSeconds << " s\n";
+//     }
+
+//     log << "Human detection cooldown active: "
+//         << (humanDetectionCooldownActive(now) ? "yes" : "no") << "\n";
+//     if (humanDetectionCooldownActive(now))
+//     {
+//         log << "Cooldown remaining: "
+//             << humanDetectionCooldownRemaining(now) << " s\n";
+//     }
+
+//     log << "\nRear safety radius during HUMAN_DETECTED: "
+//         << kHumanRearSafetyRadius << " m for rear +/-"
+//         << kHumanRearSectorHalfAngle * 180.0 / M_PI << " deg around 180 deg\n";
+//     log << "Front/side safety radius during HUMAN_DETECTED: "
+//         << kSafetyZoneRadius << " m\n";
+// }
+
+// static void writeHumanPlannerDebugLog(
+//     const std::string &event,
+//     const rclcpp::Time &now)
+// {
+//     std::ofstream log(debugLogPath(kHumanPlannerDebugLogFilename));
+//     log << std::fixed << std::setprecision(4);
+//     log << "=== Mechelangelo Fused Human / Arc Planner Debug ===\n";
+//     log << "Last event: " << event << "\n";
+//     log << "ROS time: " << now.seconds() << " s\n";
+//     log << "Motion phase: " << humanMotionPhaseName(g_human_motion_phase) << "\n\n";
+
+//     log << "Fused valid: " << (g_fused_human_valid ? "yes" : "no") << "\n";
+//     log << "Bearing: " << g_fused_human_bearing * 180.0 / M_PI << " deg\n";
+//     log << "Range: " << g_fused_human_range << " m\n";
+//     log << "Safety range: " << g_fused_human_safety_range << " m\n";
+//     log << "Target confidence: " << humanTargetConfidenceName(g_human_target_confidence) << "\n";
+//     log << "Camera-guided fallback: "
+//         << (g_human_camera_guided_mode_active ? "active" : "inactive") << "\n";
+//     log << "Camera-guided LiDAR guard: "
+//         << (g_human_camera_guided_lidar_guard_valid ? "valid" : "unavailable")
+//         << ", range=" << g_human_camera_guided_guard_range << " m\n";
+//     log << "Target locked: " << (g_human_target_locked ? "yes" : "no") << "\n";
+//     log << "Target point: x=" << g_human_target_x << " y=" << g_human_target_y << " m\n";
+//     log << "Target snapshot points: " << g_human_target_snapshot_point_count << "\n";
+//     log << "Target snapshot angular width: " << g_human_target_snapshot_angular_width * 180.0 / M_PI << " deg\n";
+//     log << "Target locks: " << g_human_target_lock_count << "\n";
+//     log << "Target LiDAR reassociations: " << g_human_target_lidar_reassociation_count << "\n";
+//     log << "Target prediction cycles: " << g_human_target_prediction_count << "\n";
+//     log << "Target losses: " << g_human_target_lost_count << "\n";
+//     log << "LiDAR cluster valid: " << (g_human_cluster_valid ? "yes" : "no") << "\n";
+//     log << "Cluster indices: " << g_human_cluster_start_index << " to " << g_human_cluster_end_index << "\n";
+//     log << "Cluster points: " << g_human_cluster_point_count << "\n";
+//     log << "Cluster angle: " << g_human_cluster_angle * 180.0 / M_PI << " deg\n";
+//     log << "Cluster median: " << g_human_cluster_median_range << " m\n";
+//     log << "Cluster safety range: " << g_human_cluster_safety_range << " m\n";
+//     log << "Cluster association score: " << g_human_cluster_score << "\n\n";
+
+//     log << "Command active: " << (g_human_planner_command_active ? "yes" : "no") << "\n";
+//     log << "Linear: " << g_human_planner_linear << " m/s\n";
+//     log << "Angular: " << g_human_planner_angular << " rad/s\n";
+//     log << "Score: " << g_human_planner_score << "\n";
+//     log << "Predicted min human distance: " << g_human_planner_predicted_min_human_distance << " m\n";
+//     log << "Predicted final human range: " << g_human_planner_predicted_final_range << " m\n";
+//     log << "Predicted final human bearing: " << g_human_planner_predicted_final_bearing * 180.0 / M_PI << " deg\n\n";
+
+//     log << "Safe candidates: " << g_human_planner_safe_candidates << "\n";
+//     log << "Rejected human distance: " << g_human_planner_rejected_human_distance << "\n";
+//     log << "Rejected obstacle: " << g_human_planner_rejected_obstacle << "\n";
+//     log << "Rejected camera view: " << g_human_planner_rejected_view << "\n";
+//     log << "Absolute minimum human distance: " << kHumanAbsoluteMinimumDistance << " m\n";
+//     log << "Planner minimum human distance: " << kHumanPlannerMinimumDistance << " m\n";
+//     log << "Desired interaction distance: " << kHumanDesiredInteractionDistance << " m\n";
+//     log << "Forced escape active: " << (g_human_escape_active ? "yes" : "no") << "\n";
+//     log << "Stagnation tracking: " << (g_human_stagnation_tracking ? "yes" : "no") << "\n";
+//     log << "Escape direction: " << g_human_escape_direction_angle * 180.0 / M_PI << " deg\n";
+//     log << "Escape triggers: " << g_human_escape_trigger_count << "\n";
+//     log << "Escape completions: " << g_human_escape_complete_count << "\n";
+//     log << "Escape timeouts: " << g_human_escape_timeout_count << "\n";
+//     log << "Deterministic escape stage: "
+//         << deterministicEscapeStageName(g_human_deterministic_escape_stage) << "\n";
+//     log << "Deterministic escape side: "
+//         << g_human_deterministic_escape_side_sign << "\n";
+//     log << "Adaptive waypoint lateral/forward: "
+//         << g_human_waypoint_target_lateral << " / "
+//         << g_human_waypoint_target_forward << " m\n";
+//     log << "Adaptive waypoint clearance deficit: "
+//         << g_human_waypoint_clearance_deficit << " m\n";
+//     log << "Adaptive arc duration: "
+//         << g_human_waypoint_arc_duration << " s per arc\n";
+//     log << "Adaptive trigger streak: "
+//         << g_human_waypoint_trigger_streak << "\n";
+//     log << "No-safe-command streak: " << g_human_no_safe_command_streak << "\n";
+//     log << "Rear/front clearance: " << g_human_last_rear_clearance
+//         << " / " << g_human_last_front_clearance << " m\n";
+//     log << "Too-close backoff active: "
+//         << (g_human_too_close_backoff_active ? "yes" : "no") << "\n";
+//     log << "Proactive approach avoidance: "
+//         << (g_human_proactive_avoidance_active ? "yes" : "no") << "\n";
+//     log << "Proactive stage: "
+//         << proactiveAvoidanceStageName(g_human_proactive_stage) << "\n";
+//     log << "Proactive direction: "
+//         << g_human_proactive_direction_angle * 180.0 / M_PI << " deg\n";
+//     log << "Proactive risky scan streak: "
+//         << g_human_proactive_risk_cycles << "\n";
+//     log << "Proactive clear scan streak: "
+//         << g_human_proactive_clear_cycles << "\n";
+//     log << "Current threat points: "
+//         << g_human_proactive_threat_point_count << "\n";
+//     log << "Nearest non-human return: "
+//         << g_human_proactive_nearest_nonhuman_range << " m\n";
+//     log << "Nearest route/final-pose threat: "
+//         << g_human_proactive_nearest_threat_range << " m\n";
+//     log << "Warning/release distances: "
+//         << kHumanApproachObstacleWarningDistance << " / "
+//         << kHumanApproachObstacleReleaseDistance << " m\n";
+//     log << "Projected straight-path blocked beams: "
+//         << g_human_proactive_projected_blocked_beams << "\n";
+//     log << "Projected straight-path margin: "
+//         << g_human_proactive_projected_margin << " m\n";
+// }
+
+
+
+// MechelangeloBehaviour::MechelangeloBehaviour()
+// : Node("mechelangelo_behaviour"),
+//   human_locked_(false),
+//   human_centre_offset_(0.0),
+//   human_distance_m_(-1.0),
+//   blind_autonomous_active_(false),
+//   safety_zone_violated_(false),
+//   safety_zone_baseline_captured_(false),
+//   current_state_(NavigationState::SEARCHING),
+//   target_angle_(0.0),
+//   target_range_(0.0),
+//   stop_distance_m_(1.5),
+//   stop_counter_(0),
+//   imu_available_(false),
+//   align_start_yaw_(0.0),
+//   align_yaw_initialised_(false),
+//   random_engine_(std::random_device{}()),
+//   turn_dist_(-1.0, 1.0)
+// {
+//     this->declare_parameter("stop_distance_m", 1.5);
+//     stop_distance_m_ = this->get_parameter("stop_distance_m").as_double();
+
+//     this->declare_parameter("approach_arm_pose_name", "arm_down");
+//     g_approach_arm_pose_name =
+//         this->get_parameter("approach_arm_pose_name").as_string();
+
+//     this->declare_parameter("gyro_z_to_robot_yaw_sign", 1.0);
+//     const double configured_gyro_sign =
+//         this->get_parameter("gyro_z_to_robot_yaw_sign").as_double();
+//     g_gyro_z_to_robot_yaw_sign =
+//         configured_gyro_sign < 0.0 ? -1.0 : 1.0;
+
+//     RCLCPP_INFO(this->get_logger(), "Stop distance: %.2f m", stop_distance_m_);
+//     RCLCPP_INFO(this->get_logger(),
+//         "Non-interaction arm hold pose: %s",
+//         g_approach_arm_pose_name.c_str());
+//     RCLCPP_INFO(this->get_logger(),
+//         "Gyro Z to robot yaw sign: %.0f",
+//         g_gyro_z_to_robot_yaw_sign);
+
+//     g_right_arm_pose_publisher =
+//         this->create_publisher<std_msgs::msg::String>("/arm/right_pose", 10);
+//     g_left_arm_pose_publisher =
+//         this->create_publisher<std_msgs::msg::String>("/arm/left_pose", 10);
+//     g_interaction_active_publisher =
+//         this->create_publisher<std_msgs::msg::Bool>(
+//             "/interaction_active",
+//             rclcpp::QoS(1).reliable().transient_local());
+//     // Placeholder text topic for the future voice system. It is only used when
+//     // the human is too close and the robot cannot safely reverse.
+//     g_voice_prompt_publisher =
+//         this->create_publisher<std_msgs::msg::String>("/voice_prompt", 10);
+
+//     // The launch file remaps the state bridge's mimicry outputs to these raw
+//     // topics. Only verified interaction poses are forwarded to the real named
+//     // pose topics; inactive/default zero poses are ignored.
+//     g_right_mimicry_pose_subscriber =
+//         this->create_subscription<std_msgs::msg::String>(
+//             "/arm/mimicry_right_pose",
+//             10,
+//             [](const std_msgs::msg::String::SharedPtr msg)
+//             {
+//                 if (g_interaction_session_active &&
+//                     g_human_motion_phase == HumanMotionPhase::INTERACTION &&
+//                     g_right_arm_pose_publisher)
+//                 {
+//                     g_right_arm_pose_publisher->publish(*msg);
+//                     g_arm_mimicry_forward_count++;
+//                 }
+//                 else
+//                 {
+//                     g_arm_mimicry_ignored_count++;
+//                 }
+//             });
+//     g_left_mimicry_pose_subscriber =
+//         this->create_subscription<std_msgs::msg::String>(
+//             "/arm/mimicry_left_pose",
+//             10,
+//             [](const std_msgs::msg::String::SharedPtr msg)
+//             {
+//                 if (g_interaction_session_active &&
+//                     g_human_motion_phase == HumanMotionPhase::INTERACTION &&
+//                     g_left_arm_pose_publisher)
+//                 {
+//                     g_left_arm_pose_publisher->publish(*msg);
+//                     g_arm_mimicry_forward_count++;
+//                 }
+//                 else
+//                 {
+//                     g_arm_mimicry_ignored_count++;
+//                 }
+//             });
+
+//     g_last_arm_down_publish_time = this->now();
+//     g_arm_down_publish_time_initialised = false;
+//     g_last_interaction_active_publish_time = this->now();
+//     g_interaction_active_publish_time_initialised = false;
+//     g_last_interaction_active_value = false;
+
+//     laser_scan_subscriber_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
+//         "/scan",
+//         rclcpp::SensorDataQoS(),
+//         std::bind(&MechelangeloBehaviour::laserScanCallback, this, std::placeholders::_1));
+
+//     imu_subscriber_ = this->create_subscription<sensor_msgs::msg::Imu>(
+//         "/imu",
+//         rclcpp::SensorDataQoS(),
+//         std::bind(&MechelangeloBehaviour::imuCallback, this, std::placeholders::_1));
+
+//     cmd_vel_publisher_ = this->create_publisher<geometry_msgs::msg::Twist>(
+//         "/cmd_vel",
+//         10);
+
+//     filtered_scan_publisher_ = this->create_publisher<sensor_msgs::msg::LaserScan>(
+//         "/scan_filtered",
+//         rclcpp::SensorDataQoS());
+
+//     obstacle_marker_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
+//         "/behaviour_obstacle_markers",
+//         10);
+
+//     human_detected_subscriber_ = this->create_subscription<std_msgs::msg::Bool>(
+//         "/human_detected",
+//         10,
+//         std::bind(&MechelangeloBehaviour::humanDetectedCallback, this, std::placeholders::_1));
+
+//     human_tracking_subscriber_ = this->create_subscription<std_msgs::msg::Float32MultiArray>(
+//         "/human_tracking",
+//         10,
+//         std::bind(&MechelangeloBehaviour::humanTrackingCallback, this, std::placeholders::_1));
+
+//     last_human_tracking_time_ = this->now();
+//     g_last_visible_human_time = this->now();
+//     g_last_visible_human_valid = false;
+//     g_last_visible_human_centre_offset = 0.0;
+//     g_last_visible_human_distance_m = -1.0;
+
+//     control_timer_ = this->create_wall_timer(
+//         100ms,
+//         std::bind(&MechelangeloBehaviour::controlLoop, this));
+
+//     publishInteractionActive(this->now(), false, true);
+//     publishArmsDown(this->now(), true);
+//     RCLCPP_INFO(this->get_logger(), "Mechelangelo Behaviour Node has been started.");
+// }
+
+// MechelangeloBehaviour::~MechelangeloBehaviour()
+// {
+//     RCLCPP_INFO(this->get_logger(), "Mechelangelo Behaviour Node has been stopped.");
+// }
+
+// void MechelangeloBehaviour::run(bool sim_mode)
+// {
+//     RCLCPP_INFO(this->get_logger(), "Mechelangelo Behaviour Node is running.");
+
+//     if (sim_mode)
+//     {
+//         RCLCPP_INFO(this->get_logger(), "Running in simulation mode.");
+//     }
+//     else
+//     {
+//         RCLCPP_INFO(this->get_logger(), "Running in real robot mode.");
+//     }
+
+//     blindAutonomous();
+//     rclcpp::spin(shared_from_this());
+// }
+
+// void MechelangeloBehaviour::blindAutonomous()
+// {
+//     RCLCPP_INFO(this->get_logger(), "Executing blind autonomous behaviour.");
+
+//     blind_autonomous_active_ = true;
+//     safety_zone_violated_ = false;
+//     safety_zone_baseline_captured_ = false;
+//     current_state_ = NavigationState::SEARCHING;
+//     target_angle_ = 0.0;
+//     target_range_ = 0.0;
+//     stop_counter_ = 0;
+//     align_yaw_initialised_ = false;
+//     g_align_gyro_calibrating = false;
+//     g_align_gyro_active = false;
+//     g_align_gyro_angle = 0.0;
+//     g_align_gyro_bias = 0.0;
+//     g_align_gyro_bias_sum = 0.0;
+//     g_align_gyro_bias_samples = 0;
+//     g_interaction_hold_active = false;
+//     resetHumanMotionController();
+//     clearObstacleMarkers();
+// }
+
+// void MechelangeloBehaviour::mappedAutonomous()
+// {
+//     RCLCPP_INFO(this->get_logger(), "Executing mapped autonomous behaviour.");
+// }
+
+// void MechelangeloBehaviour::controlLoop()
+// {
+//     if (!blind_autonomous_active_)
+//     {
+//         return;
+//     }
+
+//     geometry_msgs::msg::Twist twist;
+
+//     // The behaviour node is the authoritative interaction gate. The perception
+//     // mimicry camera is only activated after the fused pose and arm-clearance
+//     // checks have entered the verified interaction session.
+//     publishInteractionActive(
+//         this->now(),
+//         g_interaction_session_active &&
+//             g_human_motion_phase == HumanMotionPhase::INTERACTION);
+
+//     // Keep the arms down until the verified interaction session starts.
+//     if (!g_interaction_session_active &&
+//         g_human_motion_phase != HumanMotionPhase::INTERACTION)
+//     {
+//         publishArmsDown(this->now());
+//     }
+
+//     // Safety: wait until valid LaserScan data exists.
+//     if (latest_scan_.ranges.empty() || latest_scan_.angle_increment == 0.0)
+//     {
+//         RCLCPP_WARN_THROTTLE(
+//             this->get_logger(),
+//             *this->get_clock(),
+//             2000,
+//             "Waiting for valid filtered LaserScan data...");
+
+//         stopRobot(twist);
+//         current_twist_ = twist;
+//         cmd_vel_publisher_->publish(twist);
+//         return;
+//     }
+
+//     switch (current_state_)
+//     {
+//     case NavigationState::SEARCHING:
+//     {
+//         stopRobot(twist);
+//         clearObstacleMarkers();
+
+//         double longest_angle = 0.0;
+//         double longest_range = 0.0;
+
+//         if (!getLongestRange(longest_angle, longest_range))
+//         {
+//             RCLCPP_WARN_THROTTLE(
+//                 this->get_logger(),
+//                 *this->get_clock(),
+//                 2000,
+//                 "SEARCHING: No valid filtered LaserScan range found.");
+//             break;
+//         }
+
+//         target_angle_ = longest_angle;
+//         target_range_ = longest_range;
+//         align_yaw_initialised_ = false;
+//         g_align_gyro_calibrating = false;
+//         g_align_gyro_active = false;
+//         g_align_gyro_angle = 0.0;
+//         g_align_gyro_bias = 0.0;
+//         g_align_gyro_bias_sum = 0.0;
+//         g_align_gyro_bias_samples = 0;
+
+//         RCLCPP_INFO(
+//             this->get_logger(),
+//             "SEARCHING: Selected exploration heading at %.2f deg, representative range %.2f m",
+//             target_angle_ * 180.0 / M_PI,
+//             target_range_);
+
+//         current_state_ = NavigationState::ALIGNING;
+//         break;
+//     }
+
+//     case NavigationState::ALIGNING:
+//     {
+//         clearObstacleMarkers();
+
+//         // Exploration alignment is always an in-place rotation. Do not use the
+//         // normal stop ramp here because it can carry angular motion past the
+//         // target after the gyroscope says the requested rotation is complete.
+//         twist.linear.x = 0.0;
+//         twist.angular.z = 0.0;
+
+//         const rclcpp::Time now = this->now();
+//         const bool imu_fresh =
+//             imu_available_ &&
+//             g_latest_imu_time_valid &&
+//             (now - g_latest_imu_receive_time).seconds() <=
+//                 kImuFreshTimeout;
+
+//         // Physical turning is never permitted to fall back to a timed estimate.
+//         // If IMU updates stop, keep publishing zero velocity until they recover.
+//         if (!imu_fresh)
+//         {
+//             g_align_gyro_calibrating = false;
+//             g_align_gyro_active = false;
+//             g_align_gyro_angle = 0.0;
+//             g_align_gyro_bias_sum = 0.0;
+//             g_align_gyro_bias_samples = 0;
+
+//             RCLCPP_ERROR_THROTTLE(
+//                 this->get_logger(),
+//                 *this->get_clock(),
+//                 1000,
+//                 "ALIGNING (gyro): IMU data unavailable or stale. Holding motors at zero.");
+//             break;
+//         }
+
+//         const double target_magnitude = std::fabs(target_angle_);
+//         if (target_magnitude <= kAlignmentTolerance)
+//         {
+//             g_align_gyro_calibrating = false;
+//             g_align_gyro_active = false;
+//             g_align_gyro_angle = 0.0;
+//             current_state_ = NavigationState::MOVING;
+
+//             RCLCPP_INFO(
+//                 this->get_logger(),
+//                 "ALIGNING (gyro): Selected heading is already within tolerance. Starting forward movement.");
+//             break;
+//         }
+
+//         // Begin a short stationary bias measurement for this individual turn.
+//         if (!g_align_gyro_calibrating && !g_align_gyro_active)
+//         {
+//             g_align_gyro_calibrating = true;
+//             g_align_gyro_angle = 0.0;
+//             g_align_gyro_bias = 0.0;
+//             g_align_gyro_bias_sum = 0.0;
+//             g_align_gyro_bias_samples = 0;
+//             g_align_last_imu_time = now;
+//             g_align_start_time = now;
+
+//             RCLCPP_INFO(
+//                 this->get_logger(),
+//                 "ALIGNING (gyro): Calibrating stationary gyro bias before %.2f deg relative turn.",
+//                 target_angle_ * 180.0 / M_PI);
+//             break;
+//         }
+
+//         if (g_align_gyro_calibrating)
+//         {
+//             RCLCPP_INFO_THROTTLE(
+//                 this->get_logger(),
+//                 *this->get_clock(),
+//                 500,
+//                 "ALIGNING (gyro): Bias calibration %d/%d samples. Motors held at zero.",
+//                 g_align_gyro_bias_samples,
+//                 kGyroBiasSampleCount);
+//             break;
+//         }
+
+//         const double turn_elapsed =
+//             (now - g_align_start_time).seconds();
+//         if (turn_elapsed > kMaximumTurnTime)
+//         {
+//             g_align_gyro_active = false;
+//             g_align_gyro_calibrating = false;
+//             blind_autonomous_active_ = false;
+
+//             RCLCPP_ERROR(
+//                 this->get_logger(),
+//                 "ALIGNING (gyro): Turn timed out after %.2f s. Target %.2f deg, measured %.2f deg. Autonomous movement disabled.",
+//                 turn_elapsed,
+//                 target_angle_ * 180.0 / M_PI,
+//                 g_align_gyro_angle * 180.0 / M_PI);
+//             break;
+//         }
+
+//         const double remaining_angle =
+//             target_magnitude - g_align_gyro_angle;
+
+//         if (remaining_angle <= kAlignmentTolerance)
+//         {
+//             g_align_gyro_active = false;
+//             g_align_gyro_calibrating = false;
+
+//             RCLCPP_INFO(
+//                 this->get_logger(),
+//                 "ALIGNING (gyro): Turn complete. Target %.2f deg, measured %.2f deg, remaining %.2f deg. Starting forward movement.",
+//                 target_angle_ * 180.0 / M_PI,
+//                 g_align_gyro_angle * 180.0 / M_PI,
+//                 remaining_angle * 180.0 / M_PI);
+
+//             current_state_ = NavigationState::MOVING;
+//             break;
+//         }
+
+//         double commanded_speed = kPhysicalTurnSlowSpeed;
+//         if (remaining_angle > kPhysicalTurnMediumZone)
+//         {
+//             commanded_speed = kPhysicalTurnMaxSpeed;
+//         }
+//         else if (remaining_angle > kPhysicalTurnSlowZone)
+//         {
+//             commanded_speed = kPhysicalTurnMediumSpeed;
+//         }
+
+//         // The LiDAR-selected target angle determines left/right command. Gyro
+//         // magnitude determines only how much real rotation has occurred, so a
+//         // reversed IMU Z-axis cannot cause an endless turn.
+//         twist.angular.z =
+//             std::copysign(commanded_speed, target_angle_);
+
+//         RCLCPP_INFO_THROTTLE(
+//             this->get_logger(),
+//             *this->get_clock(),
+//             500,
+//             "ALIGNING (gyro): target %.2f deg, measured %.2f deg, remaining %.2f deg, raw gyro_z %.3f rad/s, bias %.4f, cmd %.2f rad/s",
+//             target_angle_ * 180.0 / M_PI,
+//             g_align_gyro_angle * 180.0 / M_PI,
+//             remaining_angle * 180.0 / M_PI,
+//             latest_imu_.angular_velocity.z,
+//             g_align_gyro_bias,
+//             twist.angular.z);
+
+//         break;
+//     }
+
+//     case NavigationState::MOVING:
+//     {
+//         std::vector<LaserSegment> blocking_segments;
+//         const bool blocked_by_segment = findBlockingObstaclesInFront(blocking_segments);
+//         const double front_range = getFrontRange();
+
+//         // Segment-based blocking is the main decision. This prevents a single
+//         // random dot from stopping the robot because the dot will not survive
+//         // the neighbour + segment filter.
+//         if (blocked_by_segment || front_range <= stop_distance_m_)
+//         {
+//             if (blocking_segments.empty())
+//             {
+//                 // Fallback marker if the range check caught something but no
+//                 // segment was available. This should be rare after filtering.
+//                 LaserSegment fallback;
+//                 fallback.point_count = 1;
+//                 fallback.min_range = front_range;
+//                 fallback.midpoint.x = std::isfinite(front_range) ? front_range : stop_distance_m_;
+//                 fallback.midpoint.y = 0.0;
+//                 fallback.midpoint.z = 0.0;
+//                 blocking_segments.push_back(fallback);
+//             }
+
+//             publishObstacleMarkers(blocking_segments);
+
+//             RCLCPP_WARN(
+//                 this->get_logger(),
+//                 "MOVING: Blocking obstacle detected in front. Front range = %.2f m. Stopping.",
+//                 front_range);
+
+//             stopRobot(twist);
+//             stop_counter_ = 0;
+//             current_state_ = NavigationState::STOPPED;
+//             break;
+//         }
+
+//         clearObstacleMarkers();
+
+//         if (std::isinf(front_range))
+//         {
+//             RCLCPP_INFO_THROTTLE(
+//                 this->get_logger(),
+//                 *this->get_clock(),
+//                 1000,
+//                 "MOVING: Front is clear after filtering. Driving forward.");
+//         }
+//         else
+//         {
+//             RCLCPP_INFO_THROTTLE(
+//                 this->get_logger(),
+//                 *this->get_clock(),
+//                 1000,
+//                 "MOVING: Driving forward. Filtered front range = %.2f m",
+//                 front_range);
+//         }
+
+//         twist.linear.x = kForwardSpeed;
+//         twist.angular.z = 0.0;
+//         break;
+//     }
+
+//     case NavigationState::STOPPED:
+//     {
+//         stopRobot(twist);
+//         stop_counter_++;
+
+//         if (stop_counter_ >= kStopDurationLoops)
+//         {
+//             RCLCPP_INFO(
+//                 this->get_logger(),
+//                 "STOPPED: Pause complete. Searching for next direction.");
+
+//             stop_counter_ = 0;
+//             clearObstacleMarkers();
+//             current_state_ = NavigationState::SEARCHING;
+//         }
+//         else
+//         {
+//             RCLCPP_INFO_THROTTLE(
+//                 this->get_logger(),
+//                 *this->get_clock(),
+//                 1000,
+//                 "STOPPED: Pausing %.1f / %.1f seconds",
+//                 stop_counter_ * kControlPeriodSeconds,
+//                 kStopDurationLoops * kControlPeriodSeconds);
+//         }
+
+//         break;
+//     }
+
+//     case NavigationState::HUMAN_DETECTED:
+//     {
+//         const rclcpp::Time now = this->now();
+//         const double time_since_tracking =
+//             (now - last_human_tracking_time_).seconds();
+//         const double time_since_visible_human = g_last_visible_human_valid
+//             ? (now - g_last_visible_human_time).seconds()
+//             : std::numeric_limits<double>::infinity();
+
+//         // Complete a timed interaction and start the existing detection cooldown.
+//         if (g_interaction_session_active)
+//         {
+//             const double interaction_elapsed =
+//                 (now - g_interaction_session_start_time).seconds();
+
+//             if (interaction_elapsed >= kHumanInteractionDurationSeconds)
+//             {
+//                 g_human_interaction_completed_count++;
+//                 g_interaction_session_active = false;
+//                 g_interaction_hold_active = false;
+//                 g_human_detection_cooldown_active = true;
+//                 g_human_detection_cooldown_start_time = now;
+//                 human_locked_ = false;
+//                 safety_zone_violated_ = false;
+//                 safety_zone_baseline_captured_ = false;
+//                 resetHumanMotionController();
+//                 clearObstacleMarkers();
+//                 stopRobot(twist);
+//                 current_state_ = NavigationState::SEARCHING;
+//                 publishInteractionActive(now, false, true);
+//                 publishArmsDown(now, true);
+
+//                 writeHumanInteractionStatsLog(
+//                     "completed_30s_interaction_started_cooldown", now);
+//                 writeHumanPlannerDebugLog("interaction_complete", now);
+
+//                 RCLCPP_INFO(
+//                     this->get_logger(),
+//                     "HUMAN_SESSION: Completed %.1f s interaction. Returning to DVD exploration with %.1f s cooldown.",
+//                     kHumanInteractionDurationSeconds,
+//                     kHumanDetectionCooldownSeconds);
+//                 break;
+//             }
+//         }
+
+//         const bool visual_fresh =
+//             human_locked_ && time_since_tracking <= kHumanVisualFreshTimeout;
+//         const double camera_bearing =
+//             -human_centre_offset_ * kCameraHorizontalFov;
+//         // Camera depth is deliberately ignored. The real camera contributes
+//         // only visibility and horizontal bearing; all distance decisions below
+//         // come from LiDAR.
+
+//         // Propagate the persistent target into the current robot frame. Translation
+//         // is estimated from the commanded velocity. Rotation uses gyro Z rather
+//         // than the magnetometer-fused quaternion because the physical robot's
+//         // magnetic environment makes absolute yaw unreliable.
+//         if (g_human_target_locked)
+//         {
+//             double dt = (now - g_fused_human_update_time).seconds();
+//             dt = std::clamp(dt, 0.0, 0.30);
+
+//             double measured_yaw_delta = current_twist_.angular.z * dt;
+//             const bool human_imu_fresh =
+//                 imu_available_ &&
+//                 g_latest_imu_time_valid &&
+//                 (now - g_latest_imu_receive_time).seconds() <=
+//                     kImuFreshTimeout;
+
+//             if (human_imu_fresh)
+//             {
+//                 double gyro_rate =
+//                     g_gyro_z_to_robot_yaw_sign *
+//                     latest_imu_.angular_velocity.z;
+//                 if (std::fabs(gyro_rate) < kGyroDeadband)
+//                 {
+//                     gyro_rate = 0.0;
+//                 }
+//                 measured_yaw_delta = gyro_rate * dt;
+//             }
+
+//             if (dt > 1e-4)
+//             {
+//                 const double travel = current_twist_.linear.x * dt;
+//                 double robot_x = travel;
+//                 double robot_y = 0.0;
+
+//                 if (std::fabs(measured_yaw_delta) > 1e-5)
+//                 {
+//                     robot_x = travel * std::sin(measured_yaw_delta) /
+//                         measured_yaw_delta;
+//                     robot_y = travel * (1.0 - std::cos(measured_yaw_delta)) /
+//                         measured_yaw_delta;
+//                 }
+
+//                 const double dx = g_human_target_x - robot_x;
+//                 const double dy = g_human_target_y - robot_y;
+//                 const double c = std::cos(measured_yaw_delta);
+//                 const double sn = std::sin(measured_yaw_delta);
+//                 g_human_target_x = c * dx + sn * dy;
+//                 g_human_target_y = -sn * dx + c * dy;
+
+//                 const double predicted_range = std::hypot(
+//                     g_human_target_x, g_human_target_y);
+//                 const double approximate_radial_change =
+//                     current_twist_.linear.x *
+//                     std::cos(std::atan2(
+//                         g_human_target_y, g_human_target_x)) * dt;
+//                 if (g_human_target_safety_range > 0.0)
+//                 {
+//                     g_human_target_safety_range = std::max(
+//                         0.0,
+//                         g_human_target_safety_range -
+//                             approximate_radial_change);
+//                 }
+
+//                 g_fused_human_range = predicted_range;
+//                 g_fused_human_bearing = normaliseAngle(
+//                     std::atan2(g_human_target_y, g_human_target_x));
+//                 g_fused_human_safety_range =
+//                     g_human_target_safety_range > 0.0
+//                         ? g_human_target_safety_range
+//                         : predicted_range;
+//                 g_human_target_prediction_count++;
+//             }
+//         }
+//         else
+//         {
+//             g_human_target_imu_yaw_valid = false;
+//         }
+//         g_fused_human_update_time = now;
+
+//         struct HumanClusterAssociation
+//         {
+//             bool valid = false;
+//             int start_index = -1;
+//             int end_index = -1;
+//             int point_count = 0;
+//             double angle = 0.0;
+//             double median_range = -1.0;
+//             double safety_range = -1.0;
+//             double centroid_x = 0.0;
+//             double centroid_y = 0.0;
+//             double angular_width = 0.0;
+//             double cartesian_error = std::numeric_limits<double>::infinity();
+//             double score = std::numeric_limits<double>::infinity();
+//         };
+
+//         auto findAssociatedHumanCluster = [&](double expected_bearing)
+//         {
+//             HumanClusterAssociation best;
+
+//             for (const LaserSegment &segment : latest_segments_)
+//             {
+//                 std::vector<double> ranges;
+//                 double sum_x = 0.0;
+//                 double sum_y = 0.0;
+//                 double first_angle = 0.0;
+//                 double last_angle = 0.0;
+//                 bool first_angle_set = false;
+
+//                 for (int i = segment.start_index; i <= segment.end_index; ++i)
+//                 {
+//                     if (i < 0 ||
+//                         i >= static_cast<int>(latest_scan_.ranges.size()))
+//                     {
+//                         continue;
+//                     }
+
+//                     const double range = latest_scan_.ranges[i];
+//                     if (!std::isfinite(range) || range <= kMinValidRange)
+//                     {
+//                         continue;
+//                     }
+
+//                     const double angle = latest_scan_.angle_min +
+//                         static_cast<double>(i) * latest_scan_.angle_increment;
+//                     if (!first_angle_set)
+//                     {
+//                         first_angle = angle;
+//                         first_angle_set = true;
+//                     }
+//                     last_angle = angle;
+//                     ranges.push_back(range);
+//                     sum_x += range * std::cos(angle);
+//                     sum_y += range * std::sin(angle);
+//                 }
+
+//                 if (static_cast<int>(ranges.size()) <
+//                     kHumanAssociationMinPoints)
+//                 {
+//                     continue;
+//                 }
+
+//                 const double centroid_x = sum_x /
+//                     static_cast<double>(ranges.size());
+//                 const double centroid_y = sum_y /
+//                     static_cast<double>(ranges.size());
+//                 const double cluster_angle = std::atan2(
+//                     centroid_y, centroid_x);
+//                 const double angle_error = std::fabs(
+//                     normaliseAngle(cluster_angle - expected_bearing));
+//                 const double allowed_bearing_error = visual_fresh
+//                     ? kHumanTargetVisualBearingGate
+//                     : kHumanTargetBearingGate;
+//                 if (angle_error > allowed_bearing_error)
+//                 {
+//                     continue;
+//                 }
+
+//                 std::sort(ranges.begin(), ranges.end());
+//                 const std::size_t median_index = ranges.size() / 2;
+//                 const double median_range = (ranges.size() % 2 == 0)
+//                     ? 0.5 * (ranges[median_index - 1] +
+//                         ranges[median_index])
+//                     : ranges[median_index];
+//                 const std::size_t safety_index =
+//                     static_cast<std::size_t>(std::floor(
+//                         0.20 * static_cast<double>(ranges.size() - 1)));
+//                 const double safety_range = ranges[safety_index];
+//                 const double angular_width = std::fabs(
+//                     normaliseAngle(last_angle - first_angle));
+
+//                 double cartesian_error = 0.0;
+//                 double range_error = 0.0;
+//                 if (g_human_target_locked)
+//                 {
+//                     cartesian_error = std::hypot(
+//                         centroid_x - g_human_target_x,
+//                         centroid_y - g_human_target_y);
+//                     range_error = std::fabs(
+//                         median_range - g_fused_human_range);
+
+//                     if (cartesian_error > kHumanTargetCartesianGate ||
+//                         range_error > kHumanTargetRangeGate)
+//                     {
+//                         continue;
+//                     }
+//                 }
+
+//                 double score =
+//                     2.5 * angle_error / allowed_bearing_error;
+//                 if (g_human_target_locked)
+//                 {
+//                     score += 3.5 * cartesian_error /
+//                         kHumanTargetCartesianGate;
+//                     score += 1.5 * range_error /
+//                         kHumanTargetRangeGate;
+
+//                     if (g_human_target_snapshot_point_count > 0)
+//                     {
+//                         score += 0.50 * std::fabs(
+//                             static_cast<double>(ranges.size() -
+//                                 g_human_target_snapshot_point_count)) /
+//                             kHumanTargetSizePenaltyScale;
+//                     }
+//                     if (g_human_target_snapshot_angular_width > 1e-4)
+//                     {
+//                         score += 0.35 * std::fabs(
+//                             angular_width -
+//                             g_human_target_snapshot_angular_width) /
+//                             std::max(
+//                                 5.0 * M_PI / 180.0,
+//                                 g_human_target_snapshot_angular_width);
+//                     }
+//                 }
+//                 else
+//                 {
+//                     score += 0.15 * std::clamp(
+//                         median_range / 8.0, 0.0, 1.0);
+//                 }
+
+//                 score -= 0.20 * std::clamp(
+//                     static_cast<double>(ranges.size()) / 20.0,
+//                     0.0,
+//                     1.0);
+
+//                 if (score < best.score)
+//                 {
+//                     best.valid = true;
+//                     best.start_index = segment.start_index;
+//                     best.end_index = segment.end_index;
+//                     best.point_count = static_cast<int>(ranges.size());
+//                     best.angle = cluster_angle;
+//                     best.median_range = median_range;
+//                     best.safety_range = safety_range;
+//                     best.centroid_x = centroid_x;
+//                     best.centroid_y = centroid_y;
+//                     best.angular_width = angular_width;
+//                     best.cartesian_error = cartesian_error;
+//                     best.score = score;
+//                 }
+//             }
+
+//             return best;
+//         };
+
+//         const double association_bearing = visual_fresh
+//             ? camera_bearing
+//             : (g_human_target_locked
+//                 ? std::atan2(g_human_target_y, g_human_target_x)
+//                 : 0.0);
+//         const HumanClusterAssociation associated_cluster =
+//             findAssociatedHumanCluster(association_bearing);
+
+//         g_human_cluster_valid = associated_cluster.valid;
+//         g_human_cluster_start_index = associated_cluster.start_index;
+//         g_human_cluster_end_index = associated_cluster.end_index;
+//         g_human_cluster_point_count = associated_cluster.point_count;
+//         g_human_cluster_angle = associated_cluster.angle;
+//         g_human_cluster_median_range = associated_cluster.median_range;
+//         g_human_cluster_safety_range = associated_cluster.safety_range;
+//         g_human_cluster_score = associated_cluster.score;
+
+//         if (visual_fresh && associated_cluster.valid)
+//         {
+//             // Snapshot/refresh the target using LiDAR range along the camera
+//             // bearing. This keeps the visual identity while using LiDAR for safe
+//             // geometry and prevents a neighbouring wall from taking over.
+//             const double measurement_x =
+//                 associated_cluster.median_range * std::cos(camera_bearing);
+//             const double measurement_y =
+//                 associated_cluster.median_range * std::sin(camera_bearing);
+//             const double alpha = g_human_target_locked
+//                 ? kHumanTargetPositionAlphaConfirmed
+//                 : 1.0;
+//             g_human_target_x += alpha *
+//                 (measurement_x - g_human_target_x);
+//             g_human_target_y += alpha *
+//                 (measurement_y - g_human_target_y);
+//             g_human_target_safety_range =
+//                 associated_cluster.safety_range;
+//             g_human_target_snapshot_point_count =
+//                 associated_cluster.point_count;
+//             g_human_target_snapshot_angular_width =
+//                 associated_cluster.angular_width;
+//             g_human_target_locked = true;
+//             g_human_target_confidence =
+//                 HumanTargetConfidence::CONFIRMED;
+//             g_human_target_last_confirmed_time = now;
+//             g_human_target_last_lidar_match_time = now;
+//             g_human_target_lock_count++;
+//             g_human_lidar_association_success_count++;
+//             g_human_target_lidar_reassociation_count++;
+//             g_fused_human_last_lidar_time = now;
+//             g_fused_human_lidar_ever_valid = true;
+//         }
+//         else if (!visual_fresh && associated_cluster.valid &&
+//                  g_human_target_locked)
+//         {
+//             const double measurement_x =
+//                 associated_cluster.median_range *
+//                     std::cos(associated_cluster.angle);
+//             const double measurement_y =
+//                 associated_cluster.median_range *
+//                     std::sin(associated_cluster.angle);
+//             g_human_target_x += kHumanTargetPositionAlphaLidarOnly *
+//                 (measurement_x - g_human_target_x);
+//             g_human_target_y += kHumanTargetPositionAlphaLidarOnly *
+//                 (measurement_y - g_human_target_y);
+//             g_human_target_safety_range =
+//                 associated_cluster.safety_range;
+//             g_human_target_confidence =
+//                 HumanTargetConfidence::LIDAR_TRACKED;
+//             g_human_target_last_lidar_match_time = now;
+//             g_human_lidar_association_success_count++;
+//             g_human_target_lidar_reassociation_count++;
+//             g_fused_human_last_lidar_time = now;
+//             g_fused_human_lidar_ever_valid = true;
+//         }
+//         else
+//         {
+//             g_human_lidar_association_failure_count++;
+
+//             if (visual_fresh && g_human_target_locked)
+//             {
+//                 // The camera may briefly see the person while the LiDAR cluster is
+//                 // partially occluded. Correct only the bearing and retain the
+//                 // remembered LiDAR range rather than snapping to camera distance.
+//                 const double current_bearing = std::atan2(
+//                     g_human_target_y, g_human_target_x);
+//                 const double corrected_bearing = normaliseAngle(
+//                     current_bearing +
+//                     kHumanTargetCameraBearingAlpha *
+//                     normaliseAngle(camera_bearing - current_bearing));
+//                 const double current_range = std::hypot(
+//                     g_human_target_x, g_human_target_y);
+//                 g_human_target_x = current_range *
+//                     std::cos(corrected_bearing);
+//                 g_human_target_y = current_range *
+//                     std::sin(corrected_bearing);
+//                 g_human_target_confidence =
+//                     HumanTargetConfidence::PREDICTED;
+//             }
+//             else if (!g_human_target_locked && visual_fresh)
+//             {
+//                 // Do not invent a range from the camera. A target position will
+//                 // be initialised below only if a valid LiDAR guard exists near
+//                 // the visual bearing. Until then the robot may rotate to centre
+//                 // the human, but it may not translate.
+//                 g_human_target_confidence =
+//                     HumanTargetConfidence::PREDICTED;
+//             }
+//             else if (g_human_target_locked)
+//             {
+//                 const double since_lidar =
+//                     (now - g_human_target_last_lidar_match_time).seconds();
+//                 const double since_confirmed =
+//                     (now - g_human_target_last_confirmed_time).seconds();
+//                 if (since_lidar <= kHumanTargetLidarTrackTimeout ||
+//                     since_confirmed <= kHumanTargetPredictionTimeout)
+//                 {
+//                     g_human_target_confidence =
+//                         HumanTargetConfidence::PREDICTED;
+//                 }
+//                 else
+//                 {
+//                     g_human_target_confidence =
+//                         HumanTargetConfidence::LOST;
+//                     g_human_target_locked = false;
+//                     g_human_target_lost_count++;
+//                 }
+//             }
+//         }
+
+//         if (g_human_target_locked)
+//         {
+//             g_fused_human_range = std::hypot(
+//                 g_human_target_x, g_human_target_y);
+//             g_fused_human_bearing = normaliseAngle(
+//                 std::atan2(g_human_target_y, g_human_target_x));
+//             g_fused_human_safety_range =
+//                 g_human_target_safety_range > 0.0
+//                     ? g_human_target_safety_range
+//                     : g_fused_human_range;
+//             g_fused_human_valid = true;
+//         }
+//         else
+//         {
+//             g_fused_human_valid = false;
+//         }
+
+//         bool lidar_fresh =
+//             (g_human_target_confidence ==
+//                 HumanTargetConfidence::CONFIRMED ||
+//              g_human_target_confidence ==
+//                 HumanTargetConfidence::LIDAR_TRACKED) &&
+//             (now - g_human_target_last_lidar_match_time).seconds() <=
+//                 kHumanTargetLidarTrackTimeout;
+
+//         // The camera is the primary bearing source, but never a distance
+//         // source. If a coherent LiDAR segment is unavailable, use the nearest
+//         // valid LiDAR return in a narrow cone around the visual bearing as a
+//         // conservative fallback range. This fallback is sufficient to keep
+//         // moving slowly in a clear room and prevents the stale-segment branch
+//         // from overriding the camera-guided command every control cycle.
+//         // Stay in fallback mode whenever the current scan has no coherent
+//         // associated segment, even if the previous fallback guard is still
+//         // within its freshness timeout. This refreshes the LiDAR guard every
+//         // control cycle instead of only once per timeout window.
+//         g_human_camera_guided_mode_active =
+//             visual_fresh && !associated_cluster.valid;
+//         g_human_camera_guided_lidar_guard_valid = false;
+//         g_human_camera_guided_guard_range =
+//             std::numeric_limits<double>::infinity();
+
+//         if (visual_fresh)
+//         {
+//             g_fused_human_bearing = camera_bearing;
+
+//             if (g_human_camera_guided_mode_active)
+//             {
+//                 const double guard_range = getMinimumRange(
+//                     camera_bearing - kHumanCameraGuardWindow,
+//                     camera_bearing + kHumanCameraGuardWindow);
+//                 g_human_camera_guided_lidar_guard_valid =
+//                     std::isfinite(guard_range) &&
+//                     guard_range > kMinValidRange;
+//                 g_human_camera_guided_guard_range = guard_range;
+//                 g_human_camera_guided_cycle_count++;
+
+//                 if (g_human_camera_guided_lidar_guard_valid)
+//                 {
+//                     // Build or refresh a target using camera bearing and LiDAR
+//                     // guard range only. No camera depth is used here.
+//                     const double measurement_x =
+//                         guard_range * std::cos(camera_bearing);
+//                     const double measurement_y =
+//                         guard_range * std::sin(camera_bearing);
+//                     const double alpha = g_human_target_locked
+//                         ? kHumanCameraGuardRangeAlpha
+//                         : 1.0;
+//                     g_human_target_x += alpha *
+//                         (measurement_x - g_human_target_x);
+//                     g_human_target_y += alpha *
+//                         (measurement_y - g_human_target_y);
+//                     g_human_target_safety_range = guard_range;
+//                     g_human_target_locked = true;
+//                     g_human_target_confidence =
+//                         HumanTargetConfidence::LIDAR_TRACKED;
+//                     g_human_target_last_lidar_match_time = now;
+//                     g_human_target_last_confirmed_time = now;
+//                     g_fused_human_last_lidar_time = now;
+//                     g_fused_human_lidar_ever_valid = true;
+
+//                     g_fused_human_range = std::hypot(
+//                         g_human_target_x, g_human_target_y);
+//                     g_fused_human_bearing = camera_bearing;
+//                     g_fused_human_safety_range = guard_range;
+//                     g_fused_human_valid = true;
+//                     lidar_fresh = true;
+//                 }
+
+//                 RCLCPP_WARN_THROTTLE(
+//                     this->get_logger(),
+//                     *this->get_clock(),
+//                     1000,
+//                     "HUMAN_CAMERA_GUIDED: Human visible; camera supplies bearing only. LiDAR guard=%s %.2f m. Slow translation is %s.",
+//                     g_human_camera_guided_lidar_guard_valid ? "valid" : "unavailable",
+//                     g_human_camera_guided_guard_range,
+//                     g_human_camera_guided_lidar_guard_valid ? "enabled" : "disabled");
+//             }
+//         }
+
+//         // A timed interaction remains stationary. The absolute-distance warning
+//         // is still monitored, but the base never moves during interaction.
+//         if (g_interaction_session_active)
+//         {
+//             g_human_motion_phase = HumanMotionPhase::INTERACTION;
+//             g_interaction_hold_active = true;
+//             g_interaction_hold_time = now;
+//             twist.linear.x = 0.0;
+//             twist.angular.z = 0.0;
+
+//             RCLCPP_INFO_THROTTLE(
+//                 this->get_logger(),
+//                 *this->get_clock(),
+//                 500,
+//                 "HUMAN_INTERACTION: Holding pose. fused range=%.2f safety=%.2f bearing=%.1f deg. Session %.1f/%.1f s.",
+//                 g_fused_human_range,
+//                 g_fused_human_safety_range,
+//                 g_fused_human_bearing * 180.0 / M_PI,
+//                 (now - g_interaction_session_start_time).seconds(),
+//                 kHumanInteractionDurationSeconds);
+//             break;
+//         }
+
+//         // If visual tracking drops during an avoidance arc, continue cautiously
+//         // only while the persistent target is being reassociated to the same
+//         // LiDAR cluster. If the cluster is also lost, stop translation and rotate
+//         // toward the predicted target until the camera reacquires it.
+//         const bool lidar_only_tracking =
+//             !visual_fresh && lidar_fresh &&
+//             g_human_target_confidence ==
+//                 HumanTargetConfidence::LIDAR_TRACKED &&
+//             time_since_visible_human <= kHumanLidarOnlyMotionTimeout;
+
+//         if (!visual_fresh && !lidar_only_tracking)
+//         {
+//             g_human_motion_phase = HumanMotionPhase::RECOVERY;
+//             g_human_planner_command_active = false;
+//             g_human_visual_recovery_count++;
+
+//             if (time_since_visible_human <= kHumanLostTimeout &&
+//                 g_fused_human_valid)
+//             {
+//                 twist.linear.x = 0.0;
+//                 twist.angular.z = std::clamp(
+//                     1.0 * g_fused_human_bearing,
+//                     -kHumanRecoveryTurnSpeed,
+//                     kHumanRecoveryTurnSpeed);
+
+//                 if (std::fabs(g_fused_human_bearing) <
+//                     kHumanCentreDeadZone * kCameraHorizontalFov)
+//                 {
+//                     twist.angular.z = 0.0;
+//                 }
+
+//                 writeHumanPlannerDebugLog("visual_recovery_from_persistent_target", now);
+//                 RCLCPP_WARN_THROTTLE(
+//                     this->get_logger(),
+//                     *this->get_clock(),
+//                     500,
+//                     "HUMAN_RECOVERY: Visual lost %.2f s, target=%s. Holding translation and turning toward predicted bearing %.1f deg, cmd %.2f rad/s.",
+//                     time_since_visible_human,
+//                     humanTargetConfidenceName(g_human_target_confidence),
+//                     g_fused_human_bearing * 180.0 / M_PI,
+//                     twist.angular.z);
+//                 break;
+//             }
+
+//             RCLCPP_WARN(
+//                 this->get_logger(),
+//                 "HUMAN_RECOVERY: Persistent human target not reacquired within %.1f s. Returning to exploration.",
+//                 kHumanLostTimeout);
+
+//             if (g_interaction_hold_active)
+//             {
+//                 g_human_abandoned_after_interaction_count++;
+//             }
+//             else
+//             {
+//                 g_human_abandoned_before_interaction_count++;
+//             }
+
+//             writeHumanInteractionStatsLog(
+//                 "persistent_human_target_lost_returning_to_exploration", now);
+//             writeHumanPlannerDebugLog("persistent_human_target_abandoned", now);
+
+//             stopRobot(twist);
+//             human_locked_ = false;
+//             safety_zone_violated_ = false;
+//             safety_zone_baseline_captured_ = false;
+//             g_interaction_hold_active = false;
+//             g_interaction_session_active = false;
+//             resetHumanMotionController();
+//             clearObstacleMarkers();
+//             current_state_ = NavigationState::SEARCHING;
+//             break;
+//         }
+
+//         if (lidar_only_tracking)
+//         {
+//             RCLCPP_WARN_THROTTLE(
+//                 this->get_logger(),
+//                 *this->get_clock(),
+//                 500,
+//                 "HUMAN_TARGET_LOCK: Camera temporarily lost %.2f s, but associated LiDAR cluster remains locked at %.2f m / %.1f deg. Continuing cautiously.",
+//                 time_since_visible_human,
+//                 g_fused_human_range,
+//                 g_fused_human_bearing * 180.0 / M_PI);
+//         }
+
+//         if (!g_fused_human_valid)
+//         {
+//             g_human_motion_phase = HumanMotionPhase::RECOVERY;
+//             twist.linear.x = 0.0;
+//             twist.angular.z = std::clamp(
+//                 -kHumanTurnGain * human_centre_offset_,
+//                 -kHumanRecoveryTurnSpeed,
+//                 kHumanRecoveryTurnSpeed);
+
+//             RCLCPP_WARN_THROTTLE(
+//                 this->get_logger(),
+//                 *this->get_clock(),
+//                 500,
+//                 "HUMAN_FUSION: Human visible but persistent range is not established. Turning only until a LiDAR segment is associated.");
+//             break;
+//         }
+
+//         // Prediction-only target state is no longer a reason to stop while the
+//         // camera still sees the human. The target lock is advisory; camera bearing
+//         // drives the approach and LiDAR only interrupts for an actual path threat.
+//         // If both the visual target and LiDAR association are absent, the recovery
+//         // branch above still stops translation.
+//         if (!lidar_fresh &&
+//             g_human_target_confidence ==
+//                 HumanTargetConfidence::PREDICTED &&
+//             !visual_fresh)
+//         {
+//             g_human_motion_phase = HumanMotionPhase::RECOVERY;
+//             g_human_planner_command_active = false;
+//             twist.linear.x = 0.0;
+//             twist.angular.z = std::clamp(
+//                 1.0 * g_fused_human_bearing,
+//                 -kHumanRecoveryTurnSpeed,
+//                 kHumanRecoveryTurnSpeed);
+
+//             RCLCPP_WARN_THROTTLE(
+//                 this->get_logger(),
+//                 *this->get_clock(),
+//                 500,
+//                 "HUMAN_TARGET_LOCK: Camera and associated LiDAR target are unavailable. Holding translation for short recovery toward %.1f deg.",
+//                 g_fused_human_bearing * 180.0 / M_PI);
+//             break;
+//         }
+
+//         const double human_bearing_rad = g_fused_human_bearing;
+
+//         if (!safety_zone_baseline_captured_)
+//         {
+//             captureSafetyZoneBaseline();
+//         }
+
+//         const bool zone_now_violated = isSafetyZoneViolated(human_bearing_rad);
+//         if (zone_now_violated != safety_zone_violated_)
+//         {
+//             safety_zone_violated_ = zone_now_violated;
+//             if (safety_zone_violated_)
+//             {
+//                 RCLCPP_WARN(
+//                     this->get_logger(),
+//                     "SAFETY ZONE: Hard-stop object inside human-motion zone. Front/sides %.2f m, rear %.2f m.",
+//                     kHumanModeFrontSideHardStopRadius,
+//                     kHumanModeRearHardStopRadius);
+//             }
+//             else
+//             {
+//                 RCLCPP_INFO(this->get_logger(),
+//                     "SAFETY ZONE: Hard-stop zone clear. Resuming human planner.");
+//             }
+//         }
+
+//         const bool hard_stop_escape_required = safety_zone_violated_;
+//         if (hard_stop_escape_required)
+//         {
+//             // Do not let an imperfect turn trap the robot forever. Cancel the
+//             // current command and continue into the escape planner. Candidate
+//             // trajectories are still checked against the hard-stop geometry, and
+//             // the deterministic fallback may only move through a currently clear
+//             // front/rear corridor.
+//             g_human_planner_command_active = false;
+//             g_human_planner_linear = 0.0;
+//             g_human_planner_angular = 0.0;
+
+//             RCLCPP_WARN_THROTTLE(
+//                 this->get_logger(),
+//                 *this->get_clock(),
+//                 500,
+//                 "SAFETY ZONE: Hard-stop zone occupied. Cancelling the previous command and planning an escape rather than remaining latched at zero.");
+//         }
+
+//         auto pointBelongsToHumanCluster = [&](int index)
+//         {
+//             if (associated_cluster.valid &&
+//                 index >= associated_cluster.start_index &&
+//                 index <= associated_cluster.end_index)
+//             {
+//                 return true;
+//             }
+
+//             if (!associated_cluster.valid)
+//             {
+//                 const double range = latest_scan_.ranges[index];
+//                 const double angle = latest_scan_.angle_min +
+//                     static_cast<double>(index) * latest_scan_.angle_increment;
+//                 return std::isfinite(range) &&
+//                     std::fabs(normaliseAngle(
+//                         angle - g_fused_human_bearing)) <=
+//                         5.0 * M_PI / 180.0 &&
+//                     std::fabs(range - g_fused_human_range) <= 0.45;
+//             }
+
+//             return false;
+//         };
+
+//         struct InteractionBubbleCheck
+//         {
+//             int considered_beams = 0;
+//             int blocked_beams = 0;
+//             double min_clearance = std::numeric_limits<double>::infinity();
+//             double min_margin = std::numeric_limits<double>::infinity();
+//             double blocked_fraction = 0.0;
+//             double repulsion_x = 0.0;
+//             double repulsion_y = 0.0;
+//             bool acceptable = false;
+//         };
+
+//         auto robotPoseForCommand = [](
+//             double linear,
+//             double angular,
+//             double time,
+//             double &x,
+//             double &y,
+//             double &yaw)
+//         {
+//             yaw = angular * time;
+//             if (std::fabs(angular) < 1e-5)
+//             {
+//                 x = linear * time;
+//                 y = 0.0;
+//             }
+//             else
+//             {
+//                 const double radius = linear / angular;
+//                 x = radius * std::sin(yaw);
+//                 y = radius * (1.0 - std::cos(yaw));
+//             }
+//         };
+
+//         auto transformPointToRobotPose = [](
+//             double point_x,
+//             double point_y,
+//             double robot_x,
+//             double robot_y,
+//             double robot_yaw,
+//             double &local_x,
+//             double &local_y)
+//         {
+//             const double dx = point_x - robot_x;
+//             const double dy = point_y - robot_y;
+//             const double c = std::cos(robot_yaw);
+//             const double s = std::sin(robot_yaw);
+//             local_x = c * dx + s * dy;
+//             local_y = -s * dx + c * dy;
+//         };
+
+//         auto evaluateInteractionBubbleAtPose =
+//             [&](double robot_x, double robot_y, double robot_yaw)
+//         {
+//             InteractionBubbleCheck check;
+
+//             for (int i = 0;
+//                  i < static_cast<int>(latest_scan_.ranges.size());
+//                  ++i)
+//             {
+//                 const double range = latest_scan_.ranges[i];
+//                 if (!std::isfinite(range) || range <= kMinValidRange ||
+//                     pointBelongsToHumanCluster(i))
+//                 {
+//                     continue;
+//                 }
+
+//                 const double angle = latest_scan_.angle_min +
+//                     static_cast<double>(i) * latest_scan_.angle_increment;
+//                 const double point_x = range * std::cos(angle);
+//                 const double point_y = range * std::sin(angle);
+//                 double local_x = 0.0;
+//                 double local_y = 0.0;
+//                 transformPointToRobotPose(
+//                     point_x, point_y,
+//                     robot_x, robot_y, robot_yaw,
+//                     local_x, local_y);
+
+//                 const double distance = std::hypot(local_x, local_y);
+//                 const double local_angle = std::atan2(local_y, local_x);
+//                 const double required =
+//                     humanModeInteractionBubbleRadiusForAngle(local_angle);
+
+//                 check.considered_beams++;
+//                 check.min_clearance = std::min(check.min_clearance, distance);
+//                 check.min_margin = std::min(
+//                     check.min_margin,
+//                     distance - required);
+//                 if (distance < required)
+//                 {
+//                     check.blocked_beams++;
+//                     const double safe_distance = std::max(0.05, distance);
+//                     const double penetration = std::max(0.0, required - distance);
+//                     const double weight = 1.0 + 4.0 * penetration;
+//                     check.repulsion_x -= (local_x / safe_distance) * weight;
+//                     check.repulsion_y -= (local_y / safe_distance) * weight;
+//                 }
+//             }
+
+//             if (check.considered_beams > 0)
+//             {
+//                 check.blocked_fraction =
+//                     static_cast<double>(check.blocked_beams) /
+//                     static_cast<double>(check.considered_beams);
+//             }
+//             else
+//             {
+//                 check.min_clearance = std::numeric_limits<double>::infinity();
+//                 check.min_margin = std::numeric_limits<double>::infinity();
+//             }
+
+//             check.acceptable =
+//                 check.blocked_beams <=
+//                     kHumanPlannerBubbleExitBlockedBeams &&
+//                 check.min_margin >= kHumanPlannerBubbleExitMargin;
+//             return check;
+//         };
+
+//         const double human_x =
+//             g_fused_human_range * std::cos(g_fused_human_bearing);
+//         const double human_y =
+//             g_fused_human_range * std::sin(g_fused_human_bearing);
+//         const InteractionBubbleCheck current_bubble =
+//             evaluateInteractionBubbleAtPose(0.0, 0.0, 0.0);
+
+
+//         auto minimumNonHumanRangeInWindow = [&](double centre, double half_width)
+//         {
+//             double minimum = std::numeric_limits<double>::infinity();
+//             for (int i = 0;
+//                  i < static_cast<int>(latest_scan_.ranges.size());
+//                  ++i)
+//             {
+//                 const double range = latest_scan_.ranges[i];
+//                 if (!std::isfinite(range) || range <= kMinValidRange ||
+//                     pointBelongsToHumanCluster(i))
+//                 {
+//                     continue;
+//                 }
+
+//                 const double angle = latest_scan_.angle_min +
+//                     static_cast<double>(i) * latest_scan_.angle_increment;
+//                 if (std::fabs(normaliseAngle(angle - centre)) <= half_width)
+//                 {
+//                     minimum = std::min(minimum, range);
+//                 }
+//             }
+//             return minimum;
+//         };
+
+//         g_human_last_rear_clearance = minimumNonHumanRangeInWindow(
+//             M_PI, kHumanDeterministicRearConeHalfAngle);
+//         g_human_last_front_clearance = minimumNonHumanRangeInWindow(
+//             0.0, kHumanDeterministicFrontConeHalfAngle);
+
+//         const bool rear_path_clear =
+//             !std::isfinite(g_human_last_rear_clearance) ||
+//             g_human_last_rear_clearance >= kHumanDeterministicRearClearance;
+//         const bool front_path_clear =
+//             !std::isfinite(g_human_last_front_clearance) ||
+//             g_human_last_front_clearance >= kHumanDeterministicFrontClearance;
+
+
+//         auto startAdaptiveSCurve = [&](const std::string &reason,
+//                                          bool prefer_backoff)
+//         {
+//             if (g_human_deterministic_escape_stage !=
+//                     DeterministicEscapeStage::NONE ||
+//                 g_human_too_close_backoff_active)
+//             {
+//                 return false;
+//             }
+
+//             const int escape_side =
+//                 std::fabs(current_bubble.repulsion_y) > 0.05
+//                     ? (current_bubble.repulsion_y >= 0.0 ? 1 : -1)
+//                     : (g_human_proactive_side_sign != 0
+//                         ? g_human_proactive_side_sign
+//                         : (g_human_escape_direction_sign != 0
+//                             ? g_human_escape_direction_sign
+//                             : 1));
+
+//             const double measured_deficit = std::max(
+//                 0.0, -current_bubble.min_margin);
+//             const double target_lateral = std::clamp(
+//                 measured_deficit + kHumanWaypointClearanceBuffer,
+//                 kHumanWaypointMinimumLateralShift,
+//                 kHumanWaypointMaximumLateralShift);
+
+//             // Two equal and opposite arcs produce a final lateral shift:
+//             //   lateral = 2 R (1 - cos(theta))
+//             // and return the robot to approximately its original heading.
+//             const double radius =
+//                 kHumanWaypointArcSpeed / kHumanWaypointArcAngularSpeed;
+//             const double cosine_argument = std::clamp(
+//                 1.0 - target_lateral / (2.0 * radius),
+//                 -1.0,
+//                 1.0);
+//             const double arc_angle = std::acos(cosine_argument);
+//             const double arc_duration = std::clamp(
+//                 arc_angle / kHumanWaypointArcAngularSpeed,
+//                 kHumanWaypointMinimumArcSeconds,
+//                 kHumanWaypointMaximumArcSeconds);
+//             const double target_forward =
+//                 2.0 * radius * std::sin(
+//                     kHumanWaypointArcAngularSpeed * arc_duration);
+
+//             g_human_waypoint_clearance_deficit = measured_deficit;
+//             g_human_waypoint_target_lateral = target_lateral;
+//             g_human_waypoint_target_forward = target_forward;
+//             g_human_waypoint_arc_duration = arc_duration;
+//             g_human_waypoint_initial_margin = current_bubble.min_margin;
+//             g_human_waypoint_total_start_time = now;
+//             g_human_deterministic_escape_side_sign = escape_side;
+//             g_human_deterministic_escape_trigger_count++;
+//             g_human_waypoint_start_count++;
+//             g_human_waypoint_trigger_streak = 0;
+//             g_human_no_safe_command_streak = 0;
+//             g_human_planner_command_active = false;
+
+//             const bool human_needs_more_range =
+//                 g_fused_human_range <
+//                     (kHumanDesiredInteractionDistance + 0.18);
+
+//             if ((prefer_backoff || human_needs_more_range) && rear_path_clear)
+//             {
+//                 g_human_deterministic_escape_stage =
+//                     DeterministicEscapeStage::BACK_OFF;
+//             }
+//             else if (front_path_clear)
+//             {
+//                 g_human_deterministic_escape_stage =
+//                     DeterministicEscapeStage::CLEAR_ARC;
+//             }
+//             else if (rear_path_clear)
+//             {
+//                 g_human_deterministic_escape_stage =
+//                     DeterministicEscapeStage::BACK_OFF;
+//             }
+//             else
+//             {
+//                 g_human_deterministic_escape_stage =
+//                     DeterministicEscapeStage::NONE;
+//                 g_human_deterministic_escape_blocked_count++;
+//                 g_human_waypoint_abort_count++;
+//                 publishHumanStepBackPrompt(now);
+//                 return false;
+//             }
+
+//             g_human_deterministic_escape_stage_start_time = now;
+
+//             writeHumanInteractionStatsLog(
+//                 "adaptive_s_curve_started_" + reason, now);
+//             writeHumanPlannerDebugLog(
+//                 "adaptive_s_curve_started_" + reason, now);
+
+//             RCLCPP_WARN(
+//                 this->get_logger(),
+//                 "HUMAN_WAYPOINT: Starting adaptive S-curve (%s). side=%d deficit=%.2f m target lateral=%.2f m target forward=%.2f m arc=%.2f s stage=%s.",
+//                 reason.c_str(),
+//                 escape_side,
+//                 measured_deficit,
+//                 target_lateral,
+//                 target_forward,
+//                 arc_duration,
+//                 deterministicEscapeStageName(
+//                     g_human_deterministic_escape_stage));
+//             return true;
+//         };
+
+//         if (hard_stop_escape_required &&
+//             g_human_deterministic_escape_stage ==
+//                 DeterministicEscapeStage::NONE &&
+//             !g_human_too_close_backoff_active)
+//         {
+//             startAdaptiveSCurve("hard_stop_zone", true);
+//         }
+
+//         // --------------------------------------------------------------
+//         // Thresholded proactive approach avoidance
+//         // --------------------------------------------------------------
+//         // Do not enter repositioning because clearance merely decreased a
+//         // little. First require a CURRENT non-human return inside 2.0 m. Then
+//         // test whether that return threatens either:
+//         //   1. the swept base corridor to the intended interaction pose, or
+//         //   2. the final 1.5 m interaction bubble at that pose.
+//         //
+//         // The warning distance expands to 2.15 m while avoidance is active so
+//         // the controller has hysteresis and does not flicker at exactly 2.0 m.
+//         const double path_dir_x = std::cos(g_fused_human_bearing);
+//         const double path_dir_y = std::sin(g_fused_human_bearing);
+//         const double path_left_x = -path_dir_y;
+//         const double path_left_y = path_dir_x;
+//         const double travel_to_interaction_pose = std::max(
+//             0.0,
+//             g_fused_human_range - kHumanDesiredInteractionDistance);
+//         const double target_pose_x =
+//             travel_to_interaction_pose * path_dir_x;
+//         const double target_pose_y =
+//             travel_to_interaction_pose * path_dir_y;
+//         const double target_pose_yaw = g_fused_human_bearing;
+
+//         const double warning_distance =
+//             g_human_proactive_avoidance_active
+//                 ? kHumanApproachObstacleReleaseDistance
+//                 : kHumanApproachObstacleWarningDistance;
+
+//         double nearest_nonhuman_range =
+//             std::numeric_limits<double>::infinity();
+//         double nearest_threat_range =
+//             std::numeric_limits<double>::infinity();
+//         double nearest_left_range =
+//             std::numeric_limits<double>::infinity();
+//         double nearest_right_range =
+//             std::numeric_limits<double>::infinity();
+//         double avoidance_side_vote = 0.0;
+//         int threatening_point_count = 0;
+
+//         for (int i = 0;
+//              i < static_cast<int>(latest_scan_.ranges.size());
+//              ++i)
+//         {
+//             const double range = latest_scan_.ranges[i];
+//             if (!std::isfinite(range) ||
+//                 range <= kMinValidRange ||
+//                 pointBelongsToHumanCluster(i))
+//             {
+//                 continue;
+//             }
+
+//             nearest_nonhuman_range = std::min(
+//                 nearest_nonhuman_range, range);
+
+//             if (range > warning_distance)
+//             {
+//                 continue;
+//             }
+
+//             const double angle = latest_scan_.angle_min +
+//                 static_cast<double>(i) * latest_scan_.angle_increment;
+//             const double point_x = range * std::cos(angle);
+//             const double point_y = range * std::sin(angle);
+
+//             const double along_path =
+//                 point_x * path_dir_x + point_y * path_dir_y;
+//             const double signed_lateral =
+//                 point_x * path_left_x + point_y * path_left_y;
+
+//             if (signed_lateral >= 0.0)
+//             {
+//                 nearest_left_range = std::min(nearest_left_range, range);
+//             }
+//             else
+//             {
+//                 nearest_right_range = std::min(nearest_right_range, range);
+//             }
+
+//             const double clamped_along = std::clamp(
+//                 along_path,
+//                 0.0,
+//                 travel_to_interaction_pose);
+//             const double closest_path_x =
+//                 clamped_along * path_dir_x;
+//             const double closest_path_y =
+//                 clamped_along * path_dir_y;
+//             const double distance_to_swept_path = std::hypot(
+//                 point_x - closest_path_x,
+//                 point_y - closest_path_y);
+
+//             const bool threatens_swept_corridor =
+//                 travel_to_interaction_pose > 0.05 &&
+//                 along_path >= -0.10 &&
+//                 along_path <=
+//                     travel_to_interaction_pose +
+//                     kHumanApproachCorridorForwardBuffer &&
+//                 distance_to_swept_path <=
+//                     kHumanApproachCorridorHalfWidth;
+
+//             double target_local_x = 0.0;
+//             double target_local_y = 0.0;
+//             transformPointToRobotPose(
+//                 point_x,
+//                 point_y,
+//                 target_pose_x,
+//                 target_pose_y,
+//                 target_pose_yaw,
+//                 target_local_x,
+//                 target_local_y);
+//             const double distance_to_target_pose =
+//                 std::hypot(target_local_x, target_local_y);
+//             const double target_local_angle =
+//                 std::atan2(target_local_y, target_local_x);
+//             const double target_required_radius =
+//                 humanModeInteractionBubbleRadiusForAngle(
+//                     target_local_angle);
+//             const bool threatens_final_interaction_bubble =
+//                 distance_to_target_pose < target_required_radius;
+
+//             if (!threatens_swept_corridor &&
+//                 !threatens_final_interaction_bubble)
+//             {
+//                 continue;
+//             }
+
+//             threatening_point_count++;
+//             nearest_threat_range = std::min(
+//                 nearest_threat_range, range);
+
+//             // Obstacle on the left votes for a right-hand arc and vice versa.
+//             // More deeply penetrating/final-pose threats receive greater weight.
+//             const double warning_penetration = std::max(
+//                 0.0,
+//                 warning_distance - range);
+//             const double bubble_penetration = std::max(
+//                 0.0,
+//                 target_required_radius - distance_to_target_pose);
+//             const double weight =
+//                 1.0 + 2.0 * warning_penetration +
+//                 3.0 * bubble_penetration;
+//             avoidance_side_vote +=
+//                 signed_lateral >= 0.0 ? -weight : weight;
+//         }
+
+//         const bool raw_approach_path_risk =
+//             threatening_point_count > 0 &&
+//             nearest_threat_range <= warning_distance;
+
+//         if (raw_approach_path_risk)
+//         {
+//             g_human_proactive_risk_cycles++;
+//             g_human_proactive_clear_cycles = 0;
+//         }
+//         else
+//         {
+//             g_human_proactive_risk_cycles = 0;
+//             g_human_proactive_clear_cycles++;
+//         }
+
+//         const bool was_proactive_avoidance_active =
+//             g_human_proactive_avoidance_active;
+//         const ProactiveAvoidanceStage previous_proactive_stage =
+//             g_human_proactive_stage;
+
+//         auto chooseCurrentAvoidanceSide = [&]()
+//         {
+//             if (std::fabs(avoidance_side_vote) > 1e-6)
+//             {
+//                 return avoidance_side_vote >= 0.0 ? 1 : -1;
+//             }
+
+//             const double left_clearance =
+//                 std::isfinite(nearest_left_range)
+//                     ? nearest_left_range
+//                     : warning_distance + 1.0;
+//             const double right_clearance =
+//                 std::isfinite(nearest_right_range)
+//                     ? nearest_right_range
+//                     : warning_distance + 1.0;
+//             return left_clearance >= right_clearance ? 1 : -1;
+//         };
+
+//         if (g_human_escape_active)
+//         {
+//             g_human_proactive_avoidance_active = false;
+//             g_human_proactive_stage =
+//                 ProactiveAvoidanceStage::NONE;
+//             g_human_proactive_side_sign = 0;
+//             g_human_proactive_direction_angle = 0.0;
+//             g_human_proactive_risk_cycles = 0;
+//             g_human_proactive_clear_cycles = 0;
+//         }
+//         else if (!g_human_proactive_avoidance_active &&
+//                  g_human_proactive_risk_cycles >=
+//                     kHumanApproachRiskEnterCycles)
+//         {
+//             g_human_proactive_avoidance_active = true;
+//             g_human_proactive_stage =
+//                 ProactiveAvoidanceStage::CLEAR_WALL;
+//             g_human_proactive_stage_start_time = now;
+//             g_human_proactive_side_sign =
+//                 chooseCurrentAvoidanceSide();
+//             g_human_proactive_entry_threat_points =
+//                 std::max(1, threatening_point_count);
+//             g_human_proactive_entry_nearest_threat =
+//                 nearest_threat_range;
+//             g_human_proactive_clear_cycles = 0;
+//             g_human_proactive_direction_angle = normaliseAngle(
+//                 g_fused_human_bearing +
+//                 static_cast<double>(g_human_proactive_side_sign) *
+//                     kHumanApproachAvoidanceTurnOffset);
+//         }
+//         else if (g_human_proactive_avoidance_active)
+//         {
+//             const bool all_obstacles_comfortably_clear =
+//                 !std::isfinite(nearest_nonhuman_range) ||
+//                 nearest_nonhuman_range >
+//                     kHumanApproachObstacleReleaseDistance;
+
+//             if (g_human_proactive_stage ==
+//                 ProactiveAvoidanceStage::CLEAR_WALL)
+//             {
+//                 const bool range_improved =
+//                     std::isfinite(nearest_threat_range) &&
+//                     std::isfinite(
+//                         g_human_proactive_entry_nearest_threat) &&
+//                     nearest_threat_range >=
+//                         g_human_proactive_entry_nearest_threat +
+//                             kHumanApproachClearWallMinImprovement;
+//                 const bool threat_count_improved =
+//                     threatening_point_count <=
+//                         static_cast<int>(std::ceil(
+//                             kHumanApproachClearWallThreatFraction *
+//                             static_cast<double>(
+//                                 std::max(1,
+//                                     g_human_proactive_entry_threat_points))));
+//                 const bool human_near_view_edge =
+//                     std::fabs(g_fused_human_bearing) >=
+//                         kHumanApproachPreferredViewAngle;
+
+//                 if (range_improved || threat_count_improved ||
+//                     human_near_view_edge ||
+//                     all_obstacles_comfortably_clear)
+//                 {
+//                     g_human_proactive_stage =
+//                         ProactiveAvoidanceStage::RETURN_TO_HUMAN;
+//                     g_human_proactive_stage_start_time = now;
+//                     g_human_proactive_return_count++;
+//                     g_human_planner_command_active = false;
+//                 }
+//             }
+//             else if (g_human_proactive_stage ==
+//                 ProactiveAvoidanceStage::RETURN_TO_HUMAN)
+//             {
+//                 const bool risk_worsened =
+//                     raw_approach_path_risk &&
+//                     std::isfinite(nearest_threat_range) &&
+//                     std::isfinite(
+//                         g_human_proactive_entry_nearest_threat) &&
+//                     nearest_threat_range <
+//                         g_human_proactive_entry_nearest_threat - 0.05;
+
+//                 if (risk_worsened)
+//                 {
+//                     g_human_proactive_stage =
+//                         ProactiveAvoidanceStage::CLEAR_WALL;
+//                     g_human_proactive_stage_start_time = now;
+//                     g_human_proactive_entry_threat_points =
+//                         std::max(1, threatening_point_count);
+//                     g_human_proactive_entry_nearest_threat =
+//                         nearest_threat_range;
+//                     g_human_planner_command_active = false;
+//                 }
+//                 else if (all_obstacles_comfortably_clear ||
+//                     g_human_proactive_clear_cycles >=
+//                         kHumanApproachRiskExitCycles)
+//                 {
+//                     g_human_proactive_avoidance_active = false;
+//                     g_human_proactive_stage =
+//                         ProactiveAvoidanceStage::NONE;
+//                     g_human_proactive_side_sign = 0;
+//                     g_human_proactive_direction_angle = 0.0;
+//                     g_human_proactive_risk_cycles = 0;
+//                     g_human_proactive_clear_cycles = 0;
+//                     g_human_planner_command_active = false;
+//                 }
+//             }
+//         }
+
+//         if (g_human_proactive_avoidance_active)
+//         {
+//             if (g_human_proactive_side_sign == 0 &&
+//                 raw_approach_path_risk)
+//             {
+//                 g_human_proactive_side_sign =
+//                     chooseCurrentAvoidanceSide();
+//             }
+
+//             const double offset =
+//                 g_human_proactive_stage ==
+//                     ProactiveAvoidanceStage::CLEAR_WALL
+//                     ? kHumanApproachAvoidanceTurnOffset
+//                     : kHumanApproachReturnTurnOffset;
+//             g_human_proactive_direction_angle = normaliseAngle(
+//                 g_fused_human_bearing +
+//                 static_cast<double>(g_human_proactive_side_sign) *
+//                     offset);
+//         }
+
+//         if (g_human_proactive_avoidance_active &&
+//             !was_proactive_avoidance_active)
+//         {
+//             g_human_proactive_trigger_count++;
+//             g_human_planner_command_active = false;
+//             writeHumanInteractionStatsLog(
+//                 "persistent_target_clear_wall_started", now);
+//             writeHumanPlannerDebugLog(
+//                 "persistent_target_clear_wall_started", now);
+//             RCLCPP_WARN(
+//                 this->get_logger(),
+//                 "HUMAN_APPROACH_AVOID: stage=%s, %d current threat points, nearest %.2f m. Using gentler %.1f deg target while retaining persistent human lock.",
+//                 proactiveAvoidanceStageName(
+//                     g_human_proactive_stage),
+//                 threatening_point_count,
+//                 nearest_threat_range,
+//                 g_human_proactive_direction_angle * 180.0 / M_PI);
+//         }
+//         else if (g_human_proactive_avoidance_active &&
+//                  previous_proactive_stage !=
+//                     g_human_proactive_stage)
+//         {
+//             RCLCPP_INFO(
+//                 this->get_logger(),
+//                 "HUMAN_APPROACH_AVOID: stage changed %s -> %s. Human bearing %.1f deg, target heading %.1f deg.",
+//                 proactiveAvoidanceStageName(
+//                     previous_proactive_stage),
+//                 proactiveAvoidanceStageName(
+//                     g_human_proactive_stage),
+//                 g_fused_human_bearing * 180.0 / M_PI,
+//                 g_human_proactive_direction_angle * 180.0 / M_PI);
+//         }
+//         else if (!g_human_proactive_avoidance_active &&
+//                  was_proactive_avoidance_active)
+//         {
+//             RCLCPP_INFO(
+//                 this->get_logger(),
+//                 "HUMAN_APPROACH_AVOID: Relevant path is clear. Persistent target retained; returning to normal human approach.");
+//         }
+
+//         // Retain the short straight projection only for diagnostics and planner
+//         // scoring after the absolute 2.0 m threat gate has activated.
+//         const double forward_distance_available = std::max(
+//             0.0,
+//             g_fused_human_range - kHumanDesiredInteractionDistance);
+//         const double approach_lookahead = std::min(
+//             kHumanApproachLookaheadDistance,
+//             forward_distance_available);
+//         InteractionBubbleCheck projected_straight_bubble = current_bubble;
+//         if (approach_lookahead > 0.05)
+//         {
+//             projected_straight_bubble =
+//                 evaluateInteractionBubbleAtPose(
+//                     approach_lookahead * path_dir_x,
+//                     approach_lookahead * path_dir_y,
+//                     g_fused_human_bearing);
+//         }
+
+//         g_human_proactive_threat_point_count =
+//             threatening_point_count;
+//         g_human_proactive_nearest_nonhuman_range =
+//             nearest_nonhuman_range;
+//         g_human_proactive_nearest_threat_range =
+//             nearest_threat_range;
+//         g_human_proactive_projected_blocked_beams =
+//             projected_straight_bubble.blocked_beams;
+//         g_human_proactive_projected_margin =
+//             projected_straight_bubble.min_margin;
+
+//         g_debug_last_human_range = g_fused_human_range;
+//         g_debug_last_human_offset = human_centre_offset_;
+//         g_debug_last_blocked_beams = current_bubble.blocked_beams;
+//         g_debug_last_min_clearance = current_bubble.min_clearance;
+//         g_debug_last_min_margin = current_bubble.min_margin;
+
+//         const bool current_pose_ready =
+//             lidar_fresh &&
+//             std::fabs(g_fused_human_range -
+//                 kHumanDesiredInteractionDistance) <=
+//                 kHumanDesiredInteractionTolerance &&
+//             std::fabs(g_fused_human_bearing) <=
+//                 kHumanPlannerInteractionViewAngle &&
+//             current_bubble.acceptable;
+
+//         // A verified clear pose always ends a forced escape.
+//         if (current_pose_ready && g_human_escape_active)
+//         {
+//             g_human_escape_active = false;
+//             g_human_stagnation_tracking = false;
+//             g_human_escape_complete_count++;
+//             writeHumanInteractionStatsLog("forced_escape_reached_ready_pose", now);
+//         }
+
+//         // Stop and verify multiple scans before enabling the arms.
+//         if (current_pose_ready)
+//         {
+//             if (g_human_motion_phase != HumanMotionPhase::SETTLE)
+//             {
+//                 g_human_motion_phase = HumanMotionPhase::SETTLE;
+//                 g_interaction_settle_start_time = now;
+//                 g_interaction_settle_good_samples = 0;
+//                 g_interaction_settle_total_samples = 0;
+//                 g_human_planner_command_active = false;
+//                 g_human_settle_attempt_count++;
+//                 writeHumanInteractionStatsLog(
+//                     "entered_fused_human_settle", now);
+//             }
+
+//             twist.linear.x = 0.0;
+//             twist.angular.z = 0.0;
+//             g_interaction_settle_total_samples++;
+//             if (current_pose_ready)
+//             {
+//                 g_interaction_settle_good_samples++;
+//             }
+
+//             const double settle_elapsed =
+//                 (now - g_interaction_settle_start_time).seconds();
+//             if (settle_elapsed >= kHumanPlannerSettleDuration &&
+//                 g_interaction_settle_good_samples >=
+//                     kHumanPlannerSettleGoodSamples)
+//             {
+//                 g_human_motion_phase = HumanMotionPhase::INTERACTION;
+//                 g_interaction_session_active = true;
+//                 g_interaction_session_start_time = now;
+//                 publishInteractionActive(now, true, true);
+//                 g_interaction_hold_active = true;
+//                 g_interaction_hold_time = now;
+//                 g_interaction_hold_range_m = g_fused_human_range;
+//                 g_interaction_hold_offset = human_centre_offset_;
+//                 g_human_interaction_success_count++;
+//                 g_human_settle_success_count++;
+
+//                 writeHumanInteractionStatsLog(
+//                     "fused_pose_verified_entered_interaction", now);
+//                 writeHumanPlannerDebugLog(
+//                     "fused_pose_verified_entered_interaction", now);
+
+//                 RCLCPP_INFO(
+//                     this->get_logger(),
+//                     "HUMAN_SETTLE: Fused pose verified. range=%.2f m bearing=%.1f deg blocked=%d margin=%.2f. Interaction count=%d.",
+//                     g_fused_human_range,
+//                     g_fused_human_bearing * 180.0 / M_PI,
+//                     current_bubble.blocked_beams,
+//                     current_bubble.min_margin,
+//                     g_human_interaction_success_count);
+//             }
+//             else
+//             {
+//                 RCLCPP_INFO_THROTTLE(
+//                     this->get_logger(),
+//                     *this->get_clock(),
+//                     500,
+//                     "HUMAN_SETTLE: %.2f/%.2f s good=%d/%d range=%.2f bearing=%.1f deg blocked=%d margin=%.2f.",
+//                     settle_elapsed,
+//                     kHumanPlannerSettleDuration,
+//                     g_interaction_settle_good_samples,
+//                     g_interaction_settle_total_samples,
+//                     g_fused_human_range,
+//                     g_fused_human_bearing * 180.0 / M_PI,
+//                     current_bubble.blocked_beams,
+//                     current_bubble.min_margin);
+//             }
+//             break;
+//         }
+//         else if (g_human_motion_phase == HumanMotionPhase::SETTLE)
+//         {
+//             g_human_settle_rejected_count++;
+//             g_interaction_settle_good_samples = 0;
+//             g_interaction_settle_total_samples = 0;
+//             g_human_motion_phase = HumanMotionPhase::APPROACH;
+//             writeHumanInteractionStatsLog(
+//                 "fused_settle_cancelled_pose_changed", now);
+//         }
+
+//         // Human distance must be LiDAR-backed. A coherent associated segment is
+//         // preferred, but the narrow visual-cone LiDAR guard is also a valid
+//         // conservative range source. Only when neither exists do we stop
+//         // translation and rotate to maintain camera framing.
+//         if (!lidar_fresh)
+//         {
+//             g_human_motion_phase = HumanMotionPhase::RECOVERY;
+//             g_human_planner_command_active = false;
+//             twist.linear.x = 0.0;
+//             twist.angular.z = visual_fresh
+//                 ? std::clamp(
+//                     1.2 * camera_bearing,
+//                     -kHumanRecoveryTurnSpeed,
+//                     kHumanRecoveryTurnSpeed)
+//                 : std::clamp(
+//                     1.2 * g_fused_human_bearing,
+//                     -kHumanRecoveryTurnSpeed,
+//                     kHumanRecoveryTurnSpeed);
+
+//             RCLCPP_WARN_THROTTLE(
+//                 this->get_logger(),
+//                 *this->get_clock(),
+//                 500,
+//                 "HUMAN_SAFETY: No LiDAR range is available near the visible human. Translation held; camera bearing remains active for framing.");
+//             break;
+//         }
+
+//         if (!g_human_too_close_backoff_active &&
+//             g_fused_human_safety_range <= kHumanTooCloseBackoffTrigger)
+//         {
+//             g_human_too_close_backoff_active = true;
+//             g_human_too_close_backoff_count++;
+//             g_human_planner_command_active = false;
+//         }
+//         else if (g_human_too_close_backoff_active &&
+//                  g_fused_human_safety_range >= kHumanTooCloseBackoffRelease)
+//         {
+//             g_human_too_close_backoff_active = false;
+//             g_human_planner_command_active = false;
+//         }
+
+//         if (g_human_too_close_backoff_active)
+//         {
+//             g_human_motion_phase = HumanMotionPhase::RECOVERY;
+//             g_human_planner_command_active = false;
+
+//             if (rear_path_clear)
+//             {
+//                 const double desired_reverse = -kHumanTooCloseReverseSpeed;
+//                 const double desired_turn = std::clamp(
+//                     0.80 * g_fused_human_bearing,
+//                     -kHumanTooCloseMaxAngularSpeed,
+//                     kHumanTooCloseMaxAngularSpeed);
+//                 const double max_linear_step =
+//                     kHumanPlannerLinearAcceleration * kControlPeriodSeconds;
+//                 const double max_angular_step =
+//                     kHumanPlannerAngularAcceleration * kControlPeriodSeconds;
+//                 twist.linear.x = current_twist_.linear.x + std::clamp(
+//                     desired_reverse - current_twist_.linear.x,
+//                     -max_linear_step,
+//                     max_linear_step);
+//                 twist.angular.z = current_twist_.angular.z + std::clamp(
+//                     desired_turn - current_twist_.angular.z,
+//                     -max_angular_step,
+//                     max_angular_step);
+
+//                 RCLCPP_WARN_THROTTLE(
+//                     this->get_logger(),
+//                     *this->get_clock(),
+//                     500,
+//                     "HUMAN_TOO_CLOSE: safety range %.2f m. Reversing toward %.2f m; rear clearance %.2f m.",
+//                     g_fused_human_safety_range,
+//                     kHumanTooCloseBackoffRelease,
+//                     g_human_last_rear_clearance);
+//             }
+//             else
+//             {
+//                 stopRobot(twist);
+//                 publishHumanStepBackPrompt(now);
+//                 g_human_deterministic_escape_blocked_count++;
+
+//                 RCLCPP_ERROR_THROTTLE(
+//                     this->get_logger(),
+//                     *this->get_clock(),
+//                     1000,
+//                     "HUMAN_TOO_CLOSE: Human is %.2f m away but rear clearance is only %.2f m. Holding and publishing /voice_prompt asking the human to step back.",
+//                     g_fused_human_safety_range,
+//                     g_human_last_rear_clearance);
+//             }
+
+//             writeHumanInteractionStatsLog("too_close_human_resolution", now);
+//             writeHumanPlannerDebugLog("too_close_human_resolution", now);
+//             break;
+//         }
+
+//         const bool adaptive_waypoint_blockage =
+//             g_fused_human_range <= kHumanWaypointActivationMaxRange &&
+//             current_bubble.blocked_beams >=
+//                 kHumanWaypointEntryBlockedBeams &&
+//             current_bubble.min_margin <=
+//                 kHumanWaypointEntryMargin;
+
+//         if (adaptive_waypoint_blockage)
+//         {
+//             g_human_waypoint_trigger_streak++;
+//         }
+//         else
+//         {
+//             g_human_waypoint_trigger_streak = 0;
+//         }
+
+//         const bool adaptive_waypoint_immediate =
+//             current_bubble.min_margin <=
+//                 kHumanWaypointImmediateMargin;
+//         const bool adaptive_waypoint_persistent =
+//             g_human_waypoint_trigger_streak >=
+//                 kHumanWaypointTriggerCycles;
+
+//         if (g_human_deterministic_escape_stage ==
+//                 DeterministicEscapeStage::NONE &&
+//             !g_human_too_close_backoff_active &&
+//             adaptive_waypoint_blockage &&
+//             (adaptive_waypoint_immediate ||
+//              adaptive_waypoint_persistent))
+//         {
+//             startAdaptiveSCurve(
+//                 adaptive_waypoint_immediate
+//                     ? "severe_bubble_deficit"
+//                     : "persistent_bubble_deficit",
+//                 g_fused_human_range < 2.05);
+//         }
+
+//         const bool severely_blocked =
+//             current_bubble.blocked_beams >= kHumanEscapeBlockedBeamThreshold ||
+//             current_bubble.min_margin <= kHumanEscapeMarginThreshold;
+//         const bool near_interaction_ring =
+//             std::fabs(g_fused_human_range -
+//                 kHumanDesiredInteractionDistance) <= 0.35 &&
+//             std::fabs(g_fused_human_bearing) <=
+//                 kHumanEscapeMaxViewAngle;
+
+//         if (!g_human_escape_active && severely_blocked &&
+//             near_interaction_ring)
+//         {
+//             if (!g_human_stagnation_tracking)
+//             {
+//                 g_human_stagnation_tracking = true;
+//                 g_human_stagnation_start_time = now;
+//                 g_human_stagnation_start_margin = current_bubble.min_margin;
+//                 g_human_stagnation_start_blocked_beams =
+//                     current_bubble.blocked_beams;
+//             }
+//             else
+//             {
+//                 const bool meaningful_improvement =
+//                     current_bubble.blocked_beams <=
+//                         g_human_stagnation_start_blocked_beams -
+//                             kHumanEscapeBlockedImprovement ||
+//                     current_bubble.min_margin >=
+//                         g_human_stagnation_start_margin +
+//                             kHumanEscapeMarginImprovement;
+
+//                 if (meaningful_improvement)
+//                 {
+//                     g_human_stagnation_start_time = now;
+//                     g_human_stagnation_start_margin =
+//                         current_bubble.min_margin;
+//                     g_human_stagnation_start_blocked_beams =
+//                         current_bubble.blocked_beams;
+//                 }
+//                 else if ((now - g_human_stagnation_start_time).seconds() >=
+//                     kHumanEscapeStagnationDuration)
+//                 {
+//                     g_human_escape_active = true;
+//                     g_human_escape_start_time = now;
+//                     g_human_escape_trigger_count++;
+//                     g_human_planner_command_active = false;
+//                     g_human_motion_phase = HumanMotionPhase::ESCAPE;
+
+//                     if (std::hypot(
+//                             current_bubble.repulsion_x,
+//                             current_bubble.repulsion_y) > 1e-4)
+//                     {
+//                         g_human_escape_direction_angle = std::atan2(
+//                             current_bubble.repulsion_y,
+//                             current_bubble.repulsion_x);
+//                     }
+//                     else
+//                     {
+//                         // With no strong vector, prefer backing away from the
+//                         // human/wall configuration rather than standing still.
+//                         g_human_escape_direction_angle = M_PI;
+//                     }
+//                     g_human_escape_direction_sign =
+//                         std::sin(g_human_escape_direction_angle) >= 0.0
+//                             ? 1 : -1;
+
+//                     writeHumanInteractionStatsLog(
+//                         "forced_escape_triggered_by_stagnation", now);
+//                     writeHumanPlannerDebugLog(
+//                         "forced_escape_triggered_by_stagnation", now);
+//                     RCLCPP_WARN(
+//                         this->get_logger(),
+//                         "HUMAN_ESCAPE: Reposition stagnated for %.2f s with blocked=%d margin=%.2f. Escape direction %.1f deg.",
+//                         kHumanEscapeStagnationDuration,
+//                         current_bubble.blocked_beams,
+//                         current_bubble.min_margin,
+//                         g_human_escape_direction_angle * 180.0 / M_PI);
+//                 }
+//             }
+//         }
+//         else if (!severely_blocked || !near_interaction_ring)
+//         {
+//             g_human_stagnation_tracking = false;
+//         }
+
+//         if (g_human_escape_active)
+//         {
+//             const double escape_elapsed =
+//                 (now - g_human_escape_start_time).seconds();
+//             if (current_bubble.acceptable)
+//             {
+//                 g_human_escape_active = false;
+//                 g_human_stagnation_tracking = false;
+//                 g_human_escape_complete_count++;
+//                 g_human_planner_command_active = false;
+//                 writeHumanInteractionStatsLog(
+//                     "forced_escape_cleared_interaction_bubble", now);
+//             }
+//             else if (escape_elapsed >= kHumanEscapeMaximumDuration)
+//             {
+//                 g_human_escape_active = false;
+//                 g_human_stagnation_tracking = false;
+//                 g_human_escape_timeout_count++;
+//                 g_human_planner_command_active = false;
+//                 writeHumanInteractionStatsLog(
+//                     "forced_escape_timed_out", now);
+//             }
+//         }
+
+//         // Execute the adaptive clearance waypoint as one committed S-curve.
+//         // The measured interaction-bubble deficit determines the lateral shift,
+//         // so the correction is substantial enough to matter without being fixed
+//         // or unnecessarily large. Hard human-distance and front/rear checks still
+//         // run every control cycle.
+//         bool deterministic_command_override = false;
+//         if (g_human_deterministic_escape_stage !=
+//             DeterministicEscapeStage::NONE)
+//         {
+//             const double stage_elapsed =
+//                 (now - g_human_deterministic_escape_stage_start_time).seconds();
+//             const double total_elapsed =
+//                 (now - g_human_waypoint_total_start_time).seconds();
+//             const bool waypoint_clear_enough =
+//                 current_bubble.blocked_beams <=
+//                     kHumanWaypointCompletionBlockedBeams &&
+//                 current_bubble.min_margin >=
+//                     kHumanWaypointCompletionMargin;
+
+//             if (total_elapsed >= kHumanWaypointMaximumTotalSeconds)
+//             {
+//                 g_human_deterministic_escape_stage =
+//                     DeterministicEscapeStage::NONE;
+//                 g_human_waypoint_abort_count++;
+//                 g_human_no_safe_command_streak = 0;
+//                 g_human_planner_command_active = false;
+//                 writeHumanInteractionStatsLog(
+//                     "adaptive_s_curve_total_timeout", now);
+//             }
+//             else if (waypoint_clear_enough &&
+//                      g_human_deterministic_escape_stage ==
+//                         DeterministicEscapeStage::RETURN_ARC &&
+//                      std::fabs(g_fused_human_bearing) <=
+//                         12.0 * M_PI / 180.0)
+//             {
+//                 // Do not end during the outward arc merely because the wall has
+//                 // cleared. Complete enough of the counter-arc to finish facing
+//                 // the human instead of leaving the base angled away.
+//                 g_human_deterministic_escape_stage =
+//                     DeterministicEscapeStage::NONE;
+//                 g_human_deterministic_escape_complete_count++;
+//                 g_human_waypoint_complete_count++;
+//                 g_human_no_safe_command_streak = 0;
+//                 g_human_planner_command_active = false;
+//                 writeHumanInteractionStatsLog(
+//                     "adaptive_s_curve_cleared_bubble", now);
+//             }
+//             else if (g_human_deterministic_escape_stage ==
+//                 DeterministicEscapeStage::BACK_OFF)
+//             {
+//                 if (!rear_path_clear)
+//                 {
+//                     g_human_deterministic_escape_stage =
+//                         DeterministicEscapeStage::NONE;
+//                     g_human_deterministic_escape_blocked_count++;
+//                     g_human_waypoint_abort_count++;
+//                     g_human_planner_command_active = false;
+//                     publishHumanStepBackPrompt(now);
+//                 }
+//                 else if (g_fused_human_range >=
+//                             kHumanDeterministicBackoffTargetRange ||
+//                          stage_elapsed >=
+//                             kHumanDeterministicBackoffMaxSeconds)
+//                 {
+//                     g_human_deterministic_escape_stage =
+//                         DeterministicEscapeStage::CLEAR_ARC;
+//                     g_human_deterministic_escape_stage_start_time = now;
+//                     g_human_planner_command_active = false;
+//                 }
+//                 else
+//                 {
+//                     g_human_planner_command_active = true;
+//                     g_human_planner_command_start_time = now;
+//                     g_human_planner_linear =
+//                         -kHumanDeterministicBackoffSpeed;
+//                     g_human_planner_angular = std::clamp(
+//                         0.70 * g_fused_human_bearing,
+//                         -0.12,
+//                         0.12);
+//                     g_human_motion_phase = HumanMotionPhase::ESCAPE;
+//                     deterministic_command_override = true;
+//                 }
+//             }
+//             else if (g_human_deterministic_escape_stage ==
+//                 DeterministicEscapeStage::CLEAR_ARC)
+//             {
+//                 const double absolute_bearing =
+//                     std::fabs(g_fused_human_bearing);
+//                 const bool human_at_hard_view_limit =
+//                     absolute_bearing >= kHumanWaypointViewHardLimit;
+
+//                 if (!front_path_clear)
+//                 {
+//                     g_human_deterministic_escape_stage =
+//                         DeterministicEscapeStage::NONE;
+//                     g_human_deterministic_escape_blocked_count++;
+//                     g_human_waypoint_abort_count++;
+//                     g_human_planner_command_active = false;
+//                     publishHumanStepBackPrompt(now);
+//                 }
+//                 else if (stage_elapsed >=
+//                             g_human_waypoint_arc_duration ||
+//                          human_at_hard_view_limit)
+//                 {
+//                     g_human_deterministic_escape_stage =
+//                         DeterministicEscapeStage::RETURN_ARC;
+//                     g_human_deterministic_escape_stage_start_time = now;
+//                     g_human_planner_command_active = false;
+//                 }
+//                 else
+//                 {
+//                     const double view_blend = std::clamp(
+//                         (absolute_bearing - kHumanWaypointViewSoftLimit) /
+//                             std::max(
+//                                 1e-4,
+//                                 kHumanWaypointViewHardLimit -
+//                                     kHumanWaypointViewSoftLimit),
+//                         0.0,
+//                         1.0);
+//                     const double escape_turn =
+//                         static_cast<double>(
+//                             g_human_deterministic_escape_side_sign) *
+//                         kHumanWaypointArcAngularSpeed;
+//                     const double human_turn = std::clamp(
+//                         1.30 * g_fused_human_bearing,
+//                         -0.28,
+//                         0.28);
+
+//                     g_human_planner_command_active = true;
+//                     g_human_planner_command_start_time = now;
+//                     g_human_planner_linear = kHumanWaypointArcSpeed;
+//                     g_human_planner_angular = std::clamp(
+//                         (0.85 - 0.35 * view_blend) * escape_turn +
+//                         (0.15 + 0.35 * view_blend) * human_turn,
+//                         -kHumanPlannerMaxAngularSpeed,
+//                         kHumanPlannerMaxAngularSpeed);
+//                     g_human_motion_phase = HumanMotionPhase::ESCAPE;
+//                     deterministic_command_override = true;
+//                 }
+//             }
+//             else if (g_human_deterministic_escape_stage ==
+//                 DeterministicEscapeStage::RETURN_ARC)
+//             {
+//                 const bool human_recentred =
+//                     std::fabs(g_fused_human_bearing) <=
+//                         9.0 * M_PI / 180.0;
+//                 const bool minimum_return_time_reached =
+//                     stage_elapsed >=
+//                         0.65 * g_human_waypoint_arc_duration;
+
+//                 if (!front_path_clear)
+//                 {
+//                     g_human_deterministic_escape_stage =
+//                         DeterministicEscapeStage::NONE;
+//                     g_human_deterministic_escape_blocked_count++;
+//                     g_human_waypoint_abort_count++;
+//                     g_human_planner_command_active = false;
+//                 }
+//                 else if (stage_elapsed >=
+//                             g_human_waypoint_arc_duration ||
+//                          (minimum_return_time_reached &&
+//                           human_recentred &&
+//                           waypoint_clear_enough))
+//                 {
+//                     g_human_deterministic_escape_stage =
+//                         DeterministicEscapeStage::NONE;
+//                     g_human_deterministic_escape_complete_count++;
+//                     g_human_waypoint_complete_count++;
+//                     g_human_no_safe_command_streak = 0;
+//                     g_human_planner_command_active = false;
+//                     writeHumanInteractionStatsLog(
+//                         "adaptive_s_curve_completed", now);
+//                 }
+//                 else
+//                 {
+//                     const double return_turn =
+//                         -static_cast<double>(
+//                             g_human_deterministic_escape_side_sign) *
+//                         kHumanWaypointArcAngularSpeed;
+//                     const double human_turn = std::clamp(
+//                         1.45 * g_fused_human_bearing,
+//                         -0.30,
+//                         0.30);
+
+//                     g_human_planner_command_active = true;
+//                     g_human_planner_command_start_time = now;
+//                     g_human_planner_linear = kHumanWaypointArcSpeed;
+//                     g_human_planner_angular = std::clamp(
+//                         0.62 * return_turn + 0.38 * human_turn,
+//                         -kHumanPlannerMaxAngularSpeed,
+//                         kHumanPlannerMaxAngularSpeed);
+//                     g_human_motion_phase = HumanMotionPhase::ESCAPE;
+//                     deterministic_command_override = true;
+//                 }
+//             }
+
+//             if (deterministic_command_override)
+//             {
+//                 writeHumanInteractionStatsLog(
+//                     "adaptive_clearance_waypoint_active", now);
+//                 writeHumanPlannerDebugLog(
+//                     "adaptive_clearance_waypoint_active", now);
+//                 RCLCPP_WARN_THROTTLE(
+//                     this->get_logger(),
+//                     *this->get_clock(),
+//                     500,
+//                     "HUMAN_WAYPOINT: stage=%s side=%d range=%.2f margin=%.2f blocked=%d target lateral=%.2f forward=%.2f arc=%.2f/%.2f s cmd linear=%.2f angular=%.2f.",
+//                     deterministicEscapeStageName(
+//                         g_human_deterministic_escape_stage),
+//                     g_human_deterministic_escape_side_sign,
+//                     g_fused_human_range,
+//                     current_bubble.min_margin,
+//                     current_bubble.blocked_beams,
+//                     g_human_waypoint_target_lateral,
+//                     g_human_waypoint_target_forward,
+//                     stage_elapsed,
+//                     g_human_waypoint_arc_duration,
+//                     g_human_planner_linear,
+//                     g_human_planner_angular);
+//             }
+//         }
+
+//         struct ArcCandidate
+//         {
+//             double linear = 0.0;
+//             double angular = 0.0;
+//             double score = -std::numeric_limits<double>::infinity();
+//             bool safe = false;
+//             double min_human_distance = std::numeric_limits<double>::infinity();
+//             double final_human_range = -1.0;
+//             double final_human_bearing = 0.0;
+//             double min_obstacle_margin = std::numeric_limits<double>::infinity();
+//             double minimum_view_margin = std::numeric_limits<double>::infinity();
+//             InteractionBubbleCheck final_bubble;
+//         };
+
+//         const double active_planning_horizon = g_human_escape_active
+//             ? kHumanEscapePlanningHorizon
+//             : kHumanPlannerHorizon;
+//         const double active_simulation_step = g_human_escape_active
+//             ? kHumanEscapeSimulationStep
+//             : kHumanPlannerSimulationStep;
+//         const double active_max_view_angle = g_human_escape_active
+//             ? kHumanEscapeMaxViewAngle
+//             : (g_human_proactive_avoidance_active
+//                 ? kHumanApproachAvoidanceMaxViewAngle
+//                 : kHumanPlannerMaxViewAngle);
+
+//         auto evaluateArc = [&](double linear, double angular)
+//         {
+//             ArcCandidate candidate;
+//             candidate.linear = linear;
+//             candidate.angular = angular;
+//             candidate.safe = true;
+
+//             for (double t = active_simulation_step;
+//                  t <= active_planning_horizon + 1e-6;
+//                  t += active_simulation_step)
+//             {
+//                 double robot_x = 0.0;
+//                 double robot_y = 0.0;
+//                 double robot_yaw = 0.0;
+//                 robotPoseForCommand(
+//                     linear, angular, t,
+//                     robot_x, robot_y, robot_yaw);
+
+//                 double human_local_x = 0.0;
+//                 double human_local_y = 0.0;
+//                 transformPointToRobotPose(
+//                     human_x, human_y,
+//                     robot_x, robot_y, robot_yaw,
+//                     human_local_x, human_local_y);
+//                 const double human_distance =
+//                     std::hypot(human_local_x, human_local_y);
+//                 const double human_bearing =
+//                     std::atan2(human_local_y, human_local_x);
+
+//                 candidate.min_human_distance = std::min(
+//                     candidate.min_human_distance,
+//                     human_distance);
+//                 candidate.minimum_view_margin = std::min(
+//                     candidate.minimum_view_margin,
+//                     active_max_view_angle -
+//                         std::fabs(human_bearing));
+
+//                 if (human_distance < kHumanPlannerMinimumDistance)
+//                 {
+//                     candidate.safe = false;
+//                     g_human_planner_rejected_human_distance++;
+//                     return candidate;
+//                 }
+
+//                 if (std::fabs(human_bearing) >
+//                     active_max_view_angle)
+//                 {
+//                     candidate.safe = false;
+//                     g_human_planner_rejected_view++;
+//                     return candidate;
+//                 }
+
+//                 for (int i = 0;
+//                      i < static_cast<int>(latest_scan_.ranges.size());
+//                      ++i)
+//                 {
+//                     const double range = latest_scan_.ranges[i];
+//                     if (!std::isfinite(range) ||
+//                         range <= kMinValidRange ||
+//                         pointBelongsToHumanCluster(i))
+//                     {
+//                         continue;
+//                     }
+
+//                     const double angle = latest_scan_.angle_min +
+//                         static_cast<double>(i) *
+//                             latest_scan_.angle_increment;
+//                     const double point_x = range * std::cos(angle);
+//                     const double point_y = range * std::sin(angle);
+//                     double local_x = 0.0;
+//                     double local_y = 0.0;
+//                     transformPointToRobotPose(
+//                         point_x, point_y,
+//                         robot_x, robot_y, robot_yaw,
+//                         local_x, local_y);
+//                     const double obstacle_distance =
+//                         std::hypot(local_x, local_y);
+//                     const double local_angle =
+//                         std::atan2(local_y, local_x);
+//                     const double hard_stop_radius =
+//                         humanModeSafetyRadiusForAngle(local_angle);
+//                     const double obstacle_margin =
+//                         obstacle_distance - hard_stop_radius;
+//                     candidate.min_obstacle_margin = std::min(
+//                         candidate.min_obstacle_margin,
+//                         obstacle_margin);
+
+//                     if (obstacle_margin < 0.0)
+//                     {
+//                         candidate.safe = false;
+//                         g_human_planner_rejected_obstacle++;
+//                         return candidate;
+//                     }
+//                 }
+//             }
+
+//             double final_x = 0.0;
+//             double final_y = 0.0;
+//             double final_yaw = 0.0;
+//             robotPoseForCommand(
+//                 linear, angular, active_planning_horizon,
+//                 final_x, final_y, final_yaw);
+//             double final_human_x = 0.0;
+//             double final_human_y = 0.0;
+//             transformPointToRobotPose(
+//                 human_x, human_y,
+//                 final_x, final_y, final_yaw,
+//                 final_human_x, final_human_y);
+//             candidate.final_human_range =
+//                 std::hypot(final_human_x, final_human_y);
+//             candidate.final_human_bearing =
+//                 std::atan2(final_human_y, final_human_x);
+//             candidate.final_bubble = evaluateInteractionBubbleAtPose(
+//                 final_x, final_y, final_yaw);
+
+//             const double current_range_error = std::fabs(
+//                 g_fused_human_range -
+//                     kHumanDesiredInteractionDistance);
+//             const double final_range_error = std::fabs(
+//                 candidate.final_human_range -
+//                     kHumanDesiredInteractionDistance);
+//             const double range_score = std::clamp(
+//                 1.0 - final_range_error / 1.50,
+//                 0.0,
+//                 1.0);
+//             const double range_progress = std::clamp(
+//                 (current_range_error - final_range_error) / 0.50,
+//                 -1.0,
+//                 1.0);
+//             const double view_score = std::clamp(
+//                 1.0 - std::fabs(candidate.final_human_bearing) /
+//                     active_max_view_angle,
+//                 0.0,
+//                 1.0);
+//             const double view_margin_score = std::clamp(
+//                 candidate.minimum_view_margin /
+//                     active_max_view_angle,
+//                 0.0,
+//                 1.0);
+//             const double bubble_score =
+//                 1.0 - std::clamp(
+//                     candidate.final_bubble.blocked_fraction,
+//                     0.0,
+//                     1.0);
+//             const double bubble_margin_score = std::clamp(
+//                 0.5 + candidate.final_bubble.min_margin / 1.0,
+//                 0.0,
+//                 1.0);
+//             const double obstacle_score = std::clamp(
+//                 candidate.min_obstacle_margin / 1.0,
+//                 0.0,
+//                 1.0);
+//             const double smoothness_penalty =
+//                 std::fabs(linear - current_twist_.linear.x) /
+//                     kHumanPlannerMaxForwardSpeed +
+//                 0.6 * std::fabs(
+//                     angular - current_twist_.angular.z) /
+//                     kHumanPlannerMaxAngularSpeed;
+
+//             if (g_human_escape_active)
+//             {
+//                 const double displacement = std::hypot(final_x, final_y);
+//                 double escape_alignment = 0.0;
+//                 if (displacement > 1e-4)
+//                 {
+//                     escape_alignment = std::clamp(
+//                         (final_x * std::cos(g_human_escape_direction_angle) +
+//                          final_y * std::sin(g_human_escape_direction_angle)) /
+//                             displacement,
+//                         -1.0,
+//                         1.0);
+//                 }
+//                 const double blocked_improvement = std::clamp(
+//                     static_cast<double>(current_bubble.blocked_beams -
+//                         candidate.final_bubble.blocked_beams) /
+//                         static_cast<double>(std::max(1,
+//                             current_bubble.blocked_beams)),
+//                     -1.0,
+//                     1.0);
+//                 const double margin_improvement = std::clamp(
+//                     (candidate.final_bubble.min_margin -
+//                         current_bubble.min_margin) / 0.60,
+//                     -1.0,
+//                     1.0);
+//                 const double range_excess_penalty = std::clamp(
+//                     (candidate.final_human_range -
+//                         kHumanEscapeMaximumRange) / 0.60,
+//                     0.0,
+//                     1.0);
+//                 const double desired_lateral_sign =
+//                     std::sin(g_human_escape_direction_angle);
+//                 const double lateral_progress =
+//                     std::fabs(desired_lateral_sign) >
+//                             kHumanEscapeStrongLateralDirection
+//                         ? final_y *
+//                             (desired_lateral_sign >= 0.0 ? 1.0 : -1.0)
+//                         : 0.0;
+//                 const double lateral_progress_score = std::clamp(
+//                     lateral_progress / 0.45,
+//                     -1.0,
+//                     1.0);
+
+//                 candidate.score =
+//                     16.0 * bubble_score +
+//                     12.0 * bubble_margin_score +
+//                     14.0 * blocked_improvement +
+//                     12.0 * margin_improvement +
+//                     14.0 * escape_alignment +
+//                     18.0 * lateral_progress_score +
+//                     6.0 * view_score +
+//                     4.0 * view_margin_score +
+//                     3.0 * obstacle_score -
+//                     0.8 * smoothness_penalty -
+//                     5.0 * range_excess_penalty;
+
+//                 if (std::fabs(desired_lateral_sign) >
+//                         kHumanEscapeStrongLateralDirection &&
+//                     lateral_progress <
+//                         kHumanEscapeMinimumLateralDisplacement)
+//                 {
+//                     candidate.score -=
+//                         kHumanEscapeInsufficientLateralPenalty;
+//                 }
+
+//                 if (std::fabs(desired_lateral_sign) >
+//                         kHumanEscapeStrongLateralDirection &&
+//                     std::fabs(angular) <
+//                         kHumanEscapeMinimumAngularSpeed)
+//                 {
+//                     candidate.score -=
+//                         kHumanEscapeInsufficientLateralPenalty;
+//                 }
+
+//                 // A severely blocked robot must not prefer standing still merely
+//                 // because its human range and bearing are already ideal.
+//                 if (std::fabs(linear) < 1e-3 &&
+//                     std::fabs(angular) < 1e-3)
+//                 {
+//                     candidate.score -= kHumanEscapeStationaryPenalty;
+//                 }
+
+//                 // Preserve the selected side during the escape so the planner
+//                 // does not oscillate between left and right every update.
+//                 if (std::fabs(desired_lateral_sign) >
+//                         kHumanEscapeStrongLateralDirection &&
+//                     std::fabs(linear * angular) > 1e-4)
+//                 {
+//                     const int candidate_lateral_sign =
+//                         (linear * angular >= 0.0) ? 1 : -1;
+//                     const int required_lateral_sign =
+//                         desired_lateral_sign >= 0.0 ? 1 : -1;
+//                     if (candidate_lateral_sign !=
+//                         required_lateral_sign)
+//                     {
+//                         candidate.score -=
+//                             kHumanEscapeWrongSidePenalty;
+//                     }
+//                 }
+//             }
+//             else
+//             {
+//                 candidate.score =
+//                     8.0 * range_score +
+//                     8.0 * view_score +
+//                     4.0 * view_margin_score +
+//                     7.0 * bubble_score +
+//                     4.0 * bubble_margin_score +
+//                     3.0 * obstacle_score +
+//                     7.0 * range_progress -
+//                     1.8 * smoothness_penalty;
+
+//                 // When the current bubble is blocked, make endpoint bubble
+//                 // quality the dominant tie-breaker.
+//                 if (!current_bubble.acceptable)
+//                 {
+//                     candidate.score +=
+//                         5.0 * bubble_score +
+//                         4.0 * bubble_margin_score;
+//                 }
+
+//                 if (g_fused_human_range >
+//                         kHumanDesiredInteractionDistance + 0.30 &&
+//                     linear > 0.0)
+//                 {
+//                     candidate.score += 1.0;
+//                 }
+//                 if (g_fused_human_range <
+//                         kHumanDesiredInteractionDistance - 0.10 &&
+//                     linear < 0.0)
+//                 {
+//                     candidate.score += 2.0;
+//                 }
+
+//                 if (g_human_proactive_avoidance_active)
+//                 {
+//                     const double displacement =
+//                         std::hypot(final_x, final_y);
+//                     double avoidance_alignment = 0.0;
+//                     if (displacement > 1e-4)
+//                     {
+//                         avoidance_alignment = std::clamp(
+//                             (final_x * std::cos(
+//                                 g_human_proactive_direction_angle) +
+//                              final_y * std::sin(
+//                                 g_human_proactive_direction_angle)) /
+//                                 displacement,
+//                             -1.0,
+//                             1.0);
+//                     }
+
+//                     const double desired_lateral_sign =
+//                         std::sin(
+//                             g_human_proactive_direction_angle);
+//                     const double lateral_progress =
+//                         std::fabs(desired_lateral_sign) >
+//                                 kHumanEscapeStrongLateralDirection
+//                             ? final_y *
+//                                 (desired_lateral_sign >= 0.0
+//                                     ? 1.0 : -1.0)
+//                             : 0.0;
+//                     const double lateral_score = std::clamp(
+//                         lateral_progress / 0.35,
+//                         -1.0,
+//                         1.0);
+//                     const double projected_blocked_improvement =
+//                         std::clamp(
+//                             static_cast<double>(
+//                                 projected_straight_bubble.blocked_beams -
+//                                 candidate.final_bubble.blocked_beams) /
+//                                 static_cast<double>(std::max(
+//                                     1,
+//                                     projected_straight_bubble.blocked_beams)),
+//                             -1.0,
+//                             1.0);
+//                     const double projected_margin_improvement =
+//                         std::clamp(
+//                             (candidate.final_bubble.min_margin -
+//                              projected_straight_bubble.min_margin) /
+//                                 0.50,
+//                             -1.0,
+//                             1.0);
+
+//                     if (g_human_proactive_stage ==
+//                         ProactiveAvoidanceStage::CLEAR_WALL)
+//                     {
+//                         // Clear the wall with a moderate arc, but preserve much
+//                         // more weight on the persistent human bearing than the
+//                         // previous aggressive avoidance controller.
+//                         candidate.score +=
+//                             6.0 * avoidance_alignment +
+//                             7.0 * lateral_score +
+//                             8.0 * projected_blocked_improvement +
+//                             8.0 * projected_margin_improvement +
+//                             6.0 * view_score +
+//                             4.0 * view_margin_score;
+
+//                         if (std::fabs(desired_lateral_sign) >
+//                                 kHumanEscapeStrongLateralDirection &&
+//                             linear > 0.02 &&
+//                             std::fabs(angular) < 0.08)
+//                         {
+//                             candidate.score -=
+//                                 kHumanApproachAvoidanceZeroTurnPenalty;
+//                         }
+
+//                         if (std::fabs(desired_lateral_sign) >
+//                                 kHumanEscapeStrongLateralDirection &&
+//                             std::fabs(linear * angular) > 1e-4)
+//                         {
+//                             const int candidate_lateral_sign =
+//                                 (linear * angular >= 0.0) ? 1 : -1;
+//                             const int required_lateral_sign =
+//                                 desired_lateral_sign >= 0.0 ? 1 : -1;
+//                             if (candidate_lateral_sign !=
+//                                 required_lateral_sign)
+//                             {
+//                                 candidate.score -=
+//                                     kHumanApproachAvoidanceWrongSidePenalty;
+//                             }
+//                         }
+//                     }
+//                     else
+//                     {
+//                         // Once clearance has improved, bend the path back toward
+//                         // the remembered human point. Lateral progress becomes a
+//                         // small bias rather than the dominant objective.
+//                         candidate.score +=
+//                             3.0 * avoidance_alignment +
+//                             2.0 * lateral_score +
+//                             4.0 * projected_blocked_improvement +
+//                             4.0 * projected_margin_improvement +
+//                             12.0 * view_score +
+//                             8.0 * view_margin_score +
+//                             6.0 * range_progress;
+//                     }
+//                 }
+//             }
+
+//             return candidate;
+//         };
+
+//         const double active_command_duration = g_human_escape_active
+//             ? kHumanEscapeCommitDuration
+//             : kHumanPlannerCommandDuration;
+//         const bool planner_command_expired =
+//             !g_human_planner_command_active ||
+//             (now - g_human_planner_command_start_time).seconds() >=
+//                 active_command_duration;
+
+//         if (planner_command_expired && !deterministic_command_override)
+//         {
+//             g_human_planner_safe_candidates = 0;
+//             g_human_planner_rejected_human_distance = 0;
+//             g_human_planner_rejected_obstacle = 0;
+//             g_human_planner_rejected_view = 0;
+
+//             std::vector<double> linear_candidates;
+//             if (g_human_escape_active)
+//             {
+//                 // No stationary candidate during a forced escape. Reverse and
+//                 // gentle curved motion are permitted because moving temporarily
+//                 // farther from the human is safer than remaining trapped.
+//                 linear_candidates = {-0.14, -0.11, -0.08, 0.08, 0.11, 0.14};
+//             }
+//             else if (g_fused_human_safety_range <=
+//                 kHumanPlannerMinimumDistance + 0.10)
+//             {
+//                 linear_candidates = {-0.10, -0.06, 0.0};
+//             }
+//             else if (g_human_proactive_avoidance_active &&
+//                      g_fused_human_range >
+//                         kHumanDesiredInteractionDistance + 0.25)
+//             {
+//                 // Proactive avoidance is a forward arc around a current 1.5-2.0 m
+//                 // path threat. Do not reverse away from a clear human approach.
+//                 linear_candidates = {0.0, 0.05, 0.08, 0.12, 0.16};
+//             }
+//             else if (g_fused_human_range >
+//                 kHumanDesiredInteractionDistance + 0.25)
+//             {
+//                 linear_candidates = {-0.04, 0.0, 0.06, 0.10, 0.14, 0.16};
+//             }
+//             else
+//             {
+//                 linear_candidates = {-0.10, -0.06, 0.0, 0.04, 0.07};
+//             }
+
+//             const std::vector<double> angular_candidates =
+//                 g_human_escape_active
+//                     ? std::vector<double>{-0.30, -0.20, -0.10, 0.0, 0.10, 0.20, 0.30}
+//                     : (g_human_proactive_avoidance_active
+//                         ? std::vector<double>{-0.30, -0.20, -0.10, 0.0, 0.10, 0.20, 0.30}
+//                         : std::vector<double>{-0.30, -0.20, -0.10, 0.0, 0.10, 0.20, 0.30});
+
+//             ArcCandidate best;
+//             for (const double linear : linear_candidates)
+//             {
+//                 for (const double angular : angular_candidates)
+//                 {
+//                     // Do not translate while the person is near the camera edge.
+//                     if (linear > 0.0 &&
+//                         std::fabs(g_fused_human_bearing) >
+//                             22.0 * M_PI / 180.0)
+//                     {
+//                         continue;
+//                     }
+
+//                     // A sideways escape must be a genuine arc toward the free
+//                     // side. For a differential drive base, the sign of v*w
+//                     // determines the initial lateral direction.
+//                     if (g_human_escape_active)
+//                     {
+//                         const double desired_lateral =
+//                             std::sin(
+//                                 g_human_escape_direction_angle);
+//                         if (std::fabs(desired_lateral) >
+//                             kHumanEscapeStrongLateralDirection)
+//                         {
+//                             if (std::fabs(angular) <
+//                                 kHumanEscapeMinimumAngularSpeed)
+//                             {
+//                                 continue;
+//                             }
+
+//                             const int required_sign =
+//                                 desired_lateral >= 0.0 ? 1 : -1;
+//                             const int candidate_sign =
+//                                 (linear * angular >= 0.0) ? 1 : -1;
+//                             if (candidate_sign != required_sign)
+//                             {
+//                                 continue;
+//                             }
+//                         }
+//                     }
+//                     else if (g_human_proactive_avoidance_active &&
+//                         g_human_proactive_stage ==
+//                             ProactiveAvoidanceStage::CLEAR_WALL &&
+//                         linear > 0.02)
+//                     {
+//                         const double desired_lateral =
+//                             std::sin(
+//                                 g_human_proactive_direction_angle);
+//                         if (std::fabs(desired_lateral) >
+//                             kHumanEscapeStrongLateralDirection)
+//                         {
+//                             if (std::fabs(angular) < 0.10)
+//                             {
+//                                 continue;
+//                             }
+
+//                             const int required_sign =
+//                                 desired_lateral >= 0.0 ? 1 : -1;
+//                             const int candidate_sign =
+//                                 (linear * angular >= 0.0) ? 1 : -1;
+//                             if (candidate_sign != required_sign)
+//                             {
+//                                 continue;
+//                             }
+//                         }
+//                     }
+
+//                     const ArcCandidate candidate =
+//                         evaluateArc(linear, angular);
+//                     if (!candidate.safe)
+//                     {
+//                         continue;
+//                     }
+
+//                     g_human_planner_safe_candidates++;
+//                     if (candidate.score > best.score)
+//                     {
+//                         best = candidate;
+//                     }
+//                 }
+//             }
+
+//             if (best.safe)
+//             {
+//                 g_human_no_safe_command_streak = 0;
+//                 g_human_planner_command_active = true;
+//                 g_human_planner_command_start_time = now;
+//                 g_human_planner_linear = best.linear;
+//                 g_human_planner_angular = best.angular;
+//                 g_human_planner_score = best.score;
+//                 g_human_planner_predicted_min_human_distance =
+//                     best.min_human_distance;
+//                 g_human_planner_predicted_final_range =
+//                     best.final_human_range;
+//                 g_human_planner_predicted_final_bearing =
+//                     best.final_human_bearing;
+//                 g_human_planner_command_count++;
+//                 g_human_motion_phase = g_human_escape_active
+//                     ? HumanMotionPhase::ESCAPE
+//                     : ((current_bubble.acceptable &&
+//                         !g_human_proactive_avoidance_active)
+//                         ? HumanMotionPhase::APPROACH
+//                         : HumanMotionPhase::REPOSITION);
+
+//                 writeHumanInteractionStatsLog(
+//                     "selected_fused_safe_arc", now);
+//                 writeHumanPlannerDebugLog(
+//                     "selected_fused_safe_arc", now);
+
+//                 RCLCPP_INFO(
+//                     this->get_logger(),
+//                     "HUMAN_ARC: phase=%s avoid=%s stage=%s target=%s dir=%.1f deg v=%.2f w=%.2f score=%.2f predicted human min=%.2f final range=%.2f bearing=%.1f deg bubble blocked=%d margin=%.2f candidates=%d.",
+//                     humanMotionPhaseName(g_human_motion_phase),
+//                     g_human_escape_active
+//                         ? "escape"
+//                         : (g_human_proactive_avoidance_active
+//                             ? "approach-wall"
+//                             : "none"),
+//                     proactiveAvoidanceStageName(g_human_proactive_stage),
+//                     humanTargetConfidenceName(g_human_target_confidence),
+//                     (g_human_escape_active
+//                         ? g_human_escape_direction_angle
+//                         : g_human_proactive_direction_angle) *
+//                             180.0 / M_PI,
+//                     best.linear,
+//                     best.angular,
+//                     best.score,
+//                     best.min_human_distance,
+//                     best.final_human_range,
+//                     best.final_human_bearing * 180.0 / M_PI,
+//                     best.final_bubble.blocked_beams,
+//                     best.final_bubble.min_margin,
+//                     g_human_planner_safe_candidates);
+//             }
+//             else
+//             {
+//                 g_human_planner_no_safe_command_count++;
+//                 g_human_no_safe_command_streak++;
+//                 g_human_planner_command_active = false;
+//                 g_human_planner_linear = 0.0;
+//                 g_human_planner_angular =
+//                     g_fused_human_safety_range < 1.75
+//                         ? 0.0
+//                         : std::clamp(
+//                             1.2 * g_fused_human_bearing,
+//                             -kHumanRecoveryTurnSpeed,
+//                             kHumanRecoveryTurnSpeed);
+//                 g_human_motion_phase = HumanMotionPhase::RECOVERY;
+
+//                 const bool deterministic_fallback_needed =
+//                     g_human_no_safe_command_streak >=
+//                         kHumanNoSafeFallbackTriggerCycles &&
+//                     (g_human_escape_active ||
+//                      current_bubble.blocked_beams >=
+//                         kHumanEscapeBlockedBeamThreshold ||
+//                      current_bubble.min_margin <=
+//                         kHumanEscapeMarginThreshold);
+
+//                 if (deterministic_fallback_needed)
+//                 {
+//                     if (!startAdaptiveSCurve(
+//                             "no_safe_sampled_arc",
+//                             true))
+//                     {
+//                         RCLCPP_ERROR_THROTTLE(
+//                             this->get_logger(),
+//                             *this->get_clock(),
+//                             1000,
+//                             "HUMAN_WAYPOINT: No safe sampled arc and no front/rear corridor is available. Holding and publishing /voice_prompt.");
+//                     }
+//                 }
+//                 else
+//                 {
+//                     RCLCPP_WARN(
+//                         this->get_logger(),
+//                         "HUMAN_ARC: No safe command. rejected distance=%d obstacle=%d view=%d. Holding briefly before deterministic fallback (%d/%d).",
+//                         g_human_planner_rejected_human_distance,
+//                         g_human_planner_rejected_obstacle,
+//                         g_human_planner_rejected_view,
+//                         g_human_no_safe_command_streak,
+//                         kHumanNoSafeFallbackTriggerCycles);
+//                 }
+
+//                 writeHumanInteractionStatsLog(
+//                     "no_safe_fused_arc", now);
+//                 writeHumanPlannerDebugLog(
+//                     "no_safe_fused_arc", now);
+//             }
+//         }
+
+//         double desired_linear = g_human_planner_command_active
+//             ? g_human_planner_linear
+//             : 0.0;
+//         double desired_angular = g_human_planner_command_active
+//             ? g_human_planner_angular
+//             : g_human_planner_angular;
+
+//         if (!visual_fresh && lidar_only_tracking)
+//         {
+//             desired_linear = std::clamp(
+//                 desired_linear,
+//                 -kHumanLidarOnlyMaxForwardSpeed,
+//                 kHumanLidarOnlyMaxForwardSpeed);
+//             desired_angular = std::clamp(
+//                 desired_angular,
+//                 -kHumanLidarOnlyMaxAngularSpeed,
+//                 kHumanLidarOnlyMaxAngularSpeed);
+//         }
+
+//         if (g_human_camera_guided_mode_active)
+//         {
+//             desired_linear = std::clamp(
+//                 desired_linear,
+//                 -kHumanPlannerMaxReverseSpeed,
+//                 kHumanCameraGuidedMaxForwardSpeed);
+//             desired_angular = std::clamp(
+//                 desired_angular,
+//                 -kHumanCameraGuidedMaxAngularSpeed,
+//                 kHumanCameraGuidedMaxAngularSpeed);
+
+//             // Camera depth is never used. If the narrow-cone LiDAR guard is
+//             // unavailable, translation is not permitted; angular motion may still
+//             // centre the human in the image.
+//             if (!g_human_camera_guided_lidar_guard_valid)
+//             {
+//                 desired_linear = std::min(desired_linear, 0.0);
+//             }
+//         }
+
+//         if (g_human_proactive_avoidance_active)
+//         {
+//             desired_angular = std::clamp(
+//                 desired_angular,
+//                 -kHumanApproachAvoidanceMaxAngularSpeed,
+//                 kHumanApproachAvoidanceMaxAngularSpeed);
+//         }
+
+//         // Independent safety cap using the conservative cluster percentile.
+//         const double forward_cap = std::clamp(
+//             0.55 * (g_fused_human_safety_range -
+//                 kHumanPlannerMinimumDistance),
+//             0.0,
+//             kHumanPlannerMaxForwardSpeed);
+//         desired_linear = std::min(desired_linear, forward_cap);
+
+//         if (g_fused_human_safety_range <=
+//             kHumanPlannerMinimumDistance)
+//         {
+//             desired_linear = std::min(desired_linear, 0.0);
+//         }
+//         if (g_fused_human_safety_range <= 1.60)
+//         {
+//             // Turning the physical base is not perfectly on the spot. Near the
+//             // human, stop angular motion as well so turn-induced translation
+//             // cannot cross the 1.5 m absolute limit.
+//             desired_angular = 0.0;
+//         }
+//         if (std::fabs(g_fused_human_bearing) >
+//             kHumanPlannerMaxViewAngle)
+//         {
+//             desired_linear = 0.0;
+//         }
+
+//         // Acceleration limiting makes command changes smooth without allowing a
+//         // stale command to bypass the safety caps above.
+//         const double max_linear_step =
+//             kHumanPlannerLinearAcceleration * kControlPeriodSeconds;
+//         const double max_angular_step =
+//             kHumanPlannerAngularAcceleration * kControlPeriodSeconds;
+//         twist.linear.x = current_twist_.linear.x + std::clamp(
+//             desired_linear - current_twist_.linear.x,
+//             -max_linear_step,
+//             max_linear_step);
+//         twist.angular.z = current_twist_.angular.z + std::clamp(
+//             desired_angular - current_twist_.angular.z,
+//             -max_angular_step,
+//             max_angular_step);
+//         twist.linear.x = std::clamp(
+//             twist.linear.x,
+//             -kHumanPlannerMaxReverseSpeed,
+//             kHumanPlannerMaxForwardSpeed);
+//         twist.angular.z = std::clamp(
+//             twist.angular.z,
+//             -kHumanPlannerMaxAngularSpeed,
+//             kHumanPlannerMaxAngularSpeed);
+
+//         RCLCPP_INFO_THROTTLE(
+//             this->get_logger(),
+//             *this->get_clock(),
+//             500,
+//             "HUMAN_FUSED: phase=%s avoid=%s stage=%s target=%s camera_guided=%s guard=%.2f avoid_bearing=%.1f deg visual=%s lidar=%s human_bearing=%.1f deg range=%.2f safety=%.2f bubble blocked=%d margin=%.2f threat_points=%d nearest_threat=%.2f cmd linear=%.2f angular=%.2f.",
+//             humanMotionPhaseName(g_human_motion_phase),
+//             g_human_escape_active
+//                 ? "escape"
+//                 : (g_human_proactive_avoidance_active
+//                     ? "approach-wall"
+//                     : "none"),
+//             proactiveAvoidanceStageName(g_human_proactive_stage),
+//             humanTargetConfidenceName(g_human_target_confidence),
+//             g_human_camera_guided_mode_active ? "yes" : "no",
+//             g_human_camera_guided_guard_range,
+//             (g_human_escape_active
+//                 ? g_human_escape_direction_angle
+//                 : g_human_proactive_direction_angle) *
+//                     180.0 / M_PI,
+//             visual_fresh ? "yes" : "no",
+//             lidar_fresh ? "yes" : "no",
+//             g_fused_human_bearing * 180.0 / M_PI,
+//             g_fused_human_range,
+//             g_fused_human_safety_range,
+//             current_bubble.blocked_beams,
+//             current_bubble.min_margin,
+//             g_human_proactive_threat_point_count,
+//             g_human_proactive_nearest_threat_range,
+//             twist.linear.x,
+//             twist.angular.z);
+
+//         break;
+//     }
+
+//     default:
+//     {
+//         RCLCPP_WARN(this->get_logger(), "Unknown navigation state. Returning to SEARCHING.");
+//         stopRobot(twist);
+//         clearObstacleMarkers();
+//         current_state_ = NavigationState::SEARCHING;
+//         break;
+//     }
+//     }
+
+//     current_twist_ = twist;
+//     cmd_vel_publisher_->publish(twist);
+// }
+
+// void MechelangeloBehaviour::stopRobot(geometry_msgs::msg::Twist &twist)
+// {
+//     const double linear_step = kStopLinearDecel * kControlPeriodSeconds;
+//     const double angular_step = kStopAngularDecel * kControlPeriodSeconds;
+
+//     auto rampTowardZero = [](double value, double max_step)
+//     {
+//         if (std::fabs(value) <= max_step)
+//         {
+//             return 0.0;
+//         }
+
+//         return value - std::copysign(max_step, value);
+//     };
+
+//     twist.linear.x = rampTowardZero(current_twist_.linear.x, linear_step);
+//     twist.linear.y = rampTowardZero(current_twist_.linear.y, linear_step);
+//     twist.linear.z = rampTowardZero(current_twist_.linear.z, linear_step);
+
+//     twist.angular.x = rampTowardZero(current_twist_.angular.x, angular_step);
+//     twist.angular.y = rampTowardZero(current_twist_.angular.y, angular_step);
+//     twist.angular.z = rampTowardZero(current_twist_.angular.z, angular_step);
+// }
+
+// void MechelangeloBehaviour::laserScanCallback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
+// {
+//     const sensor_msgs::msg::LaserScan filtered_scan = filterLaserScan(*msg);
+
+//     latest_scan_ = filtered_scan;
+//     latest_segments_ = buildLaserSegments(filtered_scan);
+
+//     filtered_scan_publisher_->publish(filtered_scan);
+// }
+
+// void MechelangeloBehaviour::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
+// {
+//     latest_imu_ = *msg;
+//     imu_available_ = true;
+
+//     const rclcpp::Time now = this->now();
+//     g_latest_imu_receive_time = now;
+//     g_latest_imu_time_valid = true;
+
+//     if (current_state_ != NavigationState::ALIGNING)
+//     {
+//         return;
+//     }
+
+//     if (g_align_gyro_calibrating)
+//     {
+//         g_align_gyro_bias_sum += msg->angular_velocity.z;
+//         g_align_gyro_bias_samples++;
+//         g_align_last_imu_time = now;
+
+//         if (g_align_gyro_bias_samples >= kGyroBiasSampleCount)
+//         {
+//             g_align_gyro_bias =
+//                 g_align_gyro_bias_sum /
+//                 static_cast<double>(g_align_gyro_bias_samples);
+//             g_align_gyro_angle = 0.0;
+//             g_align_start_time = now;
+//             g_align_last_imu_time = now;
+//             g_align_gyro_calibrating = false;
+//             g_align_gyro_active = true;
+
+//             RCLCPP_INFO(
+//                 this->get_logger(),
+//                 "ALIGNING (gyro): Bias calibration complete. bias=%.6f rad/s from %d samples.",
+//                 g_align_gyro_bias,
+//                 g_align_gyro_bias_samples);
+//         }
+//         return;
+//     }
+
+//     if (!g_align_gyro_active)
+//     {
+//         return;
+//     }
+
+//     const double dt =
+//         (now - g_align_last_imu_time).seconds();
+//     g_align_last_imu_time = now;
+
+//     // Reject invalid or unusually delayed samples rather than integrating one
+//     // large jump into the measured turn angle.
+//     if (dt <= 0.0 || dt > 0.20)
+//     {
+//         return;
+//     }
+
+//     double corrected_gyro_z =
+//         msg->angular_velocity.z - g_align_gyro_bias;
+//     if (std::fabs(corrected_gyro_z) < kGyroDeadband)
+//     {
+//         corrected_gyro_z = 0.0;
+//     }
+
+//     // Alignment direction comes from target_angle_. Integrating magnitude makes
+//     // the turn measurement independent of whether the HAT Z-axis is mounted with
+//     // the same sign as the robot's angular command.
+//     g_align_gyro_angle +=
+//         std::fabs(corrected_gyro_z) * dt;
+// }
+
+// void MechelangeloBehaviour::humanDetectedCallback(const std_msgs::msg::Bool::SharedPtr msg)
+// {
+//     if (!msg->data)
+//     {
+//         return;
+//     }
+
+//     if (humanDetectionCooldownActive(this->now()))
+//     {
+//         g_human_detection_ignored_cooldown_count++;
+//         writeHumanInteractionStatsLog("manual_human_detection_ignored_during_cooldown", this->now());
+
+//         RCLCPP_WARN_THROTTLE(
+//             this->get_logger(),
+//             *this->get_clock(),
+//             1000,
+//             "Human detection ignored during cooldown. Remaining %.1f s.",
+//             humanDetectionCooldownRemaining(this->now()));
+//         return;
+//     }
+
+//     if (g_human_detection_cooldown_active)
+//     {
+//         g_human_detection_cooldown_active = false;
+//     }
+
+//     RCLCPP_WARN(
+//         this->get_logger(),
+//         "Manual human detection trigger received. Interrupting autonomous behaviour.");
+
+//     current_state_ = NavigationState::HUMAN_DETECTED;
+// }
+
+// void MechelangeloBehaviour::humanTrackingCallback(const std_msgs::msg::Float32MultiArray::SharedPtr msg)
+// {
+//     if (msg->data.size() < 3)
+//     {
+//         RCLCPP_WARN_THROTTLE(
+//             this->get_logger(),
+//             *this->get_clock(),
+//             2000,
+//             "Received invalid /human_tracking message. Expected [detected, centre_offset, distance_m].");
+//         return;
+//     }
+
+//     const bool detected = msg->data[0] > 0.5F;
+
+//     if (detected && humanDetectionCooldownActive(this->now()))
+//     {
+//         g_human_detection_ignored_cooldown_count++;
+//         human_locked_ = false;
+//         writeHumanInteractionStatsLog("camera_human_detection_ignored_during_cooldown", this->now());
+
+//         RCLCPP_WARN_THROTTLE(
+//             this->get_logger(),
+//             *this->get_clock(),
+//             1000,
+//             "Camera human detection ignored during cooldown. Remaining %.1f s.",
+//             humanDetectionCooldownRemaining(this->now()));
+//         return;
+//     }
+
+//     if (g_human_detection_cooldown_active && !humanDetectionCooldownActive(this->now()))
+//     {
+//         g_human_detection_cooldown_active = false;
+//         writeHumanInteractionStatsLog("human_detection_cooldown_finished", this->now());
+//     }
+
+//     human_locked_ = detected;
+//     human_centre_offset_ = static_cast<double>(msg->data[1]);
+//     // Preserve the third field for message compatibility, but do not use it
+//     // for navigation or safety. The real camera has no depth capability.
+//     human_distance_m_ = static_cast<double>(msg->data[2]);
+//     last_human_tracking_time_ = this->now();
+
+//     if (human_locked_)
+//     {
+//         if (current_state_ != NavigationState::HUMAN_DETECTED)
+//         {
+//             resetHumanMotionController();
+//         }
+
+//         g_human_detection_accepted_count++;
+//         g_last_visible_human_valid = true;
+//         g_last_visible_human_centre_offset = human_centre_offset_;
+//         g_last_visible_human_distance_m = human_distance_m_;
+//         g_last_visible_human_time = last_human_tracking_time_;
+//         current_state_ = NavigationState::HUMAN_DETECTED;
+//     }
+// }
+
+// sensor_msgs::msg::LaserScan MechelangeloBehaviour::filterLaserScan(
+//     const sensor_msgs::msg::LaserScan &raw_scan)
+// {
+//     sensor_msgs::msg::LaserScan neighbour_filtered = raw_scan;
+//     sensor_msgs::msg::LaserScan final_filtered = raw_scan;
+
+//     if (raw_scan.ranges.empty() || raw_scan.angle_increment == 0.0)
+//     {
+//         return final_filtered;
+//     }
+
+//     const int scan_count = static_cast<int>(raw_scan.ranges.size());
+//     std::vector<double> x_points(scan_count, std::numeric_limits<double>::quiet_NaN());
+//     std::vector<double> y_points(scan_count, std::numeric_limits<double>::quiet_NaN());
+//     std::vector<bool> usable(scan_count, false);
+
+//     // Convert valid polar points to local Cartesian points.
+//     for (int i = 0; i < scan_count; ++i)
+//     {
+//         const double range = raw_scan.ranges[i];
+
+//         if (!isRangeUsableForFiltering(raw_scan, range))
+//         {
+//             neighbour_filtered.ranges[i] = std::numeric_limits<float>::infinity();
+//             final_filtered.ranges[i] = std::numeric_limits<float>::infinity();
+//             continue;
+//         }
+
+//         const double angle = raw_scan.angle_min + static_cast<double>(i) * raw_scan.angle_increment;
+//         x_points[i] = range * std::cos(angle);
+//         y_points[i] = range * std::sin(angle);
+//         usable[i] = true;
+//     }
+
+//     // Stage 1: suppress isolated points that do not have nearby neighbours.
+//     for (int i = 0; i < scan_count; ++i)
+//     {
+//         if (!usable[i])
+//         {
+//             neighbour_filtered.ranges[i] = std::numeric_limits<float>::infinity();
+//             continue;
+//         }
+
+//         int close_neighbour_count = 0;
+//         const int start_index = std::max(0, i - kNoiseNeighbourWindow);
+//         const int end_index = std::min(scan_count - 1, i + kNoiseNeighbourWindow);
+
+//         for (int j = start_index; j <= end_index; ++j)
+//         {
+//             if (j == i || !usable[j])
+//             {
+//                 continue;
+//             }
+
+//             const double distance = std::hypot(x_points[i] - x_points[j], y_points[i] - y_points[j]);
+
+//             if (distance <= kNoiseNeighbourDistance)
+//             {
+//                 close_neighbour_count++;
+//             }
+//         }
+
+//         if (close_neighbour_count < kNoiseMinNeighbourCount)
+//         {
+//             neighbour_filtered.ranges[i] = std::numeric_limits<float>::infinity();
+//         }
+//     }
+
+//     // Stage 2: build LaserProcessing-style segments and only keep points
+//     // that belong to a real segment.
+//     const std::vector<LaserSegment> accepted_segments = buildLaserSegments(neighbour_filtered);
+
+//     std::fill(final_filtered.ranges.begin(), final_filtered.ranges.end(), std::numeric_limits<float>::infinity());
+
+//     for (const LaserSegment &segment : accepted_segments)
+//     {
+//         for (int i = segment.start_index; i <= segment.end_index; ++i)
+//         {
+//             if (i >= 0 && i < scan_count && std::isfinite(neighbour_filtered.ranges[i]))
+//             {
+//                 final_filtered.ranges[i] = neighbour_filtered.ranges[i];
+//             }
+//         }
+//     }
+
+//     return final_filtered;
+// }
+
+// std::vector<LaserSegment> MechelangeloBehaviour::buildLaserSegments(
+//     const sensor_msgs::msg::LaserScan &scan) const
+// {
+//     std::vector<LaserSegment> segments;
+
+//     if (scan.ranges.empty() || scan.angle_increment == 0.0)
+//     {
+//         return segments;
+//     }
+
+//     const int scan_count = static_cast<int>(scan.ranges.size());
+
+//     bool segment_active = false;
+//     LaserSegment current_segment;
+//     geometry_msgs::msg::Point previous_point;
+
+//     auto finish_segment = [&]()
+//     {
+//         if (!segment_active)
+//         {
+//             return;
+//         }
+
+//         current_segment.midpoint.x = 0.5 * (current_segment.start_point.x + current_segment.end_point.x);
+//         current_segment.midpoint.y = 0.5 * (current_segment.start_point.y + current_segment.end_point.y);
+//         current_segment.midpoint.z = 0.0;
+//         current_segment.length = std::hypot(
+//             current_segment.end_point.x - current_segment.start_point.x,
+//             current_segment.end_point.y - current_segment.start_point.y);
+//         current_segment.midpoint_angle = std::atan2(
+//             current_segment.midpoint.y,
+//             current_segment.midpoint.x);
+
+//         if (current_segment.point_count >= kSegmentMinPoints &&
+//             current_segment.length >= kSegmentMinLength)
+//         {
+//             segments.push_back(current_segment);
+//         }
+
+//         segment_active = false;
+//         current_segment = LaserSegment();
+//     };
+
+//     for (int i = 0; i < scan_count; ++i)
+//     {
+//         const double range = scan.ranges[i];
+
+//         if (!isRangeUsableForFiltering(scan, range))
+//         {
+//             finish_segment();
+//             continue;
+//         }
+
+//         const geometry_msgs::msg::Point point = polarToPoint(scan, i);
+
+//         if (!segment_active)
+//         {
+//             segment_active = true;
+//             current_segment = LaserSegment();
+//             current_segment.start_index = i;
+//             current_segment.end_index = i;
+//             current_segment.point_count = 1;
+//             current_segment.start_point = point;
+//             current_segment.end_point = point;
+//             current_segment.min_range = range;
+//             previous_point = point;
+//             continue;
+//         }
+
+//         const double gap = std::hypot(point.x - previous_point.x, point.y - previous_point.y);
+
+//         if (gap <= kSegmentJoinDistance)
+//         {
+//             current_segment.end_index = i;
+//             current_segment.end_point = point;
+//             current_segment.point_count++;
+//             current_segment.min_range = std::min(current_segment.min_range, range);
+//             previous_point = point;
+//         }
+//         else
+//         {
+//             finish_segment();
+
+//             segment_active = true;
+//             current_segment = LaserSegment();
+//             current_segment.start_index = i;
+//             current_segment.end_index = i;
+//             current_segment.point_count = 1;
+//             current_segment.start_point = point;
+//             current_segment.end_point = point;
+//             current_segment.min_range = range;
+//             previous_point = point;
+//         }
+//     }
+
+//     finish_segment();
+//     return segments;
+// }
+
+// geometry_msgs::msg::Point MechelangeloBehaviour::polarToPoint(
+//     const sensor_msgs::msg::LaserScan &scan,
+//     int index) const
+// {
+//     geometry_msgs::msg::Point point;
+
+//     if (index < 0 || index >= static_cast<int>(scan.ranges.size()))
+//     {
+//         return point;
+//     }
+
+//     const double angle = scan.angle_min + static_cast<double>(index) * scan.angle_increment;
+//     const double range = scan.ranges[index];
+
+//     point.x = range * std::cos(angle);
+//     point.y = range * std::sin(angle);
+//     point.z = 0.0;
+
+//     return point;
+// }
+
+// bool MechelangeloBehaviour::isRangeUsableForFiltering(
+//     const sensor_msgs::msg::LaserScan &scan,
+//     double range) const
+// {
+//     if (!std::isfinite(range))
+//     {
+//         return false;
+//     }
+
+//     if (range <= kMinValidRange)
+//     {
+//         return false;
+//     }
+
+//     if (scan.range_min > 0.0 && range < scan.range_min)
+//     {
+//         return false;
+//     }
+
+//     if (scan.range_max > 0.0 && range > scan.range_max)
+//     {
+//         return false;
+//     }
+
+//     return true;
+// }
+
+// bool MechelangeloBehaviour::isRangeValid(double range) const
+// {
+//     return std::isfinite(range) && range > kMinValidRange;
+// }
+
+// double MechelangeloBehaviour::getMinimumRange(double start_angle, double end_angle) const
+// {
+//     if (latest_scan_.ranges.empty() || latest_scan_.angle_increment == 0.0)
+//     {
+//         return std::numeric_limits<double>::infinity();
+//     }
+
+//     double min_range = std::numeric_limits<double>::infinity();
+
+//     for (int i = 0; i < static_cast<int>(latest_scan_.ranges.size()); ++i)
+//     {
+//         const double angle = latest_scan_.angle_min + static_cast<double>(i) * latest_scan_.angle_increment;
+
+//         if (!angleInsideWindow(angle, start_angle, end_angle))
+//         {
+//             continue;
+//         }
+
+//         const double range = latest_scan_.ranges[i];
+
+//         if (isRangeValid(range) && range < min_range)
+//         {
+//             min_range = range;
+//         }
+//     }
+
+//     return min_range;
+// }
+
+// double MechelangeloBehaviour::getFrontRange() const
+// {
+//     return getMinimumRange(-kFrontCheckAngle, kFrontCheckAngle);
+// }
+
+// bool MechelangeloBehaviour::getLongestRange(double &out_angle, double &out_range) const
+// {
+//     if (latest_scan_.ranges.empty() || latest_scan_.angle_increment == 0.0)
+//     {
+//         return false;
+//     }
+
+//     const int scan_count = static_cast<int>(latest_scan_.ranges.size());
+//     const double angle_step = std::fabs(latest_scan_.angle_increment);
+
+//     if (scan_count <= 0 || angle_step <= 0.0)
+//     {
+//         return false;
+//     }
+
+//     // ------------------------------------------------------
+//     // Step 1: classify beams as open or blocked.
+//     //
+//     // Open means either:
+//     //   - infinity: the LiDAR did not hit anything within range, or
+//     //   - a finite return farther than the clearance distance.
+//     // ------------------------------------------------------
+//     std::vector<bool> open_beam(scan_count, false);
+
+//     for (int i = 0; i < scan_count; ++i)
+//     {
+//         const double range = latest_scan_.ranges[i];
+
+//         if (std::isinf(range))
+//         {
+//             open_beam[i] = true;
+//         }
+//         else if (std::isfinite(range) && range >= kDvdOpenClearanceDistance)
+//         {
+//             open_beam[i] = true;
+//         }
+//     }
+
+//     auto angleForIndex = [&](int index)
+//     {
+//         return normaliseAngle(
+//             latest_scan_.angle_min + static_cast<double>(index) * latest_scan_.angle_increment);
+//     };
+
+//     auto absoluteAngleForIndex = [&](int index)
+//     {
+//         return std::fabs(angleForIndex(index));
+//     };
+
+//     auto rangeForLog = [&](int index)
+//     {
+//         const double range = latest_scan_.ranges[index];
+
+//         if (std::isinf(range))
+//         {
+//             return std::numeric_limits<double>::infinity();
+//         }
+
+//         if (std::isfinite(range))
+//         {
+//             return range;
+//         }
+
+//         return 0.0;
+//     };
+
+//     auto isPreferredBounceAngle = [&](int index)
+//     {
+//         const double abs_angle = absoluteAngleForIndex(index);
+//         return abs_angle >= kDvdPreferredMinTurnAngle &&
+//                abs_angle <= kDvdPreferredMaxTurnAngle;
+//     };
+
+//     auto isFallbackBounceAngle = [&](int index)
+//     {
+//         const double abs_angle = absoluteAngleForIndex(index);
+//         return abs_angle >= kDvdAvoidFrontAngle &&
+//                abs_angle <= kDvdAvoidReverseAngle;
+//     };
+
+//     // ------------------------------------------------------
+//     // Step 2: extract open sectors and collect safe candidate beams.
+//     //
+//     // Preferred candidates are side-bounce angles, roughly +/-55 to +/-150 deg.
+//     // General fallback candidates simply avoid the front wall and exact reverse.
+//     // Left and right candidates are stored separately so one long side of the
+//     // room does not dominate every decision.
+//     // ------------------------------------------------------
+//     std::vector<int> preferred_left_candidates;
+//     std::vector<int> preferred_right_candidates;
+//     std::vector<int> fallback_left_candidates;
+//     std::vector<int> fallback_right_candidates;
+//     std::vector<int> fallback_all_candidates;
+
+//     int accepted_sector_count = 0;
+//     int widest_sector_count = 0;
+
+//     auto collectCandidatesFromSector = [&](int start_index, int count)
+//     {
+//         if (count <= 0)
+//         {
+//             return;
+//         }
+
+//         const double sector_width = static_cast<double>(count) * angle_step;
+//         widest_sector_count = std::max(widest_sector_count, count);
+
+//         if (sector_width < kDvdMinSectorWidth)
+//         {
+//             return;
+//         }
+
+//         accepted_sector_count++;
+
+//         int edge_margin_count = static_cast<int>(std::ceil(kDvdSectorEdgeMargin / angle_step));
+
+//         // Never let the edge margin remove the entire sector.
+//         edge_margin_count = std::min(edge_margin_count, std::max(0, (count - 1) / 2));
+
+//         for (int offset = edge_margin_count; offset < count - edge_margin_count; ++offset)
+//         {
+//             const int index = (start_index + offset) % scan_count;
+//             const double angle = angleForIndex(index);
+
+//             if (isPreferredBounceAngle(index))
+//             {
+//                 if (angle >= 0.0)
+//                 {
+//                     preferred_left_candidates.push_back(index);
+//                 }
+//                 else
+//                 {
+//                     preferred_right_candidates.push_back(index);
+//                 }
+//             }
+
+//             if (isFallbackBounceAngle(index))
+//             {
+//                 fallback_all_candidates.push_back(index);
+
+//                 if (angle >= 0.0)
+//                 {
+//                     fallback_left_candidates.push_back(index);
+//                 }
+//                 else
+//                 {
+//                     fallback_right_candidates.push_back(index);
+//                 }
+//             }
+//         }
+//     };
+
+//     const bool all_open = std::all_of(open_beam.begin(), open_beam.end(),
+//         [](bool value) { return value; });
+
+//     if (all_open)
+//     {
+//         collectCandidatesFromSector(0, scan_count);
+//     }
+//     else
+//     {
+//         for (int start_index = 0; start_index < scan_count; ++start_index)
+//         {
+//             if (!open_beam[start_index])
+//             {
+//                 continue;
+//             }
+
+//             const int previous_index = (start_index - 1 + scan_count) % scan_count;
+//             if (open_beam[previous_index])
+//             {
+//                 continue;
+//             }
+
+//             int count = 0;
+//             while (count < scan_count && open_beam[(start_index + count) % scan_count])
+//             {
+//                 count++;
+//             }
+
+//             collectCandidatesFromSector(start_index, count);
+//         }
+//     }
+
+//     // ------------------------------------------------------
+//     // Step 3: choose a random safe bounce angle.
+//     //
+//     // Preferred behaviour:
+//     //   - use the side-bounce band if possible;
+//     //   - choose left/right with a 50/50 coin flip when both are available;
+//     //   - choose a random beam inside that side's safe candidate list.
+//     // This produces a DVD-screensaver style movement instead of always going
+//     // down the longest wall/side of the room.
+//     // ------------------------------------------------------
+//     static thread_local std::mt19937 rng(std::random_device{}());
+
+//     auto chooseFromCandidates = [&](const std::vector<int> &candidates)
+//     {
+//         std::uniform_int_distribution<int> index_dist(
+//             0, static_cast<int>(candidates.size()) - 1);
+//         return candidates[index_dist(rng)];
+//     };
+
+//     auto chooseBalancedSide = [&](const std::vector<int> &left_candidates,
+//                                   const std::vector<int> &right_candidates,
+//                                   bool &used_left_side,
+//                                   bool &used_right_side)
+//     {
+//         used_left_side = false;
+//         used_right_side = false;
+
+//         if (!left_candidates.empty() && !right_candidates.empty())
+//         {
+//             std::uniform_int_distribution<int> side_dist(0, 1);
+
+//             if (side_dist(rng) == 0)
+//             {
+//                 used_left_side = true;
+//                 return chooseFromCandidates(left_candidates);
+//             }
+
+//             used_right_side = true;
+//             return chooseFromCandidates(right_candidates);
+//         }
+
+//         if (!left_candidates.empty())
+//         {
+//             used_left_side = true;
+//             return chooseFromCandidates(left_candidates);
+//         }
+
+//         used_right_side = true;
+//         return chooseFromCandidates(right_candidates);
+//     };
+
+//     int selected_index = -1;
+//     bool used_preferred_bounce_band = false;
+//     bool used_left_side = false;
+//     bool used_right_side = false;
+
+//     if (!preferred_left_candidates.empty() || !preferred_right_candidates.empty())
+//     {
+//         selected_index = chooseBalancedSide(
+//             preferred_left_candidates,
+//             preferred_right_candidates,
+//             used_left_side,
+//             used_right_side);
+//         used_preferred_bounce_band = true;
+//     }
+//     else if (!fallback_left_candidates.empty() || !fallback_right_candidates.empty())
+//     {
+//         selected_index = chooseBalancedSide(
+//             fallback_left_candidates,
+//             fallback_right_candidates,
+//             used_left_side,
+//             used_right_side);
+//         used_preferred_bounce_band = false;
+//     }
+//     else if (!fallback_all_candidates.empty())
+//     {
+//         selected_index = chooseFromCandidates(fallback_all_candidates);
+//         used_left_side = angleForIndex(selected_index) >= 0.0;
+//         used_right_side = !used_left_side;
+//         used_preferred_bounce_band = false;
+//     }
+
+//     if (selected_index >= 0)
+//     {
+//         g_dvd_heading_selection_count++;
+//         out_angle = angleForIndex(selected_index);
+//         out_range = rangeForLog(selected_index);
+
+//         {
+//             std::ofstream log(debugLogPath(kDvdDebugLogFilename));
+//             log << std::fixed << std::setprecision(4);
+//             log << "=== DVD Bounce Heading Selection ===\n";
+//             log << "DVD heading selections so far: " << g_dvd_heading_selection_count << "\n";
+//             log << "Successful interaction entries: " << g_human_interaction_success_count << "\n";
+//             log << "Completed 30 s interactions: " << g_human_interaction_completed_count << "\n";
+//             log << "Abandoned before interaction: " << g_human_abandoned_before_interaction_count << "\n";
+//             log << "Abandoned after interaction: " << g_human_abandoned_after_interaction_count << "\n";
+//             log << "Cooldown ignored detections: " << g_human_detection_ignored_cooldown_count << "\n";
+//             log << "Current human phase: " << humanMotionPhaseName(g_human_motion_phase) << "\n";
+//             log << "Reposition commits: " << g_human_reposition_commit_count << "\n";
+//             log << "Settle successes: " << g_human_settle_success_count << "\n\n";
+//             log << "Open beam rule: inf OR range >= " << kDvdOpenClearanceDistance << " m\n";
+//             log << "Minimum accepted sector width: " << kDvdMinSectorWidth * 180.0 / M_PI << " deg\n";
+//             log << "Sector edge margin: " << kDvdSectorEdgeMargin * 180.0 / M_PI << " deg\n";
+//             log << "Preferred bounce band: +/-"
+//                 << kDvdPreferredMinTurnAngle * 180.0 / M_PI << " to +/-"
+//                 << kDvdPreferredMaxTurnAngle * 180.0 / M_PI << " deg\n";
+//             log << "Fallback bounce band: +/-"
+//                 << kDvdAvoidFrontAngle * 180.0 / M_PI << " to +/-"
+//                 << kDvdAvoidReverseAngle * 180.0 / M_PI << " deg\n\n";
+
+//             log << "Accepted open sectors: " << accepted_sector_count << "\n";
+//             log << "Widest open sector beams: " << widest_sector_count << "\n";
+//             log << "Preferred left candidates: " << preferred_left_candidates.size() << "\n";
+//             log << "Preferred right candidates: " << preferred_right_candidates.size() << "\n";
+//             log << "Fallback candidates: " << fallback_all_candidates.size() << "\n\n";
+
+//             log << "=== Result ===\n";
+//             log << "Selected behaviour: "
+//                 << (used_preferred_bounce_band ? "preferred random side-bounce" : "fallback random safe bounce")
+//                 << "\n";
+//             log << "Selected side: "
+//                 << (used_left_side ? "left/positive" : (used_right_side ? "right/negative" : "unknown"))
+//                 << "\n";
+//             log << "Selected index: " << selected_index << "\n";
+//             log << "Selected angle: " << out_angle * 180.0 / M_PI << " deg\n";
+//             log << "Representative range: " << out_range << " m\n\n";
+
+//             log << "=== Laser Scan Values ===\n";
+//             for (int i = 0; i < scan_count; ++i)
+//             {
+//                 const double angle_deg = angleForIndex(i) * 180.0 / M_PI;
+//                 log << "  [" << std::setw(4) << i << "]  angle="
+//                     << std::setw(9) << angle_deg << " deg  range="
+//                     << latest_scan_.ranges[i] << " m  open="
+//                     << (open_beam[i] ? "yes" : "no") << "  preferred="
+//                     << (isPreferredBounceAngle(i) ? "yes" : "no") << "\n";
+//             }
+//         }
+
+//         return true;
+//     }
+
+//     // ------------------------------------------------------
+//     // Step 4: fallback to the old longest finite scan if the room is too
+//     // cluttered for a safe random bounce heading.
+//     // ------------------------------------------------------
+//     double max_finite_range = 0.0;
+//     int max_finite_index = -1;
+
+//     for (int i = 0; i < scan_count; ++i)
+//     {
+//         const double range = latest_scan_.ranges[i];
+
+//         if (isRangeValid(range) && range > max_finite_range)
+//         {
+//             max_finite_range = range;
+//             max_finite_index = i;
+//         }
+//     }
+
+//     if (max_finite_index < 0)
+//     {
+//         return false;
+//     }
+
+//     const double tied_range_threshold =
+//         std::max(kMinValidRange, max_finite_range - kLongestRangeTieTolerance);
+
+//     std::vector<bool> near_longest(scan_count, false);
+
+//     for (int i = 0; i < scan_count; ++i)
+//     {
+//         const double range = latest_scan_.ranges[i];
+//         near_longest[i] = isRangeValid(range) && range >= tied_range_threshold;
+//     }
+
+//     int best_start_index = max_finite_index;
+//     int best_count = 0;
+
+//     for (int start_index = 0; start_index < scan_count; ++start_index)
+//     {
+//         if (!near_longest[start_index])
+//         {
+//             continue;
+//         }
+
+//         const int previous_index = (start_index - 1 + scan_count) % scan_count;
+//         if (near_longest[previous_index])
+//         {
+//             continue;
+//         }
+
+//         int count = 0;
+//         while (count < scan_count && near_longest[(start_index + count) % scan_count])
+//         {
+//             count++;
+//         }
+
+//         if (count > best_count)
+//         {
+//             best_count = count;
+//             best_start_index = start_index;
+//         }
+//     }
+
+//     if (best_count == 0)
+//     {
+//         best_count = 1;
+//         best_start_index = max_finite_index;
+//     }
+
+//     const double best_mid_index = std::fmod(
+//         static_cast<double>(best_start_index) +
+//             0.5 * static_cast<double>(std::max(0, best_count - 1)),
+//         static_cast<double>(scan_count));
+
+//     g_dvd_heading_selection_count++;
+//     out_angle = normaliseAngle(latest_scan_.angle_min + best_mid_index * latest_scan_.angle_increment);
+//     out_range = max_finite_range;
+
+//     {
+//         std::ofstream log(debugLogPath(kDvdDebugLogFilename));
+//         log << std::fixed << std::setprecision(4);
+//         log << "=== DVD Bounce Heading Selection ===\n";
+//         log << "DVD heading selections so far: " << g_dvd_heading_selection_count << "\n";
+//         log << "Successful interaction entries: " << g_human_interaction_success_count << "\n";
+//         log << "Completed 30 s interactions: " << g_human_interaction_completed_count << "\n";
+//         log << "Abandoned before interaction: " << g_human_abandoned_before_interaction_count << "\n";
+//         log << "Abandoned after interaction: " << g_human_abandoned_after_interaction_count << "\n";
+//         log << "Cooldown ignored detections: " << g_human_detection_ignored_cooldown_count << "\n\n";
+//         log << "Selected behaviour: fallback longest finite scan\n";
+//         log << "Longest finite range: " << out_range << " m\n";
+//         log << "Selected angle: " << out_angle * 180.0 / M_PI << " deg\n";
+//     }
+
+//     return true;
+// }
+
+// int MechelangeloBehaviour::angleToIndex(double angle_rad) const
+// {
+//     if (latest_scan_.ranges.empty() || latest_scan_.angle_increment == 0.0)
+//     {
+//         return -1;
+//     }
+
+//     double capped_angle = angle_rad;
+
+//     if (capped_angle < latest_scan_.angle_min)
+//     {
+//         capped_angle = latest_scan_.angle_min;
+//     }
+
+//     if (capped_angle > latest_scan_.angle_max)
+//     {
+//         capped_angle = latest_scan_.angle_max;
+//     }
+
+//     int index = static_cast<int>(
+//         std::round((capped_angle - latest_scan_.angle_min) / latest_scan_.angle_increment));
+
+//     index = std::clamp(index, 0, static_cast<int>(latest_scan_.ranges.size()) - 1);
+//     return index;
+// }
+
+// double MechelangeloBehaviour::normaliseAngle(double angle_rad) const
+// {
+//     while (angle_rad > M_PI)
+//     {
+//         angle_rad -= 2.0 * M_PI;
+//     }
+
+//     while (angle_rad < -M_PI)
+//     {
+//         angle_rad += 2.0 * M_PI;
+//     }
+
+//     return angle_rad;
+// }
+
+// bool MechelangeloBehaviour::angleInsideWindow(
+//     double angle_rad,
+//     double start_angle,
+//     double end_angle) const
+// {
+//     const double angle = normaliseAngle(angle_rad);
+//     const double start = normaliseAngle(start_angle);
+//     const double end = normaliseAngle(end_angle);
+
+//     if (start <= end)
+//     {
+//         return angle >= start && angle <= end;
+//     }
+
+//     return angle >= start || angle <= end;
+// }
+
+// bool MechelangeloBehaviour::segmentOverlapsAngleWindow(
+//     const LaserSegment &segment,
+//     double start_angle,
+//     double end_angle) const
+// {
+//     if (latest_scan_.ranges.empty() || latest_scan_.angle_increment == 0.0)
+//     {
+//         return false;
+//     }
+
+//     for (int i = segment.start_index; i <= segment.end_index; ++i)
+//     {
+//         if (i < 0 || i >= static_cast<int>(latest_scan_.ranges.size()))
+//         {
+//             continue;
+//         }
+
+//         const double angle = latest_scan_.angle_min + static_cast<double>(i) * latest_scan_.angle_increment;
+
+//         if (angleInsideWindow(angle, start_angle, end_angle))
+//         {
+//             return true;
+//         }
+//     }
+
+//     return false;
+// }
+
+// bool MechelangeloBehaviour::findBlockingObstaclesInFront(
+//     std::vector<LaserSegment> &blocking_segments) const
+// {
+//     blocking_segments.clear();
+
+//     for (const LaserSegment &segment : latest_segments_)
+//     {
+//         if (segment.min_range <= stop_distance_m_ &&
+//             segmentOverlapsAngleWindow(segment, -kFrontCheckAngle, kFrontCheckAngle))
+//         {
+//             blocking_segments.push_back(segment);
+//         }
+//     }
+
+//     return !blocking_segments.empty();
+// }
+
+// void MechelangeloBehaviour::publishObstacleMarkers(
+//     const std::vector<LaserSegment> &blocking_segments)
+// {
+//     visualization_msgs::msg::MarkerArray marker_array;
+
+//     visualization_msgs::msg::Marker clear_marker;
+//     clear_marker.header.frame_id = latest_scan_.header.frame_id.empty() ? "base_link" : latest_scan_.header.frame_id;
+//     clear_marker.header.stamp = this->get_clock()->now();
+//     clear_marker.ns = "behaviour_blocking_obstacles";
+//     clear_marker.id = 0;
+//     clear_marker.action = visualization_msgs::msg::Marker::DELETEALL;
+//     marker_array.markers.push_back(clear_marker);
+
+//     int marker_id = 1;
+
+//     for (const LaserSegment &segment : blocking_segments)
+//     {
+//         visualization_msgs::msg::Marker marker;
+//         marker.header.frame_id = latest_scan_.header.frame_id.empty() ? "base_link" : latest_scan_.header.frame_id;
+//         marker.header.stamp = this->get_clock()->now();
+//         marker.ns = "behaviour_blocking_obstacles";
+//         marker.id = marker_id++;
+//         marker.type = visualization_msgs::msg::Marker::CYLINDER;
+//         marker.action = visualization_msgs::msg::Marker::ADD;
+
+//         marker.pose.position.x = segment.midpoint.x;
+//         marker.pose.position.y = segment.midpoint.y;
+//         marker.pose.position.z = 0.15;
+//         marker.pose.orientation.x = 0.0;
+//         marker.pose.orientation.y = 0.0;
+//         marker.pose.orientation.z = 0.0;
+//         marker.pose.orientation.w = 1.0;
+
+//         // Make marker size scale slightly with the observed segment length.
+//         const double marker_width = std::clamp(segment.length + 0.15, 0.20, 0.80);
+//         marker.scale.x = marker_width;
+//         marker.scale.y = marker_width;
+//         marker.scale.z = 0.30;
+
+//         // Red/orange transparent marker for blocking obstacle.
+//         marker.color.a = 0.75F;
+//         marker.color.r = 1.0F;
+//         marker.color.g = 0.15F;
+//         marker.color.b = 0.0F;
+
+//         marker.lifetime.sec = 0;
+//         marker.lifetime.nanosec = 400000000; // 0.4 s
+
+//         marker_array.markers.push_back(marker);
+//     }
+
+//     obstacle_marker_publisher_->publish(marker_array);
+// }
+
+// void MechelangeloBehaviour::clearObstacleMarkers()
+// {
+//     if (!obstacle_marker_publisher_)
+//     {
+//         return;
+//     }
+
+//     visualization_msgs::msg::MarkerArray marker_array;
+//     visualization_msgs::msg::Marker clear_marker;
+//     clear_marker.header.frame_id = latest_scan_.header.frame_id.empty() ? "base_link" : latest_scan_.header.frame_id;
+//     clear_marker.header.stamp = this->get_clock()->now();
+//     clear_marker.ns = "behaviour_blocking_obstacles";
+//     clear_marker.id = 0;
+//     clear_marker.action = visualization_msgs::msg::Marker::DELETEALL;
+//     marker_array.markers.push_back(clear_marker);
+//     obstacle_marker_publisher_->publish(marker_array);
+// }
+
+// void MechelangeloBehaviour::longestLaserScan()
+// {
+//     double longest_angle = 0.0;
+//     double longest_range = 0.0;
+
+//     if (!getLongestRange(longest_angle, longest_range))
+//     {
+//         RCLCPP_WARN(
+//             this->get_logger(),
+//             "No valid filtered laser scan data available for longest scan calculation.");
+//         return;
+//     }
+
+//     RCLCPP_INFO(
+//         this->get_logger(),
+//         "Selected exploration heading: Representative range = %.2f m at Angle = %.2f degrees",
+//         longest_range,
+//         longest_angle * 180.0 / M_PI);
+// }
+
+// double MechelangeloBehaviour::getHumanLidarRange(double centre_offset) const
+// {
+//     const double estimated_human_angle = -centre_offset * kCameraHorizontalFov;
+//     const double start_angle = estimated_human_angle - kHumanLidarWindow;
+//     const double end_angle = estimated_human_angle + kHumanLidarWindow;
+
+//     return getMinimumRange(start_angle, end_angle);
+// }
+
+// void MechelangeloBehaviour::captureSafetyZoneBaseline()
+// {
+//     safety_zone_baseline_scan_ = latest_scan_;
+//     safety_zone_baseline_captured_ = true;
+//     RCLCPP_INFO(this->get_logger(), "SAFETY ZONE: Filtered background baseline captured.");
+// }
+
+// bool MechelangeloBehaviour::isSafetyZoneViolated(double human_bearing_rad) const
+// {
+//     if (!safety_zone_baseline_captured_)
+//     {
+//         return false;
+//     }
+
+//     if (latest_scan_.ranges.empty() || latest_scan_.angle_increment == 0.0)
+//     {
+//         return false;
+//     }
+
+//     if (safety_zone_baseline_scan_.ranges.size() != latest_scan_.ranges.size())
+//     {
+//         return false;
+//     }
+
+//     for (int i = 0; i < static_cast<int>(latest_scan_.ranges.size()); ++i)
+//     {
+//         const double angle = latest_scan_.angle_min + static_cast<double>(i) * latest_scan_.angle_increment;
+//         const double angle_diff = normaliseAngle(angle - human_bearing_rad);
+
+//         // Exclude the window around the tracked human so they do not self-trigger.
+//         if (std::fabs(angle_diff) <= kSafetyZoneHumanExclusionAngle)
+//         {
+//             continue;
+//         }
+
+//         const double current_range = latest_scan_.ranges[i];
+
+//         if (!std::isfinite(current_range) || current_range <= kMinValidRange)
+//         {
+//             continue;
+//         }
+
+//         const double required_safety_radius = humanModeSafetyRadiusForAngle(angle);
+
+//         if (current_range >= required_safety_radius)
+//         {
+//             continue;
+//         }
+
+//         const double baseline_range = std::isfinite(safety_zone_baseline_scan_.ranges[i])
+//             ? safety_zone_baseline_scan_.ranges[i]
+//             : required_safety_radius;
+
+//         if (current_range < (baseline_range - kSafetyZoneIntruderThreshold))
+//         {
+//             return true;
+//         }
+//     }
+
+//     return false;
+// }
+
+// int main(int argc, char *argv[])
+// {
+//     rclcpp::init(argc, argv);
+
+//     auto node = std::make_shared<MechelangeloBehaviour>();
+
+//     // true = simulation mode
+//     // false = real robot mode
+//     node->run(true);
+
+//     rclcpp::shutdown();
+//     return 0;
+// }
+
 /////////////////////////////////////////////////////////////////////////
 /// DVD bounce + adaptive human clearance waypoint / S-curve test
 
@@ -5536,6 +11269,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -5647,23 +11381,15 @@ static constexpr double kDvdAvoidReverseAngle = 165.0 * M_PI / 180.0; // radians
 // with infinity and will not stop the robot.
 
 // Stage 1: local neighbour test.
-// static constexpr int kNoiseNeighbourWindow = 4;          // check +/- 4 beams
-// static constexpr int kNoiseMinNeighbourCount = 2;        // require at least 2 close neighbours
-// static constexpr double kNoiseNeighbourDistance = 0.22;  // m in local XY space
+// This remains deliberately stricter than the human-only raw-scan guard below.
+static constexpr int kNoiseNeighbourWindow = 4;          // check +/- 4 beams
+static constexpr int kNoiseMinNeighbourCount = 2;        // reject isolated and accidental two-beam speckle
+static constexpr double kNoiseNeighbourDistance = 0.25;  // m in local XY space
 
-// // Stage 2: segment extraction test.
-// static constexpr double kSegmentJoinDistance = 0.18;     // m max gap between consecutive points
-// static constexpr int kSegmentMinPoints = 4;              // reject tiny speckle clusters
-// static constexpr double kSegmentMinLength = 0.05;        // m reject near-zero length segments
-
-
-static constexpr int kNoiseNeighbourWindow = 4;
-static constexpr int kNoiseMinNeighbourCount = 1;
-static constexpr double kNoiseNeighbourDistance = 0.30;
-
-static constexpr double kSegmentJoinDistance = 0.25;
-static constexpr int kSegmentMinPoints = 2;
-static constexpr double kSegmentMinLength = 0.015;
+// Stage 2: segment extraction test used by walls, exploration and collision safety.
+static constexpr double kSegmentJoinDistance = 0.22;     // m max gap between consecutive points
+static constexpr int kSegmentMinPoints = 3;              // retain small real objects but reject most random pairs
+static constexpr double kSegmentMinLength = 0.03;        // m reject near-zero length segments
 
 // ------------------------------------------------------
 // Human tracking tuning
@@ -5771,7 +11497,7 @@ static constexpr double kInteractionCommandSmoothingAlpha = 0.35;
 // Camera-reported depth is intentionally ignored because the real camera has no
 // depth capability.
 static constexpr double kHumanAssociationWindow = 16.0 * M_PI / 180.0;
-static constexpr int kHumanAssociationMinPoints = 2; //was 3
+static constexpr int kHumanAssociationMinPoints = 2;
 static constexpr double kHumanAssociationRangeScale = 1.50;
 static constexpr double kHumanFusionBearingAlpha = 0.45;
 static constexpr double kHumanFusionRangeAlpha = 0.35;
@@ -5808,6 +11534,18 @@ static constexpr double kHumanCameraGuidedMaxForwardSpeed = 0.10; // m/s
 static constexpr double kHumanCameraGuidedMaxAngularSpeed = 0.25; // rad/s, gentle camera-guided approach arc
 static constexpr double kHumanCameraGuardWindow = 10.0 * M_PI / 180.0;
 static constexpr double kHumanCameraGuardRangeAlpha = 0.45;
+
+// Human-only raw LiDAR guard. The full 360-degree obstacle scan remains strict,
+// while this narrow camera-centred cone can retain sparse leg returns safely.
+static constexpr int kHumanRawGuardMinPoints = 2;
+static constexpr double kHumanRawGuardMaxAdjacentRangeGap = 0.25; // m
+static constexpr double kHumanRawGuardCandidateRangeJump = 0.40;  // m
+static constexpr double kHumanRawGuardCandidateBearingJump =
+    8.0 * M_PI / 180.0;
+static constexpr double kHumanRawGuardTargetRangeGate = 0.90;     // m
+static constexpr int kHumanRawGuardRequiredConfirmations = 2;
+static constexpr double kHumanRawGuardHoldSeconds = 0.90;
+static constexpr double kHumanRawScanFreshTimeout = 0.85;
 
 // Human distance safety. The planner aims farther than the absolute limit so
 // sensor delay, base momentum and turning translation do not take the robot
@@ -6099,6 +11837,47 @@ static double g_human_camera_guided_guard_range =
     std::numeric_limits<double>::infinity();
 static int g_human_camera_guided_cycle_count = 0;
 
+// Preserve the unfiltered scan for the camera-centred human range guard.
+// All exploration and collision logic continues to use latest_scan_, which is
+// the strict filtered scan owned by the behaviour class.
+static sensor_msgs::msg::LaserScan g_latest_raw_scan;
+static bool g_latest_raw_scan_valid = false;
+static rclcpp::Time g_latest_raw_scan_receive_time;
+static std::uint64_t g_latest_raw_scan_sequence = 0;
+static std::uint64_t g_raw_human_last_processed_sequence = 0;
+
+struct RawHumanGuardCluster
+{
+    bool valid = false;
+    int start_index = -1;
+    int end_index = -1;
+    int point_count = 0;
+    double bearing = 0.0;
+    double median_range = std::numeric_limits<double>::infinity();
+    double safety_range = std::numeric_limits<double>::infinity();
+    double score = std::numeric_limits<double>::infinity();
+};
+
+static bool g_raw_human_pending_valid = false;
+static double g_raw_human_pending_range =
+    std::numeric_limits<double>::infinity();
+static double g_raw_human_pending_bearing = 0.0;
+static int g_raw_human_pending_hits = 0;
+
+static bool g_raw_human_confirmed_valid = false;
+static double g_raw_human_confirmed_range =
+    std::numeric_limits<double>::infinity();
+static double g_raw_human_confirmed_safety_range =
+    std::numeric_limits<double>::infinity();
+static double g_raw_human_confirmed_bearing = 0.0;
+static int g_raw_human_confirmed_start_index = -1;
+static int g_raw_human_confirmed_end_index = -1;
+static int g_raw_human_confirmed_point_count = 0;
+static rclcpp::Time g_raw_human_last_confirmed_time;
+
+static rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr
+    g_human_guard_scan_publisher;
+
 // Short-horizon command latch.
 static bool g_human_planner_command_active = false;
 static rclcpp::Time g_human_planner_command_start_time;
@@ -6279,6 +12058,300 @@ static double normaliseAngleForFileScope(double angle_rad)
     }
 
     return angle_rad;
+}
+
+
+static RawHumanGuardCluster findRawHumanGuardCluster(
+    const sensor_msgs::msg::LaserScan &scan,
+    double expected_bearing,
+    bool target_locked,
+    double expected_range)
+{
+    RawHumanGuardCluster best;
+
+    if (scan.ranges.empty() || scan.angle_increment == 0.0)
+    {
+        return best;
+    }
+
+    bool cluster_active = false;
+    int cluster_start = -1;
+    int cluster_end = -1;
+    double previous_range = 0.0;
+    std::vector<double> cluster_ranges;
+    double sum_x = 0.0;
+    double sum_y = 0.0;
+
+    auto finishCluster = [&]()
+    {
+        if (!cluster_active)
+        {
+            return;
+        }
+
+        if (static_cast<int>(cluster_ranges.size()) >=
+            kHumanRawGuardMinPoints)
+        {
+            std::sort(cluster_ranges.begin(), cluster_ranges.end());
+            const std::size_t median_index = cluster_ranges.size() / 2;
+            const double median_range =
+                cluster_ranges.size() % 2 == 0
+                    ? 0.5 * (cluster_ranges[median_index - 1] +
+                             cluster_ranges[median_index])
+                    : cluster_ranges[median_index];
+            const std::size_t safety_index =
+                static_cast<std::size_t>(std::floor(
+                    0.20 * static_cast<double>(
+                        cluster_ranges.size() - 1)));
+            const double safety_range = cluster_ranges[safety_index];
+            const double centroid_x =
+                sum_x / static_cast<double>(cluster_ranges.size());
+            const double centroid_y =
+                sum_y / static_cast<double>(cluster_ranges.size());
+            const double bearing = std::atan2(centroid_y, centroid_x);
+            const double bearing_error = std::fabs(
+                normaliseAngleForFileScope(bearing - expected_bearing));
+
+            if (bearing_error <= kHumanCameraGuardWindow)
+            {
+                const double range_error =
+                    target_locked && expected_range > 0.0
+                        ? std::fabs(median_range - expected_range)
+                        : 0.0;
+
+                if (!target_locked ||
+                    range_error <= kHumanRawGuardTargetRangeGate)
+                {
+                    double score =
+                        4.0 * bearing_error /
+                            std::max(1e-6, kHumanCameraGuardWindow);
+
+                    if (target_locked)
+                    {
+                        score += 2.5 * range_error /
+                            kHumanRawGuardTargetRangeGate;
+                    }
+                    else
+                    {
+                        // Slightly prefer nearer coherent returns when no prior
+                        // target exists, but camera alignment remains dominant.
+                        score += 0.15 * std::clamp(
+                            median_range / 8.0, 0.0, 1.0);
+                    }
+
+                    score -= 0.25 * std::clamp(
+                        static_cast<double>(cluster_ranges.size()) / 8.0,
+                        0.0,
+                        1.0);
+
+                    if (score < best.score)
+                    {
+                        best.valid = true;
+                        best.start_index = cluster_start;
+                        best.end_index = cluster_end;
+                        best.point_count =
+                            static_cast<int>(cluster_ranges.size());
+                        best.bearing = bearing;
+                        best.median_range = median_range;
+                        best.safety_range = safety_range;
+                        best.score = score;
+                    }
+                }
+            }
+        }
+
+        cluster_active = false;
+        cluster_start = -1;
+        cluster_end = -1;
+        previous_range = 0.0;
+        cluster_ranges.clear();
+        sum_x = 0.0;
+        sum_y = 0.0;
+    };
+
+    for (int i = 0; i < static_cast<int>(scan.ranges.size()); ++i)
+    {
+        const double angle = scan.angle_min +
+            static_cast<double>(i) * scan.angle_increment;
+        const double bearing_error = std::fabs(
+            normaliseAngleForFileScope(angle - expected_bearing));
+        const double range = scan.ranges[i];
+
+        const bool usable =
+            bearing_error <= kHumanCameraGuardWindow &&
+            std::isfinite(range) &&
+            range > kMinValidRange &&
+            (scan.range_min <= 0.0 || range >= scan.range_min) &&
+            (scan.range_max <= 0.0 || range <= scan.range_max);
+
+        if (!usable)
+        {
+            finishCluster();
+            continue;
+        }
+
+        const bool joins_previous =
+            cluster_active &&
+            i == cluster_end + 1 &&
+            std::fabs(range - previous_range) <=
+                kHumanRawGuardMaxAdjacentRangeGap;
+
+        if (!cluster_active || !joins_previous)
+        {
+            finishCluster();
+            cluster_active = true;
+            cluster_start = i;
+            cluster_end = i;
+        }
+        else
+        {
+            cluster_end = i;
+        }
+
+        cluster_ranges.push_back(range);
+        sum_x += range * std::cos(angle);
+        sum_y += range * std::sin(angle);
+        previous_range = range;
+    }
+
+    finishCluster();
+    return best;
+}
+
+static void updateRawHumanGuard(
+    const RawHumanGuardCluster &candidate,
+    const rclcpp::Time &now)
+{
+    if (!candidate.valid)
+    {
+        g_raw_human_pending_valid = false;
+        g_raw_human_pending_hits = 0;
+        return;
+    }
+
+    const bool consistent_with_pending =
+        g_raw_human_pending_valid &&
+        std::fabs(candidate.median_range -
+                  g_raw_human_pending_range) <=
+            kHumanRawGuardCandidateRangeJump &&
+        std::fabs(normaliseAngleForFileScope(
+            candidate.bearing - g_raw_human_pending_bearing)) <=
+            kHumanRawGuardCandidateBearingJump;
+
+    if (consistent_with_pending)
+    {
+        g_raw_human_pending_range =
+            0.5 * g_raw_human_pending_range +
+            0.5 * candidate.median_range;
+        g_raw_human_pending_bearing = candidate.bearing;
+        g_raw_human_pending_hits++;
+    }
+    else
+    {
+        g_raw_human_pending_valid = true;
+        g_raw_human_pending_range = candidate.median_range;
+        g_raw_human_pending_bearing = candidate.bearing;
+        g_raw_human_pending_hits = 1;
+    }
+
+    if (g_raw_human_pending_hits <
+        kHumanRawGuardRequiredConfirmations)
+    {
+        return;
+    }
+
+    const bool confirmed_stale =
+        !g_raw_human_confirmed_valid ||
+        (now - g_raw_human_last_confirmed_time).seconds() >
+            kHumanRawGuardHoldSeconds;
+    const double confirmed_jump = std::fabs(
+        g_raw_human_pending_range - g_raw_human_confirmed_range);
+
+    if (!confirmed_stale &&
+        confirmed_jump > kHumanRawGuardCandidateRangeJump)
+    {
+        // Do not allow a new wall/noise return to replace the human in one
+        // update. It must persist until the previous guard has expired.
+        return;
+    }
+
+    if (confirmed_stale)
+    {
+        g_raw_human_confirmed_range =
+            g_raw_human_pending_range;
+        g_raw_human_confirmed_safety_range =
+            candidate.safety_range;
+    }
+    else
+    {
+        const double alpha =
+            g_raw_human_pending_range < g_raw_human_confirmed_range
+                ? kHumanFusionSafetyRangeAlphaDown
+                : kHumanFusionSafetyRangeAlphaUp;
+        g_raw_human_confirmed_range += alpha *
+            (g_raw_human_pending_range -
+             g_raw_human_confirmed_range);
+        g_raw_human_confirmed_safety_range += alpha *
+            (candidate.safety_range -
+             g_raw_human_confirmed_safety_range);
+    }
+
+    g_raw_human_confirmed_valid = true;
+    g_raw_human_confirmed_bearing = candidate.bearing;
+    g_raw_human_confirmed_start_index = candidate.start_index;
+    g_raw_human_confirmed_end_index = candidate.end_index;
+    g_raw_human_confirmed_point_count = candidate.point_count;
+    g_raw_human_last_confirmed_time = now;
+}
+
+static void expireRawHumanGuard(const rclcpp::Time &now)
+{
+    if (g_raw_human_confirmed_valid &&
+        (now - g_raw_human_last_confirmed_time).seconds() >
+            kHumanRawGuardHoldSeconds)
+    {
+        g_raw_human_confirmed_valid = false;
+        g_raw_human_confirmed_start_index = -1;
+        g_raw_human_confirmed_end_index = -1;
+        g_raw_human_confirmed_point_count = 0;
+    }
+}
+
+static void publishRawHumanGuardDebugScan(const rclcpp::Time &now)
+{
+    if (!g_human_guard_scan_publisher ||
+        !g_latest_raw_scan_valid ||
+        g_latest_raw_scan.ranges.empty())
+    {
+        return;
+    }
+
+    sensor_msgs::msg::LaserScan debug_scan = g_latest_raw_scan;
+    std::fill(
+        debug_scan.ranges.begin(),
+        debug_scan.ranges.end(),
+        std::numeric_limits<float>::infinity());
+
+    const bool held_guard_valid =
+        g_raw_human_confirmed_valid &&
+        (now - g_raw_human_last_confirmed_time).seconds() <=
+            kHumanRawGuardHoldSeconds;
+
+    if (held_guard_valid)
+    {
+        const int start = std::max(
+            0, g_raw_human_confirmed_start_index);
+        const int end = std::min(
+            static_cast<int>(g_latest_raw_scan.ranges.size()) - 1,
+            g_raw_human_confirmed_end_index);
+
+        for (int i = start; i <= end; ++i)
+        {
+            debug_scan.ranges[i] = g_latest_raw_scan.ranges[i];
+        }
+    }
+
+    g_human_guard_scan_publisher->publish(debug_scan);
 }
 
 static bool isRearBeamAngle(double angle_rad)
@@ -6501,6 +12574,21 @@ static void resetHumanMotionController()
     g_human_camera_guided_lidar_guard_valid = false;
     g_human_camera_guided_guard_range =
         std::numeric_limits<double>::infinity();
+    g_raw_human_last_processed_sequence = g_latest_raw_scan_sequence;
+    g_raw_human_pending_valid = false;
+    g_raw_human_pending_range =
+        std::numeric_limits<double>::infinity();
+    g_raw_human_pending_bearing = 0.0;
+    g_raw_human_pending_hits = 0;
+    g_raw_human_confirmed_valid = false;
+    g_raw_human_confirmed_range =
+        std::numeric_limits<double>::infinity();
+    g_raw_human_confirmed_safety_range =
+        std::numeric_limits<double>::infinity();
+    g_raw_human_confirmed_bearing = 0.0;
+    g_raw_human_confirmed_start_index = -1;
+    g_raw_human_confirmed_end_index = -1;
+    g_raw_human_confirmed_point_count = 0;
 }
 
 static bool humanDetectionCooldownActive(const rclcpp::Time &now)
@@ -6711,6 +12799,13 @@ static void writeHumanPlannerDebugLog(
     log << "Camera-guided LiDAR guard: "
         << (g_human_camera_guided_lidar_guard_valid ? "valid" : "unavailable")
         << ", range=" << g_human_camera_guided_guard_range << " m\n";
+    log << "Raw human guard pending confirmations: "
+        << g_raw_human_pending_hits << "/"
+        << kHumanRawGuardRequiredConfirmations << "\n";
+    log << "Raw human guard confirmed: "
+        << (g_raw_human_confirmed_valid ? "yes" : "no")
+        << ", points=" << g_raw_human_confirmed_point_count
+        << ", range=" << g_raw_human_confirmed_range << " m\n";
     log << "Target locked: " << (g_human_target_locked ? "yes" : "no") << "\n";
     log << "Target point: x=" << g_human_target_x << " y=" << g_human_target_y << " m\n";
     log << "Target snapshot points: " << g_human_target_snapshot_point_count << "\n";
@@ -6909,6 +13004,11 @@ MechelangeloBehaviour::MechelangeloBehaviour()
     filtered_scan_publisher_ = this->create_publisher<sensor_msgs::msg::LaserScan>(
         "/scan_filtered",
         rclcpp::SensorDataQoS());
+
+    g_human_guard_scan_publisher =
+        this->create_publisher<sensor_msgs::msg::LaserScan>(
+            "/scan_human_guard",
+            rclcpp::SensorDataQoS());
 
     obstacle_marker_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>(
         "/behaviour_obstacle_markers",
@@ -7755,21 +13855,18 @@ void MechelangeloBehaviour::controlLoop()
             (now - g_human_target_last_lidar_match_time).seconds() <=
                 kHumanTargetLidarTrackTimeout;
 
-        // The camera is the primary bearing source, but never a distance
-        // source. If a coherent LiDAR segment is unavailable, use the nearest
-        // valid LiDAR return in a narrow cone around the visual bearing as a
-        // conservative fallback range. This fallback is sufficient to keep
-        // moving slowly in a clear room and prevents the stale-segment branch
-        // from overriding the camera-guided command every control cycle.
-        // Stay in fallback mode whenever the current scan has no coherent
-        // associated segment, even if the previous fallback guard is still
-        // within its freshness timeout. This refreshes the LiDAR guard every
-        // control cycle instead of only once per timeout window.
+        // The camera remains the identity/bearing source. If no strict filtered
+        // segment can be associated, search the UNFILTERED scan only inside the
+        // narrow camera cone. Sparse leg returns are accepted only after they
+        // form a two-point cluster in two distinct scans. Sudden range jumps are
+        // rejected, and the last valid guard is held briefly through flicker.
         g_human_camera_guided_mode_active =
             visual_fresh && !associated_cluster.valid;
         g_human_camera_guided_lidar_guard_valid = false;
         g_human_camera_guided_guard_range =
             std::numeric_limits<double>::infinity();
+
+        expireRawHumanGuard(now);
 
         if (visual_fresh)
         {
@@ -7777,19 +13874,46 @@ void MechelangeloBehaviour::controlLoop()
 
             if (g_human_camera_guided_mode_active)
             {
-                const double guard_range = getMinimumRange(
-                    camera_bearing - kHumanCameraGuardWindow,
-                    camera_bearing + kHumanCameraGuardWindow);
+                const bool raw_scan_fresh =
+                    g_latest_raw_scan_valid &&
+                    (now - g_latest_raw_scan_receive_time).seconds() <=
+                        kHumanRawScanFreshTimeout;
+
+                if (raw_scan_fresh &&
+                    g_latest_raw_scan_sequence !=
+                        g_raw_human_last_processed_sequence)
+                {
+                    const RawHumanGuardCluster raw_candidate =
+                        findRawHumanGuardCluster(
+                            g_latest_raw_scan,
+                            camera_bearing,
+                            g_human_target_locked,
+                            g_fused_human_range);
+                    updateRawHumanGuard(raw_candidate, now);
+                    g_raw_human_last_processed_sequence =
+                        g_latest_raw_scan_sequence;
+                }
+
                 g_human_camera_guided_lidar_guard_valid =
-                    std::isfinite(guard_range) &&
-                    guard_range > kMinValidRange;
-                g_human_camera_guided_guard_range = guard_range;
+                    raw_scan_fresh &&
+                    g_raw_human_confirmed_valid &&
+                    (now - g_raw_human_last_confirmed_time).seconds() <=
+                        kHumanRawGuardHoldSeconds;
+                g_human_camera_guided_guard_range =
+                    g_human_camera_guided_lidar_guard_valid
+                        ? g_raw_human_confirmed_range
+                        : std::numeric_limits<double>::infinity();
                 g_human_camera_guided_cycle_count++;
 
                 if (g_human_camera_guided_lidar_guard_valid)
                 {
-                    // Build or refresh a target using camera bearing and LiDAR
-                    // guard range only. No camera depth is used here.
+                    const double guard_range =
+                        g_raw_human_confirmed_range;
+                    const double guard_safety_range =
+                        std::isfinite(
+                            g_raw_human_confirmed_safety_range)
+                            ? g_raw_human_confirmed_safety_range
+                            : guard_range;
                     const double measurement_x =
                         guard_range * std::cos(camera_bearing);
                     const double measurement_y =
@@ -7801,7 +13925,8 @@ void MechelangeloBehaviour::controlLoop()
                         (measurement_x - g_human_target_x);
                     g_human_target_y += alpha *
                         (measurement_y - g_human_target_y);
-                    g_human_target_safety_range = guard_range;
+                    g_human_target_safety_range =
+                        guard_safety_range;
                     g_human_target_locked = true;
                     g_human_target_confidence =
                         HumanTargetConfidence::LIDAR_TRACKED;
@@ -7813,19 +13938,30 @@ void MechelangeloBehaviour::controlLoop()
                     g_fused_human_range = std::hypot(
                         g_human_target_x, g_human_target_y);
                     g_fused_human_bearing = camera_bearing;
-                    g_fused_human_safety_range = guard_range;
+                    g_fused_human_safety_range =
+                        guard_safety_range;
                     g_fused_human_valid = true;
                     lidar_fresh = true;
                 }
+
+                publishRawHumanGuardDebugScan(now);
 
                 RCLCPP_WARN_THROTTLE(
                     this->get_logger(),
                     *this->get_clock(),
                     1000,
-                    "HUMAN_CAMERA_GUIDED: Human visible; camera supplies bearing only. LiDAR guard=%s %.2f m. Slow translation is %s.",
-                    g_human_camera_guided_lidar_guard_valid ? "valid" : "unavailable",
+                    "HUMAN_CAMERA_GUIDED: raw_guard=%s range=%.2f m points=%d pending=%d/%d raw_fresh=%s. Slow translation is %s.",
+                    g_human_camera_guided_lidar_guard_valid
+                        ? "confirmed"
+                        : "unavailable",
                     g_human_camera_guided_guard_range,
-                    g_human_camera_guided_lidar_guard_valid ? "enabled" : "disabled");
+                    g_raw_human_confirmed_point_count,
+                    g_raw_human_pending_hits,
+                    kHumanRawGuardRequiredConfirmations,
+                    raw_scan_fresh ? "yes" : "no",
+                    g_human_camera_guided_lidar_guard_valid
+                        ? "enabled"
+                        : "disabled");
             }
         }
 
@@ -10116,6 +16252,11 @@ void MechelangeloBehaviour::stopRobot(geometry_msgs::msg::Twist &twist)
 
 void MechelangeloBehaviour::laserScanCallback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
 {
+    g_latest_raw_scan = *msg;
+    g_latest_raw_scan_valid = true;
+    g_latest_raw_scan_receive_time = this->now();
+    g_latest_raw_scan_sequence++;
+
     const sensor_msgs::msg::LaserScan filtered_scan = filterLaserScan(*msg);
 
     latest_scan_ = filtered_scan;
