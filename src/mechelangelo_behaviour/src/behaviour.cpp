@@ -11546,7 +11546,7 @@ static constexpr double kHumanRawGuardCandidateRangeJump = 0.40;  // m
 static constexpr double kHumanRawGuardCandidateBearingJump =
     15.0 * M_PI / 180.0;
 static constexpr double kHumanRawGuardTargetRangeGate = 0.90;     // m
-static constexpr int kHumanRawGuardRequiredConfirmations = 2;
+static constexpr int kHumanRawGuardRequiredConfirmations = 1;
 static constexpr double kHumanRawGuardHoldSeconds = 2.50;
 static constexpr double kHumanRawScanFreshTimeout = 0.85;
 
