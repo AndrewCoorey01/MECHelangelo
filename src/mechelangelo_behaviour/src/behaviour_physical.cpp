@@ -10068,7 +10068,6 @@
 //     rclcpp::shutdown();
 //     return 0;
 // }
-
 /////////////////////////////////////////////////////////////////////////
 /// DVD bounce LiDAR exploration + camera/dual-ultrasonic human approach
 
@@ -10111,19 +10110,16 @@ static constexpr double kControlPeriodSeconds = 0.1;
 // Simulation used 0.26 m/s and 0.60 rad/s. The earlier physical build used
 // 0.12 m/s and 0.375 rad/s. The base driver caps linear velocity at 0.15 m/s,
 // so 0.15 m/s is the fastest useful value between the two. The autonomous turn
-// cap is set midway between the physical and simulation values.
+// command stays above the measured motor dead zone and below the 0.45 driver cap.
 static constexpr double kForwardSpeed = 0.15;       // m/s, autonomous DVD cruise only
-static constexpr double kTurnSpeed = 0.48;          // rad/s, autonomous maximum only
-static constexpr double kMinimumReliableTurnSpeed = 0.375; // rad/s, measured motor dead-zone threshold
-static constexpr double kAngleGain = 0.68;          // between earlier physical 0.55 and simulation 0.80
-static constexpr double kAlignmentTolerance = 0.12; // radians, about 6.9 degrees
+static constexpr double kTurnSpeed = 0.425;          // rad/s, reliable physical turn below driver cap
 
-// IMU is the primary turn validator. Open-loop integration is only a watchdog
-// fallback if IMU messages are stale or yaw makes no measurable progress.
-static constexpr double kAutonomousImuFreshTimeout = 0.60; // s
-static constexpr double kAutonomousImuProgressTimeout = 1.50; // s
-static constexpr double kAutonomousImuProgressThreshold = 1.0 * M_PI / 180.0; // rad
-static constexpr int kAutonomousAlignmentStableSamples = 3;
+// Physical DVD turns deliberately do NOT use IMU yaw. The Sense HAT yaw was
+// observed to wrap/drift during continuous rotation and previously trapped the
+// robot in circles. Turn duration is calibrated from physical tests instead.
+static constexpr double kAutonomousTimedTurnRatePositive = 0.30; // rad/s, left/positive
+static constexpr double kAutonomousTimedTurnRateNegative = 0.27; // rad/s, right/negative
+static constexpr double kAutonomousMaximumTurnDuration = 7.0;    // hard anti-circle limit
 static constexpr double kAutonomousPostTurnSettleSeconds = 0.40; // s
 
 // Require the same filtered wall to appear in several new LiDAR scans before
@@ -10178,12 +10174,12 @@ static constexpr double kDvdSectorEdgeMargin = 10.0 * M_PI / 180.0; // radians
 //   +/-180  = drive exactly back along the previous path
 // The robot randomly chooses inside this safe side band when possible.
 static constexpr double kDvdPreferredMinTurnAngle = 55.0 * M_PI / 180.0;  // radians
-static constexpr double kDvdPreferredMaxTurnAngle = 150.0 * M_PI / 180.0; // radians
+static constexpr double kDvdPreferredMaxTurnAngle = 110.0 * M_PI / 180.0; // radians, avoid long spins
 
 // Fallback band used if the preferred side-bounce band has no safe candidates.
 // This still avoids the front wall and avoids exact reverse.
 static constexpr double kDvdAvoidFrontAngle = 35.0 * M_PI / 180.0;  // radians
-static constexpr double kDvdAvoidReverseAngle = 165.0 * M_PI / 180.0; // radians
+static constexpr double kDvdAvoidReverseAngle = 120.0 * M_PI / 180.0; // radians, absolute turn cap
 
 // ------------------------------------------------------
 // LaserScan noise suppression constants
@@ -10208,11 +10204,10 @@ static constexpr double kSegmentMinLength = 0.12;        // m reject tiny object
 // ------------------------------------------------------
 static bool g_autonomous_imu_message_received = false;
 static rclcpp::Time g_autonomous_last_imu_time;
-static bool g_autonomous_open_loop_fallback = false;
-static double g_autonomous_open_loop_remaining_angle = 0.0;
-static double g_autonomous_last_progress_yaw = 0.0;
-static rclcpp::Time g_autonomous_last_progress_time;
-static int g_autonomous_alignment_stable_samples = 0;
+static rclcpp::Time g_autonomous_timed_turn_start_time;
+static double g_autonomous_timed_turn_duration = 0.0;
+static double g_autonomous_timed_turn_rate = kAutonomousTimedTurnRatePositive;
+static int g_autonomous_last_dvd_turn_sign = 0;
 static bool g_autonomous_alignment_settling = false;
 static rclcpp::Time g_autonomous_alignment_settle_start_time;
 static std::uint64_t g_autonomous_alignment_settle_scan_generation = 0;
@@ -11622,9 +11617,9 @@ void MechelangeloBehaviour::blindAutonomous()
     target_range_ = 0.0;
     stop_counter_ = 0;
     align_yaw_initialised_ = false;
-    g_autonomous_open_loop_fallback = false;
-    g_autonomous_open_loop_remaining_angle = 0.0;
-    g_autonomous_alignment_stable_samples = 0;
+    g_autonomous_timed_turn_duration = 0.0;
+    g_autonomous_timed_turn_rate = kAutonomousTimedTurnRatePositive;
+    g_autonomous_last_dvd_turn_sign = 0;
     g_autonomous_alignment_settling = false;
     g_autonomous_blocked_scan_count = 0;
     g_autonomous_last_evaluated_scan_generation = g_filtered_scan_generation;
@@ -11705,9 +11700,10 @@ void MechelangeloBehaviour::controlLoop()
         target_angle_ = longest_angle;
         target_range_ = longest_range;
         align_yaw_initialised_ = false;
-        g_autonomous_open_loop_fallback = false;
-        g_autonomous_open_loop_remaining_angle = target_angle_;
-        g_autonomous_alignment_stable_samples = 0;
+        g_autonomous_timed_turn_duration = 0.0;
+        g_autonomous_timed_turn_rate = target_angle_ >= 0.0
+            ? kAutonomousTimedTurnRatePositive
+            : kAutonomousTimedTurnRateNegative;
         g_autonomous_alignment_settling = false;
 
         RCLCPP_INFO(
@@ -11726,8 +11722,8 @@ void MechelangeloBehaviour::controlLoop()
         twist.linear.x = 0.0;
         const rclcpp::Time now = this->now();
 
-        // After the IMU has confirmed the requested heading, hold still briefly
-        // and require a fresh filtered scan before allowing forward movement.
+        // After the calibrated timed turn, hold still and require a fresh
+        // filtered scan before allowing forward motion.
         if (g_autonomous_alignment_settling)
         {
             twist.angular.z = 0.0;
@@ -11756,149 +11752,87 @@ void MechelangeloBehaviour::controlLoop()
                     RCLCPP_WARN(
                         this->get_logger(),
                         "ALIGNING: Fresh post-turn scan is still blocked. "
-                        "Selecting another DVD heading without a short forward move.");
+                        "Selecting another bounded DVD heading without moving forward.");
                     current_state_ = NavigationState::SEARCHING;
                 }
                 else
                 {
                     RCLCPP_INFO(
                         this->get_logger(),
-                        "ALIGNING: IMU-validated turn settled and fresh scan is clear. "
-                        "Starting DVD forward movement.");
+                        "ALIGNING: Calibrated timed turn complete and fresh "
+                        "filtered scan is clear. Starting DVD forward movement.");
                     current_state_ = NavigationState::MOVING;
                 }
             }
             break;
         }
 
-        const bool imu_fresh =
-            g_autonomous_imu_message_received &&
-            (now - g_autonomous_last_imu_time).seconds() <=
-                kAutonomousImuFreshTimeout;
-
-        double remaining_angle = g_autonomous_open_loop_remaining_angle;
-        double yaw_turned = 0.0;
-
-        if (imu_fresh && !g_autonomous_open_loop_fallback)
+        // Initialise one bounded physical turn. IMU yaw is intentionally not
+        // consulted here because it previously failed to accumulate rotation
+        // and kept the base turning indefinitely.
+        if (!align_yaw_initialised_)
         {
-            tf2::Quaternion q;
-            tf2::fromMsg(latest_imu_.orientation, q);
-            const double current_yaw = tf2::getYaw(q);
+            align_yaw_initialised_ = true;
+            g_autonomous_timed_turn_start_time = now;
+            g_autonomous_timed_turn_rate = target_angle_ >= 0.0
+                ? kAutonomousTimedTurnRatePositive
+                : kAutonomousTimedTurnRateNegative;
+            g_autonomous_timed_turn_duration = std::min(
+                std::fabs(target_angle_) /
+                    std::max(0.05, g_autonomous_timed_turn_rate),
+                kAutonomousMaximumTurnDuration);
 
-            if (!align_yaw_initialised_)
-            {
-                align_start_yaw_ = current_yaw;
-                align_yaw_initialised_ = true;
-                g_autonomous_last_progress_yaw = 0.0;
-                g_autonomous_last_progress_time = now;
-            }
-
-            yaw_turned = normaliseAngle(current_yaw - align_start_yaw_);
-            remaining_angle = normaliseAngle(target_angle_ - yaw_turned);
-            // Keep the last IMU-measured remainder ready in case the IMU becomes
-            // stale later in this same turn.
-            g_autonomous_open_loop_remaining_angle = remaining_angle;
-
-            if (std::fabs(normaliseAngle(
-                    yaw_turned - g_autonomous_last_progress_yaw)) >=
-                kAutonomousImuProgressThreshold)
-            {
-                g_autonomous_last_progress_yaw = yaw_turned;
-                g_autonomous_last_progress_time = now;
-            }
-            else if ((now - g_autonomous_last_progress_time).seconds() >=
-                     kAutonomousImuProgressTimeout)
-            {
-                // Do not spin forever if the physical IMU freezes. Continue only
-                // for the remaining measured angle using a bounded timed fallback.
-                g_autonomous_open_loop_fallback = true;
-                g_autonomous_open_loop_remaining_angle = remaining_angle;
-                align_yaw_initialised_ = false;
-
-                RCLCPP_ERROR(
-                    this->get_logger(),
-                    "ALIGNING: IMU yaw made no progress for %.1f s. "
-                    "Falling back to timed integration for the remaining %.2f deg.",
-                    kAutonomousImuProgressTimeout,
-                    remaining_angle * 180.0 / M_PI);
-            }
-        }
-        else
-        {
-            if (!g_autonomous_open_loop_fallback)
-            {
-                g_autonomous_open_loop_fallback = true;
-                g_autonomous_open_loop_remaining_angle = target_angle_;
-                RCLCPP_WARN(
-                    this->get_logger(),
-                    "ALIGNING: IMU unavailable or stale. Using bounded timed "
-                    "fallback for this autonomous turn.");
-            }
-            remaining_angle = g_autonomous_open_loop_remaining_angle;
+            RCLCPP_INFO(
+                this->get_logger(),
+                "ALIGNING: Starting calibrated timed DVD turn. target=%.2f deg, "
+                "cmd=%.3f rad/s, estimated_rate=%.3f rad/s, duration=%.2f s.",
+                target_angle_ * 180.0 / M_PI,
+                std::copysign(kTurnSpeed, target_angle_),
+                g_autonomous_timed_turn_rate,
+                g_autonomous_timed_turn_duration);
         }
 
-        if (std::fabs(remaining_angle) <= kAlignmentTolerance)
+        const double elapsed =
+            (now - g_autonomous_timed_turn_start_time).seconds();
+
+        if (elapsed >= g_autonomous_timed_turn_duration ||
+            elapsed >= kAutonomousMaximumTurnDuration)
         {
             twist.angular.z = 0.0;
-            g_autonomous_alignment_stable_samples++;
+            g_autonomous_alignment_settling = true;
+            g_autonomous_alignment_settle_start_time = now;
+            g_autonomous_alignment_settle_scan_generation =
+                g_filtered_scan_generation;
 
-            if (g_autonomous_alignment_stable_samples >=
-                kAutonomousAlignmentStableSamples)
-            {
-                g_autonomous_alignment_settling = true;
-                g_autonomous_alignment_settle_start_time = now;
-                g_autonomous_alignment_settle_scan_generation =
-                    g_filtered_scan_generation;
-
-                RCLCPP_INFO(
-                    this->get_logger(),
-                    "ALIGNING: Heading confirmed within %.1f deg for %d samples. "
-                    "Holding for a fresh post-turn scan.",
-                    kAlignmentTolerance * 180.0 / M_PI,
-                    kAutonomousAlignmentStableSamples);
-            }
+            RCLCPP_INFO(
+                this->get_logger(),
+                "ALIGNING: Timed turn ended after %.2f s. Holding for a fresh "
+                "post-turn filtered scan.",
+                elapsed);
             break;
         }
 
-        g_autonomous_alignment_stable_samples = 0;
+        twist.angular.z = std::copysign(kTurnSpeed, target_angle_);
 
-        const double proportional_magnitude =
-            std::fabs(remaining_angle) * kAngleGain;
-        const double turn_magnitude = std::clamp(
-            proportional_magnitude,
-            kMinimumReliableTurnSpeed,
-            kTurnSpeed);
-        const double turn_cmd =
-            std::copysign(turn_magnitude, remaining_angle);
-        twist.angular.z = turn_cmd;
+        const double remaining_magnitude = std::max(
+            0.0,
+            std::fabs(target_angle_) -
+                elapsed * g_autonomous_timed_turn_rate);
+        const double remaining_angle = std::copysign(
+            remaining_magnitude,
+            target_angle_);
 
-        if (g_autonomous_open_loop_fallback)
-        {
-            g_autonomous_open_loop_remaining_angle = normaliseAngle(
-                g_autonomous_open_loop_remaining_angle -
-                turn_cmd * kControlPeriodSeconds);
-
-            RCLCPP_WARN_THROTTLE(
-                this->get_logger(),
-                *this->get_clock(),
-                1000,
-                "ALIGNING: Timed safety fallback. Remaining %.2f deg, cmd %.3f rad/s.",
-                g_autonomous_open_loop_remaining_angle * 180.0 / M_PI,
-                twist.angular.z);
-        }
-        else
-        {
-            RCLCPP_INFO_THROTTLE(
-                this->get_logger(),
-                *this->get_clock(),
-                1000,
-                "ALIGNING: IMU validated. Target %.2f deg, turned %.2f deg, "
-                "remaining %.2f deg, cmd %.3f rad/s.",
-                target_angle_ * 180.0 / M_PI,
-                yaw_turned * 180.0 / M_PI,
-                remaining_angle * 180.0 / M_PI,
-                twist.angular.z);
-        }
+        RCLCPP_INFO_THROTTLE(
+            this->get_logger(),
+            *this->get_clock(),
+            1000,
+            "ALIGNING: Calibrated timed turn. target %.2f deg, "
+            "estimated remaining %.2f deg, elapsed %.2f/%.2f s, cmd %.3f rad/s.",
+            target_angle_ * 180.0 / M_PI,
+            remaining_angle * 180.0 / M_PI,
+            elapsed,
+            g_autonomous_timed_turn_duration,
+            twist.angular.z);
         break;
     }
 
@@ -13283,8 +13217,22 @@ bool MechelangeloBehaviour::getLongestRange(double &out_angle, double &out_range
 
         if (!left_candidates.empty() && !right_candidates.empty())
         {
-            std::uniform_int_distribution<int> side_dist(0, 1);
+            // Alternate away from the previous turn direction when both sides
+            // are available. This prevents repeated same-direction bounces from
+            // tracing circles around one part of the room.
+            if (g_autonomous_last_dvd_turn_sign > 0)
+            {
+                used_right_side = true;
+                return chooseFromCandidates(right_candidates);
+            }
 
+            if (g_autonomous_last_dvd_turn_sign < 0)
+            {
+                used_left_side = true;
+                return chooseFromCandidates(left_candidates);
+            }
+
+            std::uniform_int_distribution<int> side_dist(0, 1);
             if (side_dist(rng) == 0)
             {
                 used_left_side = true;
@@ -13341,6 +13289,7 @@ bool MechelangeloBehaviour::getLongestRange(double &out_angle, double &out_range
         g_dvd_heading_selection_count++;
         out_angle = angleForIndex(selected_index);
         out_range = rangeForLog(selected_index);
+        g_autonomous_last_dvd_turn_sign = out_angle >= 0.0 ? 1 : -1;
 
         {
             std::ofstream log(debugLogPath(kDvdDebugLogFilename));
@@ -13413,6 +13362,11 @@ bool MechelangeloBehaviour::getLongestRange(double &out_angle, double &out_range
     {
         const double range = latest_scan_.ranges[i];
 
+        if (!isFallbackBounceAngle(i))
+        {
+            continue;
+        }
+
         if (isRangeValid(range) && range > max_finite_range)
         {
             max_finite_range = range;
@@ -13433,7 +13387,10 @@ bool MechelangeloBehaviour::getLongestRange(double &out_angle, double &out_range
     for (int i = 0; i < scan_count; ++i)
     {
         const double range = latest_scan_.ranges[i];
-        near_longest[i] = isRangeValid(range) && range >= tied_range_threshold;
+        near_longest[i] =
+            isFallbackBounceAngle(i) &&
+            isRangeValid(range) &&
+            range >= tied_range_threshold;
     }
 
     int best_start_index = max_finite_index;
@@ -13479,6 +13436,7 @@ bool MechelangeloBehaviour::getLongestRange(double &out_angle, double &out_range
     g_dvd_heading_selection_count++;
     out_angle = normaliseAngle(latest_scan_.angle_min + best_mid_index * latest_scan_.angle_increment);
     out_range = max_finite_range;
+    g_autonomous_last_dvd_turn_sign = out_angle >= 0.0 ? 1 : -1;
 
     {
         std::ofstream log(debugLogPath(kDvdDebugLogFilename));
