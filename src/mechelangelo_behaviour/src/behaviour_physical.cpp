@@ -10124,8 +10124,11 @@ static constexpr double kAutonomousPostTurnSettleSeconds = 0.40; // s
 
 // Require the same filtered wall to appear in several new LiDAR scans before
 // committing to a full stop. This rejects one-scan coherent noise clusters.
-static constexpr int kAutonomousWallConfirmationScans = 3;
-static constexpr double kAutonomousMinimumKnownFrontFraction = 0.45;
+static constexpr int kAutonomousWallConfirmationScans = 2;
+// The physical scan normally retains only about 23-35% of the front beams
+// after the heavy filter. A 45% gate permanently stopped the robot. Keep a
+// small catastrophic-quality guard, but do not require a nearly complete scan.
+static constexpr double kAutonomousMinimumKnownFrontFraction = 0.20;
 
 // Smooth commanded stops so the physical base does not snap from motion to zero
 // in one control tick. At the 100 ms control period, these remove roughly
@@ -11966,15 +11969,23 @@ void MechelangeloBehaviour::controlLoop()
 
         if (blocked_now && g_autonomous_blocked_scan_count > 0)
         {
+            // Do not keep driving toward a possible wall while waiting for the
+            // second filtered scan. Hold immediately, but only enter the full
+            // STOPPED/turn cycle after the wall is confirmed. A one-scan noise
+            // cluster therefore causes only a brief pause, not a DVD bounce.
+            twist.linear.x = 0.0;
+            twist.angular.z = 0.0;
+
             RCLCPP_WARN_THROTTLE(
                 this->get_logger(),
                 *this->get_clock(),
                 500,
                 "MOVING: Possible wall %.2f m; confirmation %d/%d. "
-                "Continuing while waiting for new filtered scans.",
+                "Holding position for the next filtered scan.",
                 front_range,
                 g_autonomous_blocked_scan_count,
                 kAutonomousWallConfirmationScans);
+            break;
         }
         else if (std::isinf(front_range))
         {
