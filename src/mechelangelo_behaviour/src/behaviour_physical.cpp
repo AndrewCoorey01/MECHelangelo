@@ -10113,6 +10113,9 @@ static constexpr double kControlPeriodSeconds = 0.1;
 // command stays above the measured motor dead zone and below the 0.45 driver cap.
 static constexpr double kForwardSpeed = 0.15;       // m/s, autonomous DVD cruise only
 static constexpr double kTurnSpeed = 0.425;          // rad/s, reliable physical turn below driver cap
+static constexpr double kAngleGain = 0.55;           // proportional open-loop DVD turning gain
+static constexpr double kAlignmentTolerance = 0.12;  // radians, about 6.9 degrees
+static constexpr double kTurnAngularAcceleration = 0.45; // rad/s^2
 
 // Physical DVD turns deliberately do NOT use IMU yaw. The Sense HAT yaw was
 // observed to wrap/drift during continuous rotation and previously trapped the
@@ -10130,18 +10133,18 @@ static constexpr int kAutonomousWallConfirmationScans = 2;
 // small catastrophic-quality guard, but do not require a nearly complete scan.
 static constexpr double kAutonomousMinimumKnownFrontFraction = 0.20;
 
-// Smooth commanded stops so the physical base does not snap from motion to zero
-// in one control tick. At the 100 ms control period, these remove roughly
-// 0.04 m/s and 0.12 rad/s from the command each loop.
-static constexpr double kStopLinearDecel = 0.4;  // m/s^2
-static constexpr double kStopAngularDecel = 1.2; // rad/s^2
+// Smooth commanded stops so the physical base does not snap from motion to zero.
+// These values intentionally take roughly 1.5-2.0 seconds to bleed off normal
+// exploration motion so the physical robot does not pitch when stopping.
+static constexpr double kStopLinearDecel = 0.16;  // m/s^2
+static constexpr double kStopAngularDecel = 0.45; // rad/s^2
 
 // Stop this far before a real obstacle/wall.
 // Loaded from the ROS parameter 'stop_distance_m'.
 // The physical launch currently supplies 1.5 m, as requested.
 
-// 10 loops x 0.1 s = 1 second.
-static constexpr int kStopDurationLoops = 10; // 1.0 s physical autonomous pause
+// 20 loops x 0.1 s = 2 seconds.
+static constexpr int kStopDurationLoops = 20; // physical autonomous pause
 
 // Ignore returns too close to the robot body / lidar blind spot.
 static constexpr double kMinValidRange = 0.5; // m
@@ -11613,9 +11616,7 @@ void MechelangeloBehaviour::blindAutonomous()
     blind_autonomous_active_ = true;
     safety_zone_violated_ = false;
     safety_zone_baseline_captured_ = false;
-    // DVD behaviour begins by driving straight. A bounce heading is selected
-    // only after the filtered LiDAR reports a wall in front.
-    current_state_ = NavigationState::MOVING;
+    current_state_ = NavigationState::SEARCHING;
     target_angle_ = 0.0;
     target_range_ = 0.0;
     stop_counter_ = 0;
@@ -11723,118 +11724,45 @@ void MechelangeloBehaviour::controlLoop()
     {
         clearObstacleMarkers();
         twist.linear.x = 0.0;
-        const rclcpp::Time now = this->now();
 
-        // After the calibrated timed turn, hold still and require a fresh
-        // filtered scan before allowing forward motion.
-        if (g_autonomous_alignment_settling)
+        // Physical DVD exploration uses open-loop command integration instead
+        // of IMU validation. It simply turns toward the selected DVD heading,
+        // then starts driving straight. It deliberately does not wait for a
+        // fresh "clear" scan after the turn.
+        if (std::fabs(target_angle_) <= kAlignmentTolerance)
         {
-            twist.angular.z = 0.0;
-            const double settle_elapsed =
-                (now - g_autonomous_alignment_settle_start_time).seconds();
-            const bool fresh_scan_received =
-                g_filtered_scan_generation >
-                    g_autonomous_alignment_settle_scan_generation;
-
-            if (settle_elapsed >= kAutonomousPostTurnSettleSeconds &&
-                fresh_scan_received)
+            stopRobot(twist);
+            if (std::fabs(twist.angular.z) <= 1e-6)
             {
-                std::vector<LaserSegment> blocking_segments;
-                const bool still_blocked =
-                    findBlockingObstaclesInFront(blocking_segments) ||
-                    getFrontRange() <= stop_distance_m_;
-
-                g_autonomous_alignment_settling = false;
+                RCLCPP_INFO(
+                    this->get_logger(),
+                    "ALIGNING: Physical DVD turn complete. Starting forward movement.");
                 align_yaw_initialised_ = false;
-                g_autonomous_blocked_scan_count = 0;
-                g_autonomous_last_evaluated_scan_generation =
-                    g_filtered_scan_generation;
-
-                if (still_blocked)
-                {
-                    RCLCPP_WARN(
-                        this->get_logger(),
-                        "ALIGNING: Fresh post-turn scan is still blocked. "
-                        "Selecting another bounded DVD heading without moving forward.");
-                    current_state_ = NavigationState::SEARCHING;
-                }
-                else
-                {
-                    RCLCPP_INFO(
-                        this->get_logger(),
-                        "ALIGNING: Calibrated timed turn complete and fresh "
-                        "filtered scan is clear. Starting DVD forward movement.");
-                    current_state_ = NavigationState::MOVING;
-                }
+                current_state_ = NavigationState::MOVING;
             }
             break;
         }
 
-        // Initialise one bounded physical turn. IMU yaw is intentionally not
-        // consulted here because it previously failed to accumulate rotation
-        // and kept the base turning indefinitely.
-        if (!align_yaw_initialised_)
-        {
-            align_yaw_initialised_ = true;
-            g_autonomous_timed_turn_start_time = now;
-            g_autonomous_timed_turn_rate = target_angle_ >= 0.0
-                ? kAutonomousTimedTurnRatePositive
-                : kAutonomousTimedTurnRateNegative;
-            g_autonomous_timed_turn_duration = std::min(
-                std::fabs(target_angle_) /
-                    std::max(0.05, g_autonomous_timed_turn_rate),
-                kAutonomousMaximumTurnDuration);
+        const double desired_turn_cmd = std::clamp(
+            target_angle_ * kAngleGain, -kTurnSpeed, kTurnSpeed);
+        const double max_turn_step =
+            kTurnAngularAcceleration * kControlPeriodSeconds;
+        const double turn_cmd =
+            current_twist_.angular.z + std::clamp(
+                desired_turn_cmd - current_twist_.angular.z,
+                -max_turn_step,
+                max_turn_step);
 
-            RCLCPP_INFO(
-                this->get_logger(),
-                "ALIGNING: Starting calibrated timed DVD turn. target=%.2f deg, "
-                "cmd=%.3f rad/s, estimated_rate=%.3f rad/s, duration=%.2f s.",
-                target_angle_ * 180.0 / M_PI,
-                std::copysign(kTurnSpeed, target_angle_),
-                g_autonomous_timed_turn_rate,
-                g_autonomous_timed_turn_duration);
-        }
-
-        const double elapsed =
-            (now - g_autonomous_timed_turn_start_time).seconds();
-
-        if (elapsed >= g_autonomous_timed_turn_duration ||
-            elapsed >= kAutonomousMaximumTurnDuration)
-        {
-            twist.angular.z = 0.0;
-            g_autonomous_alignment_settling = true;
-            g_autonomous_alignment_settle_start_time = now;
-            g_autonomous_alignment_settle_scan_generation =
-                g_filtered_scan_generation;
-
-            RCLCPP_INFO(
-                this->get_logger(),
-                "ALIGNING: Timed turn ended after %.2f s. Holding for a fresh "
-                "post-turn filtered scan.",
-                elapsed);
-            break;
-        }
-
-        twist.angular.z = std::copysign(kTurnSpeed, target_angle_);
-
-        const double remaining_magnitude = std::max(
-            0.0,
-            std::fabs(target_angle_) -
-                elapsed * g_autonomous_timed_turn_rate);
-        const double remaining_angle = std::copysign(
-            remaining_magnitude,
-            target_angle_);
+        twist.angular.z = turn_cmd;
+        target_angle_ -= turn_cmd * kControlPeriodSeconds;
+        target_angle_ = normaliseAngle(target_angle_);
 
         RCLCPP_INFO_THROTTLE(
             this->get_logger(),
             *this->get_clock(),
             1000,
-            "ALIGNING: Calibrated timed turn. target %.2f deg, "
-            "estimated remaining %.2f deg, elapsed %.2f/%.2f s, cmd %.3f rad/s.",
+            "ALIGNING: Physical DVD turn. Remaining %.2f deg, cmd %.3f rad/s.",
             target_angle_ * 180.0 / M_PI,
-            remaining_angle * 180.0 / M_PI,
-            elapsed,
-            g_autonomous_timed_turn_duration,
             twist.angular.z);
         break;
     }
@@ -11846,84 +11774,9 @@ void MechelangeloBehaviour::controlLoop()
             findBlockingObstaclesInFront(blocking_segments);
         const double front_range = getFrontRange();
 
-        int front_total_beams = 0;
-        int front_known_beams = 0;
-        int front_unknown_beams = 0;
-
-        for (int i = 0;
-             i < static_cast<int>(latest_scan_.ranges.size());
-             ++i)
-        {
-            const double angle = latest_scan_.angle_min +
-                static_cast<double>(i) * latest_scan_.angle_increment;
-            if (!angleInsideWindow(
-                    angle, -kFrontCheckAngle, kFrontCheckAngle))
-            {
-                continue;
-            }
-
-            front_total_beams++;
-            const double range = latest_scan_.ranges[i];
-            if (std::isfinite(range) ||
-                (std::isinf(range) && range > 0.0))
-            {
-                front_known_beams++;
-            }
-            else
-            {
-                front_unknown_beams++;
-            }
-        }
-
-        const double known_front_fraction = front_total_beams > 0
-            ? static_cast<double>(front_known_beams) /
-                static_cast<double>(front_total_beams)
-            : 0.0;
-        const bool scan_quality_good =
-            known_front_fraction >= kAutonomousMinimumKnownFrontFraction;
-        const bool blocked_now =
-            blocked_by_segment || front_range <= stop_distance_m_;
-        const bool new_scan =
-            g_filtered_scan_generation !=
-                g_autonomous_last_evaluated_scan_generation;
-
-        if (new_scan)
-        {
-            g_autonomous_last_evaluated_scan_generation =
-                g_filtered_scan_generation;
-
-            if (blocked_now && scan_quality_good)
-            {
-                g_autonomous_blocked_scan_count++;
-            }
-            else
-            {
-                g_autonomous_blocked_scan_count = 0;
-            }
-        }
-
-        if (!scan_quality_good)
-        {
-            // Unknown filtered beams are not open space. Hold position until a
-            // sufficiently observed front scan arrives, but do not enter the
-            // normal wall-stop cycle for poor scan quality alone.
-            twist.linear.x = 0.0;
-            twist.angular.z = 0.0;
-
-            RCLCPP_WARN_THROTTLE(
-                this->get_logger(),
-                *this->get_clock(),
-                1000,
-                "MOVING: Front scan quality low (known %.0f%%, unknown %d/%d). "
-                "Holding until a better filtered scan arrives.",
-                known_front_fraction * 100.0,
-                front_unknown_beams,
-                front_total_beams);
-            break;
-        }
-
-        if (g_autonomous_blocked_scan_count >=
-            kAutonomousWallConfirmationScans)
+        // Keep DVD exploration simple: drive straight until the filtered
+        // LiDAR says the front is blocked or too close.
+        if (blocked_by_segment || front_range <= stop_distance_m_)
         {
             if (blocking_segments.empty())
             {
@@ -11940,23 +11793,10 @@ void MechelangeloBehaviour::controlLoop()
 
             publishObstacleMarkers(blocking_segments);
 
-            double nearest_segment_range =
-                std::numeric_limits<double>::infinity();
-            for (const LaserSegment &segment : blocking_segments)
-            {
-                nearest_segment_range = std::min(
-                    nearest_segment_range, segment.min_range);
-            }
-
             RCLCPP_WARN(
                 this->get_logger(),
-                "MOVING: Wall confirmed in %d consecutive filtered scans. "
-                "front=%.2f m, segment_min=%.2f m, kept=%d, rejected=%d. Stopping.",
-                g_autonomous_blocked_scan_count,
-                front_range,
-                nearest_segment_range,
-                g_filter_last_kept_finite_points,
-                g_filter_last_rejected_finite_points);
+                "MOVING: Filtered LiDAR says front is blocked. Front range = %.2f m. Stopping.",
+                front_range);
 
             stopRobot(twist);
             stop_counter_ = 0;
@@ -11967,38 +11807,13 @@ void MechelangeloBehaviour::controlLoop()
 
         clearObstacleMarkers();
 
-        if (blocked_now && g_autonomous_blocked_scan_count > 0)
-        {
-            // Do not keep driving toward a possible wall while waiting for the
-            // second filtered scan. Hold immediately, but only enter the full
-            // STOPPED/turn cycle after the wall is confirmed. A one-scan noise
-            // cluster therefore causes only a brief pause, not a DVD bounce.
-            twist.linear.x = 0.0;
-            twist.angular.z = 0.0;
-
-            RCLCPP_WARN_THROTTLE(
-                this->get_logger(),
-                *this->get_clock(),
-                500,
-                "MOVING: Possible wall %.2f m; confirmation %d/%d. "
-                "Holding position for the next filtered scan.",
-                front_range,
-                g_autonomous_blocked_scan_count,
-                kAutonomousWallConfirmationScans);
-            break;
-        }
-        else if (std::isinf(front_range))
+        if (std::isinf(front_range))
         {
             RCLCPP_INFO_THROTTLE(
                 this->get_logger(),
                 *this->get_clock(),
                 1000,
-                "MOVING: Front has genuine no-return/open beams. Driving %.2f m/s. "
-                "Filter kept=%d rejected=%d raw_open=%d.",
-                kForwardSpeed,
-                g_filter_last_kept_finite_points,
-                g_filter_last_rejected_finite_points,
-                g_filter_last_raw_open_points);
+                "MOVING: Front is clear after filtering. Driving forward.");
         }
         else
         {
@@ -12006,13 +11821,8 @@ void MechelangeloBehaviour::controlLoop()
                 this->get_logger(),
                 *this->get_clock(),
                 1000,
-                "MOVING: Driving %.2f m/s. Filtered front range=%.2f m, "
-                "known=%.0f%%, kept=%d, rejected=%d.",
-                kForwardSpeed,
-                front_range,
-                known_front_fraction * 100.0,
-                g_filter_last_kept_finite_points,
-                g_filter_last_rejected_finite_points);
+                "MOVING: Driving forward. Filtered front range = %.2f m",
+                front_range);
         }
 
         twist.linear.x = kForwardSpeed;
