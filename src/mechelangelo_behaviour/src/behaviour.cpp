@@ -17406,7 +17406,6 @@
 //     return 0;
 // }
 
-
 #include "behaviour.hpp"
 
 #include <algorithm>
@@ -17485,7 +17484,7 @@ static constexpr int kStopDurationLoops = 30;
 // IMPORTANT: This intentionally creates a 0.80 m blind-zone around the LiDAR.
 // It is suitable only because the physical robot body/self-reflection region
 // occupies that space and the demonstration interaction distance is 1.80 m.
-static constexpr double kMinValidRange = 0.80; // m, physical robot only
+static constexpr double kMinValidRange = 0.85; // m, physical robot only
 
 // Front scan window used while moving forward.
 static constexpr double kFrontCheckAngle = 30 * M_PI / 180.0; // +/- 30 degrees
@@ -17736,6 +17735,15 @@ static constexpr double kReliableHumanTurnSpeed = 0.45; // physical minimum
 static constexpr double kReliableHumanApproachSpeed = 0.09;
 static constexpr double kReliableHumanNearSpeed = 0.05;
 static constexpr double kReliableHumanForwardClearance = 1.10;
+
+// In reliable simple mode the robot only translates straight toward the
+// centred person. Rear and side returns therefore must not cancel forward
+// motion. Emergency obstacle checking is restricted to the actual forward
+// swept corridor and requires a small coherent cluster rather than one beam.
+static constexpr double kReliableHumanSafetyHalfAngle =
+    35.0 * M_PI / 180.0;
+static constexpr int kReliableHumanSafetyMinAdjacentPoints = 2;
+static constexpr double kReliableHumanSafetyMaxAdjacentRangeGap = 0.25;
 
 // Human distance safety. The planner aims farther than the absolute limit so
 // sensor delay, base momentum and turning translation do not take the robot
@@ -19339,9 +19347,11 @@ void MechelangeloBehaviour::run(bool sim_mode)
         RCLCPP_WARN(
             this->get_logger(),
             "PHYSICAL LIDAR SELF-MASK ACTIVE: ignoring all returns <= %.2f m. "
-            "This removes known robot-body/cable reflections but also creates "
-            "a real close-range blind-zone.",
-            kMinValidRange);
+            "Reliable human mode checks only the forward +/-%.1f deg corridor "
+            "and requires %d adjacent obstacle beams.",
+            kMinValidRange,
+            kReliableHumanSafetyHalfAngle * 180.0 / M_PI,
+            kReliableHumanSafetyMinAdjacentPoints);
     }
 
     blindAutonomous();
@@ -20797,7 +20807,8 @@ void MechelangeloBehaviour::controlLoop()
             return true;
         };
 
-        if (hard_stop_escape_required &&
+        if (!kReliableSimpleHumanMode &&
+            hard_stop_escape_required &&
             g_human_deterministic_escape_stage ==
                 DeterministicEscapeStage::NONE &&
             !g_human_too_close_backoff_active)
@@ -20951,6 +20962,7 @@ void MechelangeloBehaviour::controlLoop()
         }
 
         const bool raw_approach_path_risk =
+            !kReliableSimpleHumanMode &&
             threatening_point_count > 0 &&
             nearest_threat_range <= warning_distance;
 
@@ -23856,6 +23868,104 @@ bool MechelangeloBehaviour::isSafetyZoneViolated(
         return false;
     }
 
+    if (kReliableSimpleHumanMode)
+    {
+        int coherent_points = 0;
+        int previous_index = -1000;
+        double previous_range =
+            std::numeric_limits<double>::infinity();
+        double cluster_nearest_range =
+            std::numeric_limits<double>::infinity();
+        double cluster_nearest_bearing =
+            std::numeric_limits<double>::quiet_NaN();
+
+        for (int i = 0;
+             i < static_cast<int>(latest_scan_.ranges.size());
+             ++i)
+        {
+            const double angle =
+                latest_scan_.angle_min +
+                static_cast<double>(i) *
+                    latest_scan_.angle_increment;
+
+            // The simple controller only drives straight ahead. Side and rear
+            // returns cannot lie in the swept forward corridor.
+            if (std::fabs(normaliseAngle(angle)) >
+                kReliableHumanSafetyHalfAngle)
+            {
+                coherent_points = 0;
+                previous_index = -1000;
+                previous_range =
+                    std::numeric_limits<double>::infinity();
+                continue;
+            }
+
+            // The tracked person has separate distance supervision and must
+            // not be classified as an obstacle.
+            const double human_angle_error =
+                normaliseAngle(angle - human_bearing_rad);
+            if (std::fabs(human_angle_error) <=
+                kSafetyZoneHumanExclusionAngle)
+            {
+                coherent_points = 0;
+                previous_index = -1000;
+                previous_range =
+                    std::numeric_limits<double>::infinity();
+                continue;
+            }
+
+            const double range = latest_scan_.ranges[i];
+            if (!std::isfinite(range) ||
+                range <= kMinValidRange ||
+                range >= kHumanModeFrontSideHardStopRadius)
+            {
+                coherent_points = 0;
+                previous_index = -1000;
+                previous_range =
+                    std::numeric_limits<double>::infinity();
+                continue;
+            }
+
+            const bool adjacent =
+                i == previous_index + 1 &&
+                std::isfinite(previous_range) &&
+                std::fabs(range - previous_range) <=
+                    kReliableHumanSafetyMaxAdjacentRangeGap;
+
+            if (adjacent)
+            {
+                coherent_points++;
+            }
+            else
+            {
+                coherent_points = 1;
+                cluster_nearest_range = range;
+                cluster_nearest_bearing = angle;
+            }
+
+            if (range < cluster_nearest_range)
+            {
+                cluster_nearest_range = range;
+                cluster_nearest_bearing = angle;
+            }
+
+            previous_index = i;
+            previous_range = range;
+
+            if (coherent_points >=
+                kReliableHumanSafetyMinAdjacentPoints)
+            {
+                g_safety_obstruction_range =
+                    cluster_nearest_range;
+                g_safety_obstruction_bearing =
+                    cluster_nearest_bearing;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     bool violated = false;
 
     for (int i = 0;
@@ -23869,8 +23979,6 @@ bool MechelangeloBehaviour::isSafetyZoneViolated(
         const double angle_diff =
             normaliseAngle(angle - human_bearing_rad);
 
-        // Exclude the tracked human cone. The tracked human has a separate
-        // absolute-distance supervisor and must not trigger obstacle safety.
         if (std::fabs(angle_diff) <=
             kSafetyZoneHumanExclusionAngle)
         {
