@@ -1,6 +1,6 @@
 === Mechelangelo Fused Human / Arc Planner Debug ===
 Last event: interaction_complete
-ROS time: 1781140967.3491 s
+ROS time: 111.5670 s
 Motion phase: APPROACH
 
 Fused valid: no
@@ -14,39 +14,39 @@ Target locked: no
 Target point: x=0.0000 y=0.0000 m
 Target snapshot points: 0
 Target snapshot angular width: 0.0000 deg
-Target locks: 1220
-Target LiDAR reassociations: 1314
-Target prediction cycles: 1330
+Target locks: 508
+Target LiDAR reassociations: 508
+Target prediction cycles: 676
 Target losses: 0
 LiDAR cluster valid: no
 Cluster indices: -1 to -1
 Cluster points: 0
-Cluster angle: -3.7464 deg
-Cluster median: 1.9642 m
-Cluster safety range: 1.9490 m
-Cluster association score: 0.8706
+Cluster angle: 6.5096 deg
+Cluster median: 2.1138 m
+Cluster safety range: 2.0893 m
+Cluster association score: 2.1142
 
 Command active: no
 Linear: 0.0000 m/s
 Angular: 0.0000 rad/s
-Score: 49.6968
-Predicted min human distance: 1.8651 m
-Predicted final human range: 1.9281 m
-Predicted final human bearing: -0.0095 deg
+Score: 33.1488
+Predicted min human distance: 1.9279 m
+Predicted final human range: 1.9279 m
+Predicted final human bearing: -0.0000 deg
 
-Safe candidates: 0
-Rejected human distance: 1
+Safe candidates: 25
+Rejected human distance: 0
 Rejected obstacle: 0
-Rejected camera view: 11
+Rejected camera view: 10
 Absolute minimum human distance: 1.5000 m
 Planner minimum human distance: 1.6500 m
 Desired interaction distance: 1.8000 m
 Forced escape active: no
 Stagnation tracking: no
 Escape direction: 0.0000 deg
-Escape triggers: 11
-Escape completions: 1
-Escape timeouts: 10
+Escape triggers: 0
+Escape completions: 0
+Escape timeouts: 0
 Deterministic escape stage: NONE
 Deterministic escape side: 0
 Adaptive waypoint lateral/forward: 0.0000 / 0.0000 m
@@ -54,7 +54,7 @@ Adaptive waypoint clearance deficit: 0.0000 m
 Adaptive arc duration: 0.0000 s per arc
 Adaptive trigger streak: 0
 No-safe-command streak: 0
-Rear/front clearance: 4.1569 / 1.7822 m
+Rear/front clearance: 3.8747 / 2.0715 m
 Too-close backoff active: no
 Proactive approach avoidance: no
 Proactive stage: NONE
