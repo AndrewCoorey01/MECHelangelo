@@ -25,7 +25,7 @@ setup(
     zip_safe=True,
     maintainer='Andrew Coorey',
     maintainer_email='andrew.g.coorey@student.uts.edu.au',
-    description='MECHelangelo real base driver for Raspberry Pi motor control and wheel encoders.',
+    description='MECHelangelo real base driver for Raspberry Pi ThunderBorg motor control.',
     license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
