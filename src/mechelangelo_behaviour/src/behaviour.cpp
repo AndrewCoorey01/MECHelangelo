@@ -17470,8 +17470,22 @@ static constexpr double kMaximumTurnTime = 20.0;          // seconds
 // 30 loops x 0.1 s = 3 seconds.
 static constexpr int kStopDurationLoops = 30;
 
-// Ignore returns too close to the robot body / lidar blind spot.
-static constexpr double kMinValidRange = 0.5; // m
+// Physical LiDAR blind-zone / robot self-mask.
+//
+// The real robot consistently sees its own frame, cables and body between
+// approximately 0.52 m and 0.71 m at fixed robot-relative bearings. This
+// physical-only behaviour file therefore discards every LiDAR return at or
+// below 0.80 m before it can enter:
+//   * the strict filtered scan,
+//   * human raw-cone acquisition,
+//   * front/rear clearance checks,
+//   * interaction-bubble checks,
+//   * hard-stop safety checks.
+//
+// IMPORTANT: This intentionally creates a 0.80 m blind-zone around the LiDAR.
+// It is suitable only because the physical robot body/self-reflection region
+// occupies that space and the demonstration interaction distance is 1.80 m.
+static constexpr double kMinValidRange = 0.80; // m, physical robot only
 
 // Front scan window used while moving forward.
 static constexpr double kFrontCheckAngle = 30 * M_PI / 180.0; // +/- 30 degrees
@@ -19322,6 +19336,12 @@ void MechelangeloBehaviour::run(bool sim_mode)
     else
     {
         RCLCPP_INFO(this->get_logger(), "Running in real robot mode.");
+        RCLCPP_WARN(
+            this->get_logger(),
+            "PHYSICAL LIDAR SELF-MASK ACTIVE: ignoring all returns <= %.2f m. "
+            "This removes known robot-body/cable reflections but also creates "
+            "a real close-range blind-zone.",
+            kMinValidRange);
     }
 
     blindAutonomous();
