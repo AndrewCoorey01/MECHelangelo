@@ -3377,7 +3377,6 @@
 //     return 0;
 // }
 
-
 /////////////////////////////////////////////////////////////////////////
 /// DVD bounce LiDAR exploration + camera/dual-ultrasonic human approach
 
@@ -3529,10 +3528,10 @@ static constexpr double kUltrasonicInteractionEnterDistance = 1.52; // m, small 
 static constexpr double kUltrasonicSlowdownStartDistance = 1.60; // m, begin final slowdown
 static constexpr double kUltrasonicFreshTimeout = 0.45;          // s
 static constexpr double kUltrasonicLastEchoHoldTimeout = 0.55;   // s
-static constexpr double kUltrasonicNoEchoApproachSpeed = 0.07;   // m/s, cautious approach beyond echo range
-static constexpr double kUltrasonicApproachMaxSpeed = 0.10;      // m/s, clean camera-guided approach
-static constexpr double kUltrasonicApproachAcceleration = 0.20;  // m/s^2
-static constexpr double kUltrasonicApproachDeceleration = 0.80;  // m/s^2, stop promptly inside final 0.1 m
+static constexpr double kUltrasonicNoEchoApproachSpeed = 0.12;   // m/s, minimum reliable physical forward speed
+static constexpr double kUltrasonicApproachMaxSpeed = 0.12;      // m/s, tested reliable approach speed
+static constexpr double kUltrasonicApproachAcceleration = 0.20;  // retained for compatibility
+static constexpr double kUltrasonicApproachDeceleration = 0.80;  // retained for compatibility
 static constexpr double kUltrasonicAngularAcceleration = 0.45;   // retained for compatibility
 static constexpr double kUltrasonicHumanTurnGain = 1.2;          // retained for diagnostics
 static constexpr double kUltrasonicHumanMaxTurnSpeed = 0.375;    // rad/s, slowest reliable physical turn
@@ -3540,6 +3539,8 @@ static constexpr double kUltrasonicCentreDeadZone = 0.06;        // lock centre 
 static constexpr double kUltrasonicCentreReleaseZone = 0.11;     // re-centre if target drifts beyond this
 static constexpr double kUltrasonicTurnPulseOnSeconds = 0.22;    // short correction pulse
 static constexpr double kUltrasonicTurnPulseOffSeconds = 0.28;   // stationary camera update period
+static constexpr double kUltrasonicForwardPulseOnSeconds = 0.20; // final 1.60-1.50 m pulse at 0.12 m/s
+static constexpr double kUltrasonicForwardPulseOffSeconds = 0.40;// stationary range-update pause
 static constexpr double kUltrasonicInteractionMaxOffset = 0.08;  // must be centred before interaction
 static constexpr int kUltrasonicInteractionSettleSamples = 3;    // 0.3 s at 10 Hz
 static constexpr double kUltrasonicInteractionMaxLinearSpeed = 0.03; // m/s
@@ -4093,6 +4094,8 @@ static int g_ultrasonic_wall_veto_count = 0;
 static bool g_human_centre_locked = false;
 static bool g_human_turn_cycle_initialised = false;
 static rclcpp::Time g_human_turn_cycle_start;
+static bool g_human_forward_cycle_initialised = false;
+static rclcpp::Time g_human_forward_cycle_start;
 
 static void updateUltrasonicChannel(
     UltrasonicChannelState &channel,
@@ -4402,6 +4405,7 @@ static void resetHumanMotionController()
 
     g_human_centre_locked = false;
     g_human_turn_cycle_initialised = false;
+    g_human_forward_cycle_initialised = false;
     g_ultrasonic_interaction_good_samples = 0;
 }
 
@@ -5368,89 +5372,103 @@ void MechelangeloBehaviour::controlLoop()
         double desired_linear = 0.0;
 
         // Forward movement is only allowed after the human is centred.
-        if (g_human_centre_locked)
+        // The physical base does not move reliably below 0.12 m/s, so every
+        // nonzero forward command is exactly 0.12 m/s. Between 1.60 m and
+        // 1.50 m, use short 0.12 m/s pulses separated by stationary ultrasonic
+        // updates instead of requesting unusable lower velocities.
+        if (!g_human_centre_locked)
         {
-            if (!ultrasonic_alive)
+            g_human_forward_cycle_initialised = false;
+        }
+        else if (!ultrasonic_alive)
+        {
+            g_ultrasonic_stale_stop_count++;
+            g_human_forward_cycle_initialised = false;
+            desired_linear = 0.0;
+
+            RCLCPP_ERROR_THROTTLE(
+                this->get_logger(),
+                *this->get_clock(),
+                1000,
+                "HUMAN: Both ultrasonic topics are stale. Holding position.");
+        }
+        else if (ultrasonic_range_valid)
+        {
+            if (ultrasonic_range <= kUltrasonicStopDistance)
             {
-                g_ultrasonic_stale_stop_count++;
+                g_human_forward_cycle_initialised = false;
                 desired_linear = 0.0;
-
-                RCLCPP_ERROR_THROTTLE(
-                    this->get_logger(),
-                    *this->get_clock(),
-                    1000,
-                    "HUMAN: Both ultrasonic topics are stale. Holding position.");
             }
-            else if (ultrasonic_range_valid)
+            else if (ultrasonic_range <= kUltrasonicSlowdownStartDistance)
             {
-                if (ultrasonic_range <=
-                    kUltrasonicStopDistance)
-                {
-                    desired_linear = 0.0;
-                }
-                else if (ultrasonic_range <=
-                    kUltrasonicSlowdownStartDistance)
-                {
-                    // Linear slowdown through the final 0.10 m:
-                    // 0.10 m/s at 1.60 m, approaching zero at 1.50 m.
-                    const double final_approach_scale =
-                        std::clamp(
-                            (ultrasonic_range -
-                                kUltrasonicStopDistance) /
-                            (kUltrasonicSlowdownStartDistance -
-                                kUltrasonicStopDistance),
-                            0.0,
-                            1.0);
+                const double pulse_period =
+                    kUltrasonicForwardPulseOnSeconds +
+                    kUltrasonicForwardPulseOffSeconds;
 
-                    desired_linear =
-                        kUltrasonicApproachMaxSpeed *
-                        final_approach_scale;
-                }
-                else
+                if (!g_human_forward_cycle_initialised)
                 {
-                    desired_linear =
-                        kUltrasonicApproachMaxSpeed;
+                    g_human_forward_cycle_start = now;
+                    g_human_forward_cycle_initialised = true;
                 }
+
+                double pulse_elapsed =
+                    (now - g_human_forward_cycle_start).seconds();
+
+                if (pulse_elapsed >= pulse_period)
+                {
+                    g_human_forward_cycle_start = now;
+                    pulse_elapsed = 0.0;
+                }
+
+                desired_linear =
+                    pulse_elapsed < kUltrasonicForwardPulseOnSeconds
+                        ? kUltrasonicApproachMaxSpeed
+                        : 0.0;
             }
             else
             {
-                // The node is alive but the target is beyond usable echo range.
-                // Approach slowly until a finite range becomes available.
-                g_ultrasonic_no_echo_approach_count++;
-                desired_linear =
-                    kUltrasonicNoEchoApproachSpeed;
-
-                RCLCPP_WARN_THROTTLE(
-                    this->get_logger(),
-                    *this->get_clock(),
-                    1000,
-                    "HUMAN: Ultrasonic sensors alive with no finite echo. "
-                    "Approaching cautiously at %.2f m/s.",
-                    kUltrasonicNoEchoApproachSpeed);
+                g_human_forward_cycle_initialised = false;
+                desired_linear = kUltrasonicApproachMaxSpeed;
             }
+        }
+        else
+        {
+            // The ultrasonic node is alive but no finite echo is available.
+            // Continue at the tested reliable speed while the filtered LiDAR
+            // remains active as the environmental safety veto.
+            g_ultrasonic_no_echo_approach_count++;
+            g_human_forward_cycle_initialised = false;
+            desired_linear = kUltrasonicNoEchoApproachSpeed;
+
+            RCLCPP_WARN_THROTTLE(
+                this->get_logger(),
+                *this->get_clock(),
+                1000,
+                "HUMAN: Ultrasonic sensors alive with no finite echo. "
+                "Approaching at reliable %.2f m/s.",
+                kUltrasonicNoEchoApproachSpeed);
         }
 
         // Preserve filtered-LiDAR wall protection during the human approach.
+        // Do not scale below 0.12 m/s because those commands cannot move the
+        // physical base. The hard wall veto below stops translation completely.
         if (std::isfinite(nearest_wall_range) &&
-            nearest_wall_range < wall_slow_distance)
+            nearest_wall_range < wall_slow_distance &&
+            !wall_emergency)
         {
-            const double wall_scale =
-                std::clamp(
-                    (nearest_wall_range -
-                        wall_stop_distance) /
-                    std::max(
-                        0.05,
-                        wall_slow_distance -
-                            wall_stop_distance),
-                    0.0,
-                    1.0);
-
-            desired_linear *= wall_scale;
+            RCLCPP_WARN_THROTTLE(
+                this->get_logger(),
+                *this->get_clock(),
+                1000,
+                "HUMAN: Filtered wall is inside the slow zone at %.2f m. "
+                "Using only a 0.12 m/s or zero pulse command.",
+                nearest_wall_range);
         }
 
         if (wall_emergency)
         {
             g_ultrasonic_wall_veto_count++;
+            g_human_forward_cycle_initialised = false;
             desired_linear = 0.0;
 
             RCLCPP_WARN_THROTTLE(
@@ -5477,6 +5495,7 @@ void MechelangeloBehaviour::controlLoop()
             interaction_alignment_good &&
             !wall_emergency)
         {
+            g_human_forward_cycle_initialised = false;
             desired_linear = 0.0;
             desired_angular = 0.0;
             g_human_motion_phase =
@@ -5525,27 +5544,14 @@ void MechelangeloBehaviour::controlLoop()
             break;
         }
 
-        // Dampen only linear movement. Angular corrections must be either zero
-        // or the tested 0.375 rad/s; smaller ramp values do not move the motors.
-        const double linear_rate =
-            desired_linear < current_twist_.linear.x
-                ? kUltrasonicApproachDeceleration
-                : kUltrasonicApproachAcceleration;
-        const double max_linear_step =
-            linear_rate * kControlPeriodSeconds;
-
+        // The physical base has a forward dead zone: commands below 0.12 m/s
+        // do not move it. Publish either zero or the tested 0.12 m/s directly.
+        // Final-distance damping is produced by timed 0.12 m/s pulses rather
+        // than ineffective smaller velocity commands.
         twist.linear.x =
-            current_twist_.linear.x +
-            std::clamp(
-                desired_linear -
-                    current_twist_.linear.x,
-                -max_linear_step,
-                max_linear_step);
-        twist.linear.x =
-            std::clamp(
-                twist.linear.x,
-                0.0,
-                kUltrasonicApproachMaxSpeed);
+            desired_linear > 0.0
+                ? kUltrasonicApproachMaxSpeed
+                : 0.0;
         twist.angular.z = desired_angular;
 
         RCLCPP_INFO_THROTTLE(
