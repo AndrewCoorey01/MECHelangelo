@@ -5647,14 +5647,23 @@ static constexpr double kDvdAvoidReverseAngle = 165.0 * M_PI / 180.0; // radians
 // with infinity and will not stop the robot.
 
 // Stage 1: local neighbour test.
-static constexpr int kNoiseNeighbourWindow = 4;          // check +/- 4 beams
-static constexpr int kNoiseMinNeighbourCount = 2;        // require at least 2 close neighbours
-static constexpr double kNoiseNeighbourDistance = 0.22;  // m in local XY space
+// static constexpr int kNoiseNeighbourWindow = 4;          // check +/- 4 beams
+// static constexpr int kNoiseMinNeighbourCount = 2;        // require at least 2 close neighbours
+// static constexpr double kNoiseNeighbourDistance = 0.22;  // m in local XY space
 
-// Stage 2: segment extraction test.
-static constexpr double kSegmentJoinDistance = 0.18;     // m max gap between consecutive points
-static constexpr int kSegmentMinPoints = 4;              // reject tiny speckle clusters
-static constexpr double kSegmentMinLength = 0.05;        // m reject near-zero length segments
+// // Stage 2: segment extraction test.
+// static constexpr double kSegmentJoinDistance = 0.18;     // m max gap between consecutive points
+// static constexpr int kSegmentMinPoints = 4;              // reject tiny speckle clusters
+// static constexpr double kSegmentMinLength = 0.05;        // m reject near-zero length segments
+
+
+static constexpr int kNoiseNeighbourWindow = 4;
+static constexpr int kNoiseMinNeighbourCount = 1;
+static constexpr double kNoiseNeighbourDistance = 0.30;
+
+static constexpr double kSegmentJoinDistance = 0.25;
+static constexpr int kSegmentMinPoints = 2;
+static constexpr double kSegmentMinLength = 0.015;
 
 // ------------------------------------------------------
 // Human tracking tuning
@@ -5762,7 +5771,7 @@ static constexpr double kInteractionCommandSmoothingAlpha = 0.35;
 // Camera-reported depth is intentionally ignored because the real camera has no
 // depth capability.
 static constexpr double kHumanAssociationWindow = 16.0 * M_PI / 180.0;
-static constexpr int kHumanAssociationMinPoints = 3;
+static constexpr int kHumanAssociationMinPoints = 2; //was 3
 static constexpr double kHumanAssociationRangeScale = 1.50;
 static constexpr double kHumanFusionBearingAlpha = 0.45;
 static constexpr double kHumanFusionRangeAlpha = 0.35;
