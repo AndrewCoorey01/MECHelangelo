@@ -11311,9 +11311,9 @@ static constexpr double kStopAngularDecel = 1.2; // rad/s^2
 // Physical relative-turn control. The Sense HAT fused quaternion yaw is strongly
 // affected by magnetic interference inside the robot, so exploration turns use
 // the Z-axis gyroscope integrated over each individual turn instead.
-static constexpr double kPhysicalTurnMaxSpeed = 0.30;    // rad/s
-static constexpr double kPhysicalTurnMediumSpeed = 0.18; // rad/s
-static constexpr double kPhysicalTurnSlowSpeed = 0.10;   // rad/s
+static constexpr double kPhysicalTurnMaxSpeed = 0.45;    // rad/s
+static constexpr double kPhysicalTurnMediumSpeed = 0.45; // rad/s
+static constexpr double kPhysicalTurnSlowSpeed = 0.45;   // rad/s
 static constexpr double kPhysicalTurnMediumZone = 30.0 * M_PI / 180.0;
 static constexpr double kPhysicalTurnSlowZone = 10.0 * M_PI / 180.0;
 static constexpr double kGyroDeadband = 0.015;            // rad/s
