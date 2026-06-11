@@ -11532,19 +11532,22 @@ static constexpr double kHumanLidarOnlyMotionTimeout = 2.50; // s
 // minimum distance. Camera depth is never used.
 static constexpr double kHumanCameraGuidedMaxForwardSpeed = 0.10; // m/s
 static constexpr double kHumanCameraGuidedMaxAngularSpeed = 0.25; // rad/s, gentle camera-guided approach arc
-static constexpr double kHumanCameraGuardWindow = 10.0 * M_PI / 180.0;
+static constexpr double kHumanCameraGuardWindow = 15.0 * M_PI / 180.0;
 static constexpr double kHumanCameraGuardRangeAlpha = 0.45;
 
 // Human-only raw LiDAR guard. The full 360-degree obstacle scan remains strict,
 // while this narrow camera-centred cone can retain sparse leg returns safely.
-static constexpr int kHumanRawGuardMinPoints = 2;
-static constexpr double kHumanRawGuardMaxAdjacentRangeGap = 0.25; // m
+// Physical robot: human legs produce 1-2 beams each; widened window and bearing
+// jump allow the cluster centroid to alternate between left/right leg without
+// resetting the confirmation counter. Longer hold bridges gaps between detections.
+static constexpr int kHumanRawGuardMinPoints = 1;
+static constexpr double kHumanRawGuardMaxAdjacentRangeGap = 0.35; // m
 static constexpr double kHumanRawGuardCandidateRangeJump = 0.40;  // m
 static constexpr double kHumanRawGuardCandidateBearingJump =
-    8.0 * M_PI / 180.0;
+    15.0 * M_PI / 180.0;
 static constexpr double kHumanRawGuardTargetRangeGate = 0.90;     // m
 static constexpr int kHumanRawGuardRequiredConfirmations = 2;
-static constexpr double kHumanRawGuardHoldSeconds = 0.90;
+static constexpr double kHumanRawGuardHoldSeconds = 2.50;
 static constexpr double kHumanRawScanFreshTimeout = 0.85;
 
 // Human distance safety. The planner aims farther than the absolute limit so
