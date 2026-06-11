@@ -182,41 +182,240 @@
 #     ])
 
 
+# #!/usr/bin/env python3
+# """
+# sim_physical_camera_pipeline.launch.py
+
+# Simulation pipeline that mirrors the current physical camera architecture.
+
+# Start Gazebo + robot + behaviour first, then launch this file.
+
+# Pipeline
+# --------
+# Gazebo robot camera
+#   -> sim_pi4_state_camera.py --role tracking
+#   -> /sim_pi4/tracking_state
+#   -> sim_pi4_state_bridge.py
+#   -> /human_tracking + /human_detected
+#   -> behaviour.cpp drives robot toward human using LiDAR distance
+
+# /scan + /human_tracking
+#   -> sim_interaction_gate.py
+#   -> /interaction_active
+
+# Laptop USB camera
+#   -> sim_pi4_state_camera.py --role mimicry
+#   -> waits until /interaction_active == true
+#   -> publishes confirmed named poses in /sim_pi4/mimicry_state
+#   -> sim_pi4_state_bridge.py
+#   -> /arm/right_pose + /arm/left_pose
+#   -> sim_named_arm_pose_bridge.py
+#   -> /set_joint_trajectory
+#   -> Gazebo arm joints
+
+# Debug streams
+# -------------
+# Tracking/Gazebo camera: http://localhost:5010
+# Laptop mimicry camera:  http://localhost:5011
+# """
+
+# from launch import LaunchDescription
+# from launch.actions import DeclareLaunchArgument, TimerAction
+# from launch.substitutions import LaunchConfiguration
+# from launch_ros.actions import Node
+
+
+# def generate_launch_description():
+#     camera_topic = LaunchConfiguration("camera_topic")
+#     scan_topic = LaunchConfiguration("scan_topic")
+#     usb_device = LaunchConfiguration("usb_device")
+#     model_name = LaunchConfiguration("model_name")
+#     right_knn_file = LaunchConfiguration("right_knn_file")
+#     left_knn_file = LaunchConfiguration("left_knn_file")
+#     trajectory_topic = LaunchConfiguration("trajectory_topic")
+#     arm_move_time_sec = LaunchConfiguration("arm_move_time_sec")
+#     arm_bridge_delay_sec = LaunchConfiguration("arm_bridge_delay_sec")
+
+#     return LaunchDescription([
+#         # ---------------------------------------------------------------------
+#         # Launch arguments
+#         # ---------------------------------------------------------------------
+#         DeclareLaunchArgument(
+#             "camera_topic",
+#             default_value="/mechelangelo/camera/image_raw",
+#             description="Gazebo robot camera image topic used for human approach tracking.",
+#         ),
+#         DeclareLaunchArgument(
+#             "scan_topic",
+#             default_value="/scan",
+#             description="LaserScan topic used by the interaction gate.",
+#         ),
+#         DeclareLaunchArgument(
+#             "usb_device",
+#             default_value="0",
+#             description="Laptop/USB camera index used for arm mimicry.",
+#         ),
+#         DeclareLaunchArgument(
+#             "model_name",
+#             default_value="mechelangelo",
+#             description="Gazebo model name for the robot.",
+#         ),
+#         DeclareLaunchArgument(
+#             "right_knn_file",
+#             default_value="/home/andy/pose_knn_right.json",
+#             description="KNN training file for right arm pose names.",
+#         ),
+#         DeclareLaunchArgument(
+#             "left_knn_file",
+#             default_value="/home/andy/pose_knn_left.json",
+#             description="KNN training file for left arm pose names.",
+#         ),
+#         DeclareLaunchArgument(
+#             "trajectory_topic",
+#             default_value="/set_joint_trajectory",
+#             description="JointTrajectory topic used by the Gazebo arm controller/plugin.",
+#         ),
+#         DeclareLaunchArgument(
+#             "arm_move_time_sec",
+#             default_value="2.0",
+#             description="Time allowed for each named arm pose movement.",
+#         ),
+#         DeclareLaunchArgument(
+#             "arm_bridge_delay_sec",
+#             default_value="3.0",
+#             description="Delay before starting the named-pose-to-arm-trajectory bridge.",
+#         ),
+
+#         # ---------------------------------------------------------------------
+#         # Node 1: Gazebo camera -> physical-style tracking state
+#         # ---------------------------------------------------------------------
+#         Node(
+#             package="mechelangelo_perception",
+#             executable="sim_pi4_state_camera",
+#             name="sim_pi4_tracking_camera",
+#             output="screen",
+#             arguments=[
+#                 "--role", "tracking",
+#                 "--camera", "sim",
+#                 "--image-topic", camera_topic,
+#                 "--state-topic", "/sim_pi4/tracking_state",
+#                 "--activation-topic", "/interaction_active",
+#                 "--flask-port", "5010",
+#                 "--width", "640",
+#                 "--height", "480",
+#             ],
+#         ),
+
+#         # ---------------------------------------------------------------------
+#         # Node 2: Physical-style state bridge
+#         #
+#         # tracking state -> /human_tracking + /human_detected
+#         # mimicry state  -> /arm/right_pose + /arm/left_pose
+#         # ---------------------------------------------------------------------
+#         Node(
+#             package="mechelangelo_perception",
+#             executable="sim_pi4_state_bridge",
+#             name="sim_pi4_state_bridge",
+#             output="screen",
+#             parameters=[{
+#                 "tracking_state_topic": "/sim_pi4/tracking_state",
+#                 "mimicry_state_topic": "/sim_pi4/mimicry_state",
+#                 "state_timeout_sec": 1.0,
+#             }],
+#         ),
+
+#         # ---------------------------------------------------------------------
+#         # Node 3: Interaction gate
+#         #
+#         # Uses LiDAR + human tracking to decide when mimicry is allowed.
+#         # Publishes /interaction_active.
+#         # ---------------------------------------------------------------------
+#         Node(
+#             package="mechelangelo_perception",
+#             executable="sim_interaction_gate",
+#             name="sim_interaction_gate",
+#             output="screen",
+#             parameters=[{
+#                 "human_tracking_topic": "/human_tracking",
+#                 "scan_topic": scan_topic,
+#                 "interaction_topic": "/interaction_active",
+#                 "target_distance_m": 1.65,
+#                 "target_tolerance_m": 0.25,
+#                 "centred_offset_threshold": 0.20,
+#                 "good_cycles_required": 5,
+#             }],
+#         ),
+
+#         # ---------------------------------------------------------------------
+#         # Node 4: Laptop camera -> physical-style mimicry state
+#         #
+#         # This can run from startup, but it should only publish useful mimicry
+#         # output once /interaction_active is true.
+#         # ---------------------------------------------------------------------
+#         Node(
+#             package="mechelangelo_perception",
+#             executable="sim_pi4_state_camera",
+#             name="sim_pi4_mimicry_camera",
+#             output="screen",
+#             arguments=[
+#                 "--role", "mimicry",
+#                 "--camera", "usb",
+#                 "--device", usb_device,
+#                 "--state-topic", "/sim_pi4/mimicry_state",
+#                 "--activation-topic", "/interaction_active",
+#                 "--flask-port", "5011",
+#                 "--width", "640",
+#                 "--height", "480",
+#                 "--right-knn-file", right_knn_file,
+#                 "--left-knn-file", left_knn_file,
+#             ],
+#         ),
+
+#         # ---------------------------------------------------------------------
+#         # Node 5: Named poses -> JointTrajectory arm command
+#         #
+#         # This bridge must publish trajectory_msgs/msg/JointTrajectory to the
+#         # same topic that you successfully tested manually:
+#         #
+#         #   /set_joint_trajectory
+#         #
+#         # It should NOT wait for the old Gazebo service path.
+#         # ---------------------------------------------------------------------
+#         TimerAction(
+#             period=arm_bridge_delay_sec,
+#             actions=[
+#                 Node(
+#                     package="mechelangelo_perception",
+#                     executable="sim_named_arm_pose_bridge",
+#                     name="sim_named_arm_pose_bridge",
+#                     output="screen",
+#                     parameters=[{
+#                         "model_name": model_name,
+#                         "right_pose_topic": "/arm/right_pose",
+#                         "left_pose_topic": "/arm/left_pose",
+#                         "trajectory_topic": trajectory_topic,
+#                         "move_time_sec": arm_move_time_sec,
+#                     }],
+#                 ),
+#             ],
+#         ),
+#     ])
+
+
 #!/usr/bin/env python3
 """
-sim_physical_camera_pipeline.launch.py
+Simulation camera and arm pipeline using behaviour.cpp as the authoritative
+interaction gate.
 
-Simulation pipeline that mirrors the current physical camera architecture.
+The behaviour node publishes /interaction_active only after:
+- the camera/LiDAR fused human estimate is valid,
+- the human remains beyond the 1.5 m absolute safety limit,
+- the selected interaction pose is verified,
+- the arm-clearance bubble is acceptable.
 
-Start Gazebo + robot + behaviour first, then launch this file.
-
-Pipeline
---------
-Gazebo robot camera
-  -> sim_pi4_state_camera.py --role tracking
-  -> /sim_pi4/tracking_state
-  -> sim_pi4_state_bridge.py
-  -> /human_tracking + /human_detected
-  -> behaviour.cpp drives robot toward human using LiDAR distance
-
-/scan + /human_tracking
-  -> sim_interaction_gate.py
-  -> /interaction_active
-
-Laptop USB camera
-  -> sim_pi4_state_camera.py --role mimicry
-  -> waits until /interaction_active == true
-  -> publishes confirmed named poses in /sim_pi4/mimicry_state
-  -> sim_pi4_state_bridge.py
-  -> /arm/right_pose + /arm/left_pose
-  -> sim_named_arm_pose_bridge.py
-  -> /set_joint_trajectory
-  -> Gazebo arm joints
-
-Debug streams
--------------
-Tracking/Gazebo camera: http://localhost:5010
-Laptop mimicry camera:  http://localhost:5011
+While /interaction_active is false, behaviour.cpp repeatedly publishes the
+named arm_down pose to /arm/right_pose and /arm/left_pose. When interaction
+becomes active, mimicry is allowed to take over those pose topics.
 """
 
 from launch import LaunchDescription
@@ -227,7 +426,6 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     camera_topic = LaunchConfiguration("camera_topic")
-    scan_topic = LaunchConfiguration("scan_topic")
     usb_device = LaunchConfiguration("usb_device")
     model_name = LaunchConfiguration("model_name")
     right_knn_file = LaunchConfiguration("right_knn_file")
@@ -237,18 +435,10 @@ def generate_launch_description():
     arm_bridge_delay_sec = LaunchConfiguration("arm_bridge_delay_sec")
 
     return LaunchDescription([
-        # ---------------------------------------------------------------------
-        # Launch arguments
-        # ---------------------------------------------------------------------
         DeclareLaunchArgument(
             "camera_topic",
             default_value="/mechelangelo/camera/image_raw",
-            description="Gazebo robot camera image topic used for human approach tracking.",
-        ),
-        DeclareLaunchArgument(
-            "scan_topic",
-            default_value="/scan",
-            description="LaserScan topic used by the interaction gate.",
+            description="Gazebo robot camera topic used for human tracking.",
         ),
         DeclareLaunchArgument(
             "usb_device",
@@ -273,7 +463,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "trajectory_topic",
             default_value="/set_joint_trajectory",
-            description="JointTrajectory topic used by the Gazebo arm controller/plugin.",
+            description="JointTrajectory topic used by the arm controller.",
         ),
         DeclareLaunchArgument(
             "arm_move_time_sec",
@@ -283,12 +473,10 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "arm_bridge_delay_sec",
             default_value="3.0",
-            description="Delay before starting the named-pose-to-arm-trajectory bridge.",
+            description="Delay before starting the arm trajectory bridge.",
         ),
 
-        # ---------------------------------------------------------------------
-        # Node 1: Gazebo camera -> physical-style tracking state
-        # ---------------------------------------------------------------------
+        # Gazebo camera -> physical-style tracking state.
         Node(
             package="mechelangelo_perception",
             executable="sim_pi4_state_camera",
@@ -306,12 +494,7 @@ def generate_launch_description():
             ],
         ),
 
-        # ---------------------------------------------------------------------
-        # Node 2: Physical-style state bridge
-        #
-        # tracking state -> /human_tracking + /human_detected
-        # mimicry state  -> /arm/right_pose + /arm/left_pose
-        # ---------------------------------------------------------------------
+        # Tracking/mimicry state -> normal ROS interface topics.
         Node(
             package="mechelangelo_perception",
             executable="sim_pi4_state_bridge",
@@ -322,36 +505,19 @@ def generate_launch_description():
                 "mimicry_state_topic": "/sim_pi4/mimicry_state",
                 "state_timeout_sec": 1.0,
             }],
+            # Route all bridge arm output through behaviour.cpp. This prevents
+            # inactive all-zero/default poses from overriding arm_down.
+            remappings=[
+                ("/arm/right_pose", "/arm/mimicry_right_pose"),
+                ("/arm/left_pose", "/arm/mimicry_left_pose"),
+            ],
         ),
 
-        # ---------------------------------------------------------------------
-        # Node 3: Interaction gate
-        #
-        # Uses LiDAR + human tracking to decide when mimicry is allowed.
-        # Publishes /interaction_active.
-        # ---------------------------------------------------------------------
-        Node(
-            package="mechelangelo_perception",
-            executable="sim_interaction_gate",
-            name="sim_interaction_gate",
-            output="screen",
-            parameters=[{
-                "human_tracking_topic": "/human_tracking",
-                "scan_topic": scan_topic,
-                "interaction_topic": "/interaction_active",
-                "target_distance_m": 1.65,
-                "target_tolerance_m": 0.25,
-                "centred_offset_threshold": 0.20,
-                "good_cycles_required": 5,
-            }],
-        ),
+        # No sim_interaction_gate node here. behaviour.cpp publishes the same
+        # /interaction_active topic after its stronger fused-safety checks.
 
-        # ---------------------------------------------------------------------
-        # Node 4: Laptop camera -> physical-style mimicry state
-        #
-        # This can run from startup, but it should only publish useful mimicry
-        # output once /interaction_active is true.
-        # ---------------------------------------------------------------------
+        # Laptop camera mimicry remains inactive until behaviour.cpp publishes
+        # /interaction_active=true.
         Node(
             package="mechelangelo_perception",
             executable="sim_pi4_state_camera",
@@ -371,16 +537,7 @@ def generate_launch_description():
             ],
         ),
 
-        # ---------------------------------------------------------------------
-        # Node 5: Named poses -> JointTrajectory arm command
-        #
-        # This bridge must publish trajectory_msgs/msg/JointTrajectory to the
-        # same topic that you successfully tested manually:
-        #
-        #   /set_joint_trajectory
-        #
-        # It should NOT wait for the old Gazebo service path.
-        # ---------------------------------------------------------------------
+        # Named poses -> JointTrajectory arm command.
         TimerAction(
             period=arm_bridge_delay_sec,
             actions=[
