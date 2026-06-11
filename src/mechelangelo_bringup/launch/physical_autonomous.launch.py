@@ -123,6 +123,7 @@ def generate_launch_description():
         name="mechelangelo_base_driver",
         parameters=[base_config],
         output="screen",
+        arguments=["--ros-args", "--log-level", "WARN"],
     )
 
     # ------------------------------------------------------------
