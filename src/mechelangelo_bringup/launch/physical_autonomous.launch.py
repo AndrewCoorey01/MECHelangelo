@@ -75,7 +75,7 @@ def generate_launch_description():
             package='mechelangelo_behaviour',
             executable='mechelangelo_behaviour_physical',
             name='mechelangelo_behaviour',
-            parameters=[{'stop_distance_m': 1.5}],
+            parameters=[{'stop_distance_m': 0.75}],
             output='screen',
         ),
     ])

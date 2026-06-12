@@ -6774,24 +6774,22 @@ static constexpr double kControlPeriodSeconds = 0.1;
 // The base was tested and 0.375 rad/s is the slowest reliable in-place turn.
 // Autonomous DVD turns therefore use that fixed command instead of requesting
 // smaller values that leave the motors stalled.
-static constexpr double kForwardSpeed = 0.12;       // m/s, physical DVD cruise
-static constexpr double kTurnSpeed = 0.375;         // rad/s, minimum reliable physical turn
+static constexpr double kForwardSpeed = 0.15;       // m/s, physical DVD cruise
+static constexpr double kTurnSpeed = 0.425;         // rad/s, below the 0.45 driver cap
 static constexpr double kAngleGain = 0.55;          // retained for compatibility
-static constexpr double kAlignmentTolerance = 0.10; // radians, about 5.7 degrees
+static constexpr double kAlignmentTolerance = 0.12; // radians, about 6.9 degrees
 static constexpr double kTurnAngularAcceleration = 0.45; // retained for compatibility
 
-// Smooth commanded stops so the physical base does not snap from motion to zero
-// in one control tick. At the 100 ms control period, these remove roughly
-// 0.04 m/s and 0.12 rad/s from the command each loop.
-static constexpr double kStopLinearDecel = 0.4;  // m/s^2
-static constexpr double kStopAngularDecel = 1.2; // rad/s^2
+// Smooth commanded stops so the physical base does not snap from motion to zero.
+static constexpr double kStopLinearDecel = 0.16;  // m/s^2
+static constexpr double kStopAngularDecel = 0.45; // rad/s^2
 
 // Stop this far before a real obstacle/wall.
 // Loaded from the ROS parameter 'stop_distance_m'.
 // Default: 1.5 m (simulation). Physical robot: set to 0.75 in the launch file.
 
-// 30 loops x 0.1 s = 3 seconds.
-static constexpr int kStopDurationLoops = 30;
+// 20 loops x 0.1 s = 2 seconds.
+static constexpr int kStopDurationLoops = 20;
 
 // Ignore returns too close to the robot body / lidar blind spot.
 static constexpr double kMinValidRange = 0.5; // m
