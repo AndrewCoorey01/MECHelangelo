@@ -72,6 +72,7 @@ find_package(nav_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(ament_index_cpp REQUIRED)
 
 add_executable(mechelangelo_behaviour
   src/behaviour.cpp
@@ -90,6 +91,7 @@ ament_target_dependencies(mechelangelo_behaviour
   tf2
   tf2_geometry_msgs
   visualization_msgs
+  ament_index_cpp
 )
 
 ament_target_dependencies(mechelangelo_behaviour_physical
@@ -101,12 +103,18 @@ ament_target_dependencies(mechelangelo_behaviour_physical
   tf2
   tf2_geometry_msgs
   visualization_msgs
+  ament_index_cpp
 )
 
 install(TARGETS
   mechelangelo_behaviour
   mechelangelo_behaviour_physical
   DESTINATION lib/${PROJECT_NAME}
+)
+
+install(DIRECTORY
+  resources
+  DESTINATION share/${PROJECT_NAME}
 )
 
 if(BUILD_TESTING)

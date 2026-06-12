@@ -6751,9 +6751,12 @@
 #include <functional>
 #include <memory>
 #include <random>
+#include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
+#include "ament_index_cpp/get_package_share_directory.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "sensor_msgs/msg/range.hpp"
 
@@ -7491,6 +7494,145 @@ static constexpr const char *kHumanStatsLogFilename =
     "human_interaction_stats.txt";
 static constexpr const char *kDvdDebugLogFilename =
     "dvd_bounce_debug.txt";
+
+enum class VoiceGroup
+{
+    AUTONOMOUS,
+    PERSON_DETECTED,
+    PERSON_LOST,
+    CENTERING,
+    NO_SPACE,
+    MIMICRY
+};
+
+static std::unordered_map<VoiceGroup, std::size_t> g_voice_group_indices;
+static rclcpp::Time g_last_voice_play_time;
+static bool g_last_voice_play_time_initialised = false;
+
+static std::string shellQuote(const std::string &value)
+{
+    std::string quoted = "'";
+    for (const char character : value)
+    {
+        if (character == '\'')
+        {
+            quoted += "'\\''";
+        }
+        else
+        {
+            quoted += character;
+        }
+    }
+    quoted += "'";
+    return quoted;
+}
+
+static std::string behaviourResourceDirectory()
+{
+    try
+    {
+        return ament_index_cpp::get_package_share_directory(
+            "mechelangelo_behaviour") + "/resources";
+    }
+    catch (const std::exception &)
+    {
+        const char *home = std::getenv("HOME");
+        if (home != nullptr)
+        {
+            return std::string(home) +
+                "/ros2_ws/src/MECHelangelo/src/mechelangelo_behaviour/resources";
+        }
+    }
+
+    return "/home/andy/ros2_ws/src/MECHelangelo/src/mechelangelo_behaviour/resources";
+}
+
+static const std::vector<std::string> &voiceLinesForGroup(VoiceGroup group)
+{
+    static const std::vector<std::string> autonomous_lines = {
+        "OneDrive_2026-06-12/Autonomous Mode/hmm_nothing_yet.mp3",
+        "OneDrive_2026-06-12/Autonomous Mode/hmmmm_hmmmm.mp3",
+        "OneDrive_2026-06-12/Autonomous Mode/Ive_moved_beyond.mp3",
+        "OneDrive_2026-06-12/Autonomous Mode/wandering.mp3",
+        "OneDrive_2026-06-12/Autonomous Mode/I_had_stringsmp3.mp3",
+    };
+    static const std::vector<std::string> person_detected_lines = {
+        "OneDrive_2026-06-12 (2)/Person Detected/found_one.mp3",
+        "OneDrive_2026-06-12 (2)/Person Detected/a_human_interesting.mp3",
+    };
+    static const std::vector<std::string> person_lost_lines = {
+        "OneDrive_2026-06-12 (3)/Person Lost/searching_again.mp3",
+        "OneDrive_2026-06-12 (3)/Person Lost/still_looking.mp3",
+        "OneDrive_2026-06-12 (1)/Grace Period/where_did_you_go.mp3",
+    };
+    static const std::vector<std::string> centering_lines = {
+        "Centering-Adjusting/getting_better_look.mp3",
+    };
+    static const std::vector<std::string> no_space_lines = {
+        "Centering-Adjusting/Please_move_I_have_no_space.mp3",
+    };
+    static const std::vector<std::string> mimicry_lines = {
+        "Mimicing/interessting_choice.mp3",
+        "Mimicing/you_make_it_look_easy.mp3",
+    };
+
+    switch (group)
+    {
+    case VoiceGroup::PERSON_DETECTED:
+        return person_detected_lines;
+    case VoiceGroup::PERSON_LOST:
+        return person_lost_lines;
+    case VoiceGroup::CENTERING:
+        return centering_lines;
+    case VoiceGroup::NO_SPACE:
+        return no_space_lines;
+    case VoiceGroup::MIMICRY:
+        return mimicry_lines;
+    case VoiceGroup::AUTONOMOUS:
+    default:
+        return autonomous_lines;
+    }
+}
+
+static void playVoiceLine(VoiceGroup group, const rclcpp::Time &now,
+    double min_interval_seconds = 6.0, bool force = false)
+{
+    if (!force && g_last_voice_play_time_initialised &&
+        (now - g_last_voice_play_time).seconds() < min_interval_seconds)
+    {
+        return;
+    }
+
+    const std::vector<std::string> &lines = voiceLinesForGroup(group);
+    if (lines.empty())
+    {
+        return;
+    }
+
+    std::size_t &index = g_voice_group_indices[group];
+    const std::string relative_path = lines[index % lines.size()];
+    index = (index + 1) % lines.size();
+
+    const std::string full_path =
+        behaviourResourceDirectory() + "/" + relative_path;
+    const std::string quoted_path = shellQuote(full_path);
+
+    std::ostringstream command;
+    command
+        << "sh -c \""
+        << "if command -v mpg123 >/dev/null 2>&1; then "
+        << "mpg123 -q " << quoted_path << "; "
+        << "elif command -v ffplay >/dev/null 2>&1; then "
+        << "ffplay -nodisp -autoexit -loglevel quiet " << quoted_path << "; "
+        << "elif command -v cvlc >/dev/null 2>&1; then "
+        << "cvlc --play-and-exit --quiet " << quoted_path << "; "
+        << "fi"
+        << "\" >/dev/null 2>&1 &";
+
+    std::system(command.str().c_str());
+    g_last_voice_play_time = now;
+    g_last_voice_play_time_initialised = true;
+}
 
 static std::string behaviourDebugDirectory()
 {
@@ -8312,6 +8454,7 @@ void MechelangeloBehaviour::controlLoop()
     {
     case NavigationState::SEARCHING:
     {
+        playVoiceLine(VoiceGroup::AUTONOMOUS, this->now(), 20.0);
         stopRobot(twist);
         clearObstacleMarkers();
 
@@ -8479,6 +8622,7 @@ void MechelangeloBehaviour::controlLoop()
         // the neighbour + segment filter.
         if (blocked_by_segment || front_range <= stop_distance_m_)
         {
+            playVoiceLine(VoiceGroup::NO_SPACE, this->now(), 10.0);
             if (blocking_segments.empty())
             {
                 // Fallback marker if the range check caught something but no
@@ -8528,6 +8672,7 @@ void MechelangeloBehaviour::controlLoop()
 
         if (std::isinf(front_range))
         {
+            playVoiceLine(VoiceGroup::AUTONOMOUS, this->now(), 22.0);
             RCLCPP_INFO_THROTTLE(
                 this->get_logger(),
                 *this->get_clock(),
@@ -8536,6 +8681,7 @@ void MechelangeloBehaviour::controlLoop()
         }
         else
         {
+            playVoiceLine(VoiceGroup::AUTONOMOUS, this->now(), 22.0);
             RCLCPP_INFO_THROTTLE(
                 this->get_logger(),
                 *this->get_clock(),
@@ -8652,6 +8798,7 @@ void MechelangeloBehaviour::controlLoop()
 
             if (time_since_visible_human > kHumanLostTimeout)
             {
+                playVoiceLine(VoiceGroup::PERSON_LOST, now, 1.0, true);
                 g_human_abandoned_before_interaction_count++;
                 human_locked_ = false;
                 g_interaction_hold_active = false;
@@ -8761,6 +8908,7 @@ void MechelangeloBehaviour::controlLoop()
 
         if (!g_human_centre_locked)
         {
+            playVoiceLine(VoiceGroup::CENTERING, now, 8.0);
             const double pulse_period =
                 kUltrasonicTurnPulseOnSeconds +
                 kUltrasonicTurnPulseOffSeconds;
@@ -8958,6 +9106,7 @@ void MechelangeloBehaviour::controlLoop()
         if (g_ultrasonic_interaction_good_samples >=
             kUltrasonicInteractionSettleSamples)
         {
+            playVoiceLine(VoiceGroup::MIMICRY, now, 1.0, true);
             twist.linear.x = 0.0;
             twist.angular.z = 0.0;
             current_twist_ = twist;
@@ -9102,6 +9251,7 @@ void MechelangeloBehaviour::humanDetectedCallback(const std_msgs::msg::Bool::Sha
 
     if (current_state_ != NavigationState::HUMAN_DETECTED)
     {
+        playVoiceLine(VoiceGroup::PERSON_DETECTED, this->now(), 1.0, true);
         resetHumanMotionController();
         g_human_centre_locked = false;
         g_human_turn_cycle_initialised = false;
@@ -9174,6 +9324,7 @@ void MechelangeloBehaviour::humanTrackingCallback(
 
     if (current_state_ != NavigationState::HUMAN_DETECTED)
     {
+        playVoiceLine(VoiceGroup::PERSON_DETECTED, now, 1.0, true);
         resetHumanMotionController();
         g_human_centre_locked = false;
         g_human_turn_cycle_initialised = false;
