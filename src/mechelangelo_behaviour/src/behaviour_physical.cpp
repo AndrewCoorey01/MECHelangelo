@@ -6774,24 +6774,23 @@ static constexpr double kControlPeriodSeconds = 0.1;
 // The base was tested and 0.375 rad/s is the slowest reliable in-place turn.
 // Autonomous DVD turns therefore use that fixed command instead of requesting
 // smaller values that leave the motors stalled.
-static constexpr double kForwardSpeed = 0.12;       // m/s, physical DVD cruise
-static constexpr double kTurnSpeed = 0.375;         // rad/s, minimum reliable physical turn
+static constexpr double kForwardSpeed = 0.15;       // m/s, physical DVD cruise
+static constexpr double kTurnSpeed = 0.425;         // rad/s, below the 0.45 driver cap
 static constexpr double kAngleGain = 0.55;          // retained for compatibility
 static constexpr double kAlignmentTolerance = 0.10; // radians, about 5.7 degrees
 static constexpr double kTurnAngularAcceleration = 0.45; // retained for compatibility
 
-// Smooth commanded stops so the physical base does not snap from motion to zero
-// in one control tick. At the 100 ms control period, these remove roughly
-// 0.04 m/s and 0.12 rad/s from the command each loop.
-static constexpr double kStopLinearDecel = 0.4;  // m/s^2
-static constexpr double kStopAngularDecel = 1.2; // rad/s^2
+// Smooth commanded stops so the physical base does not snap from motion to zero.
+static constexpr double kStopLinearDecel = 0.16;  // m/s^2
+static constexpr double kStopAngularDecel = 0.45; // rad/s^2
 
 // Stop this far before a real obstacle/wall.
 // Loaded from the ROS parameter 'stop_distance_m'.
 // Default: 1.5 m (simulation). Physical robot: set to 0.75 in the launch file.
 
-// 30 loops x 0.1 s = 3 seconds.
-static constexpr int kStopDurationLoops = 30;
+// 5 loops x 0.1 s = 0.5 seconds. The reactive turn loop below keeps the robot
+// moving out of corners instead of sitting through long stop/search cycles.
+static constexpr int kStopDurationLoops = 5;
 
 // Ignore returns too close to the robot body / lidar blind spot.
 static constexpr double kMinValidRange = 0.5; // m
@@ -6836,6 +6835,10 @@ static constexpr double kDvdPreferredMaxTurnAngle = 150.0 * M_PI / 180.0; // rad
 // This still avoids the front wall and avoids exact reverse.
 static constexpr double kDvdAvoidFrontAngle = 35.0 * M_PI / 180.0;  // radians
 static constexpr double kDvdAvoidReverseAngle = 165.0 * M_PI / 180.0; // radians
+
+static constexpr double kAutonomousMaximumTurnDuration = 7.0; // hard anti-circle limit
+static rclcpp::Time g_autonomous_timed_turn_start_time;
+static int g_autonomous_last_dvd_turn_sign = 1;
 
 // ------------------------------------------------------
 // LaserScan noise suppression constants
@@ -8328,6 +8331,7 @@ void MechelangeloBehaviour::controlLoop()
         target_angle_ = longest_angle;
         target_range_ = longest_range;
         align_yaw_initialised_ = false;
+        g_autonomous_timed_turn_start_time = this->now();
 
         RCLCPP_INFO(
             this->get_logger(),
@@ -8344,11 +8348,78 @@ void MechelangeloBehaviour::controlLoop()
         clearObstacleMarkers();
         twist.linear.x = 0.0;
 
-        // The physical IMU yaw was not reliably accumulating during long
-        // in-place turns, which left the state machine rotating indefinitely.
-        // Use the measured minimum reliable turn command and integrate the
-        // remaining requested bounce angle at the 100 ms control period.
-        if (std::fabs(target_angle_) <= kAlignmentTolerance)
+        const rclcpp::Time now = this->now();
+
+        if (!align_yaw_initialised_)
+        {
+            align_yaw_initialised_ = true;
+            g_autonomous_timed_turn_start_time = now;
+            if (std::fabs(target_angle_) <= kAlignmentTolerance)
+            {
+                target_angle_ = g_autonomous_last_dvd_turn_sign < 0
+                    ? M_PI / 2.0
+                    : -M_PI / 2.0;
+            }
+            g_autonomous_last_dvd_turn_sign = target_angle_ >= 0.0 ? 1 : -1;
+        }
+
+        auto freshUltrasonicRange = [&](const UltrasonicChannelState &channel,
+                                        double &range_out)
+        {
+            if (!channel.message_received ||
+                (now - channel.last_message_time).seconds() >
+                    kUltrasonicFreshTimeout)
+            {
+                return false;
+            }
+
+            if (channel.current_echo_valid)
+            {
+                range_out = channel.current_range_m;
+                return true;
+            }
+
+            if (std::isfinite(channel.last_finite_range_m) &&
+                (now - channel.last_finite_time).seconds() <=
+                    kUltrasonicLastEchoHoldTimeout)
+            {
+                range_out = channel.last_finite_range_m;
+                return true;
+            }
+
+            return false;
+        };
+
+        double left_ultrasonic_range =
+            std::numeric_limits<double>::infinity();
+        double right_ultrasonic_range =
+            std::numeric_limits<double>::infinity();
+        const bool left_ultrasonic_valid =
+            freshUltrasonicRange(g_ultrasonic_left, left_ultrasonic_range);
+        const bool right_ultrasonic_valid =
+            freshUltrasonicRange(g_ultrasonic_right, right_ultrasonic_range);
+        const bool ultrasonic_valid =
+            left_ultrasonic_valid || right_ultrasonic_valid;
+        const double nearest_ultrasonic_range = std::min(
+            left_ultrasonic_valid
+                ? left_ultrasonic_range
+                : std::numeric_limits<double>::infinity(),
+            right_ultrasonic_valid
+                ? right_ultrasonic_range
+                : std::numeric_limits<double>::infinity());
+
+        std::vector<LaserSegment> blocking_segments;
+        const bool blocked_by_segment =
+            findBlockingObstaclesInFront(blocking_segments);
+        const double front_range = getFrontRange();
+        const bool lidar_front_open =
+            !blocked_by_segment &&
+            (std::isinf(front_range) || front_range > stop_distance_m_);
+        const bool ultrasonic_front_open =
+            !ultrasonic_valid ||
+            nearest_ultrasonic_range > stop_distance_m_;
+
+        if (lidar_front_open && ultrasonic_front_open)
         {
             twist.linear.x = 0.0;
             twist.angular.z = 0.0;
@@ -8358,23 +8429,41 @@ void MechelangeloBehaviour::controlLoop()
 
             RCLCPP_INFO(
                 this->get_logger(),
-                "ALIGNING: Physical timed bounce complete. Starting DVD forward movement.");
+                "ALIGNING: Front is open. Starting DVD forward movement. lidar=%.2f ultrasonic=%s %.2f.",
+                front_range,
+                ultrasonic_valid ? "valid" : "stale",
+                nearest_ultrasonic_range);
             break;
         }
 
+        const double elapsed =
+            (now - g_autonomous_timed_turn_start_time).seconds();
+        if (elapsed >= kAutonomousMaximumTurnDuration)
+        {
+            target_angle_ = -target_angle_;
+            g_autonomous_last_dvd_turn_sign =
+                target_angle_ >= 0.0 ? 1 : -1;
+            g_autonomous_timed_turn_start_time = now;
+
+            RCLCPP_WARN(
+                this->get_logger(),
+                "ALIGNING: Turned for %.1f s without finding open front. Reversing scan direction.",
+                kAutonomousMaximumTurnDuration);
+        }
+
         const double turn_cmd =
-            std::copysign(kTurnSpeed, target_angle_);
+            (g_autonomous_last_dvd_turn_sign >= 0 ? kTurnSpeed : -kTurnSpeed);
         twist.angular.z = turn_cmd;
-        target_angle_ = normaliseAngle(
-            target_angle_ -
-            turn_cmd * kControlPeriodSeconds);
 
         RCLCPP_INFO_THROTTLE(
             this->get_logger(),
             *this->get_clock(),
             1000,
-            "ALIGNING: Physical timed DVD turn. Remaining %.2f deg, cmd %.3f rad/s.",
-            target_angle_ * 180.0 / M_PI,
+            "ALIGNING: Rotating until front opens. direction=%s, lidar %.2f m, ultrasonic %s %.2f m, cmd %.3f rad/s.",
+            g_autonomous_last_dvd_turn_sign >= 0 ? "left" : "right",
+            front_range,
+            ultrasonic_valid ? "valid" : "stale",
+            nearest_ultrasonic_range,
             twist.angular.z);
         break;
     }
@@ -8407,12 +8496,31 @@ void MechelangeloBehaviour::controlLoop()
 
             RCLCPP_WARN(
                 this->get_logger(),
-                "MOVING: Blocking obstacle detected in front. Front range = %.2f m. Stopping.",
+                "MOVING: Blocking obstacle detected in front. Front range = %.2f m. Turning to find open space.",
                 front_range);
 
             stopRobot(twist);
-            stop_counter_ = 0;
-            current_state_ = NavigationState::STOPPED;
+            if (std::fabs(twist.linear.x) <= 1e-6 &&
+                std::fabs(twist.angular.z) <= 1e-6)
+            {
+                double longest_angle = 0.0;
+                double longest_range = 0.0;
+                if (getLongestRange(longest_angle, longest_range))
+                {
+                    target_angle_ = longest_angle;
+                    target_range_ = longest_range;
+                }
+                else
+                {
+                    target_angle_ = g_autonomous_last_dvd_turn_sign < 0
+                        ? M_PI / 2.0
+                        : -M_PI / 2.0;
+                    target_range_ = front_range;
+                }
+
+                align_yaw_initialised_ = false;
+                current_state_ = NavigationState::ALIGNING;
+            }
             break;
         }
 
