@@ -6862,8 +6862,8 @@ static constexpr int kSegmentMinPoints = 3;              // reject tiny speckle 
 static constexpr double kSegmentMinLength = 0.03;        // m reject near-zero length segments
 
 // Stage 3: temporal majority vote across a ring buffer of recent scans.
-static constexpr int kTemporalBufferSize = 5;            // number of scans to accumulate
-static constexpr int kTemporalVoteThreshold = 3;         // minimum votes (out of 5) to keep a beam
+static constexpr int kTemporalBufferSize = 4;            // number of scans to accumulate
+static constexpr int kTemporalVoteThreshold = 2;         // minimum votes (out of 5) to keep a beam
 
 // ------------------------------------------------------
 // Human tracking tuning
