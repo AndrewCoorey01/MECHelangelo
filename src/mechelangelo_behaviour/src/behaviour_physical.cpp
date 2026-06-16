@@ -6922,6 +6922,12 @@ static constexpr double kHumanLidarWindow = 10.0 * M_PI / 180.0;
 static constexpr double kLidarCameraMaxDisagreement = 0.4;
 static constexpr double kHumanLidarStopDistance = 1.65;
 static constexpr double kHumanLidarStopTolerance = 0.20;
+// LiDAR is the primary human-approach stopping sensor. kHumanLidarSlowdownMargin
+// is added to kHumanLidarStopDistance to define the pulsed-slowdown band start.
+static constexpr double kHumanLidarSlowdownMargin = 0.20;  // m above stop to begin slowdown pulses
+// Soft deceleration rate used when the human-approach stop condition is reached.
+// Softer than kStopLinearDecel so the base does not lurch to a halt.
+static constexpr double kHumanApproachDecelRate = 0.10;    // m/s²
 
 // Once the robot reaches a usable interaction pose, hold it instead of
 // continuing to creep forward or dropping straight back into DVD exploration
@@ -8948,88 +8954,125 @@ void MechelangeloBehaviour::controlLoop()
 
         double desired_linear = 0.0;
 
-        // Forward movement is only allowed after the human is centred.
+        // LiDAR is the primary stopping sensor during human approach.
+        // Camera bearing is used to aim the range lookup at the human.
+        // Ultrasonic is an emergency backup: if either sensor reads closer
+        // than kUltrasonicStopDistance it forces a stop regardless of LiDAR.
+        //
         // The physical base does not move reliably below 0.12 m/s, so every
-        // nonzero forward command is exactly 0.12 m/s. Between 1.60 m and
-        // 1.50 m, use short 0.12 m/s pulses separated by stationary ultrasonic
-        // updates instead of requesting unusable lower velocities.
+        // nonzero forward command is exactly 0.12 m/s. Between
+        // (kHumanLidarStopDistance + kHumanLidarSlowdownMargin) and
+        // kHumanLidarStopDistance, short 0.12 m/s pulses are used instead
+        // of requesting unusable lower velocities.
         if (!g_human_centre_locked)
         {
             g_human_forward_cycle_initialised = false;
         }
-        else if (!ultrasonic_alive)
+        else
         {
-            g_ultrasonic_stale_stop_count++;
-            g_human_forward_cycle_initialised = false;
-            desired_linear = 0.0;
+            const double lidar_range = getHumanLidarRange(human_centre_offset_);
+            const bool lidar_range_valid =
+                std::isfinite(lidar_range) && lidar_range > kMinValidRange;
 
-            RCLCPP_ERROR_THROTTLE(
-                this->get_logger(),
-                *this->get_clock(),
-                1000,
-                "HUMAN: Both ultrasonic topics are stale. Holding position.");
-        }
-        else if (ultrasonic_range_valid)
-        {
-            if (ultrasonic_range <= kUltrasonicStopDistance)
+            const bool ultrasonic_emergency =
+                ultrasonic_range_valid &&
+                ultrasonic_range <= kUltrasonicStopDistance;
+
+            if (ultrasonic_emergency)
             {
+                // Ultrasonic backup: something is very close — force stop.
+                g_ultrasonic_stale_stop_count++;
                 g_human_forward_cycle_initialised = false;
                 desired_linear = 0.0;
+
+                RCLCPP_WARN_THROTTLE(
+                    this->get_logger(),
+                    *this->get_clock(),
+                    500,
+                    "HUMAN: Ultrasonic emergency backup triggered at %.2f m. Holding.",
+                    ultrasonic_range);
             }
-            else if (ultrasonic_range <= kUltrasonicSlowdownStartDistance)
+            else if (lidar_range_valid)
             {
-                const double pulse_period =
-                    kUltrasonicForwardPulseOnSeconds +
-                    kUltrasonicForwardPulseOffSeconds;
-
-                if (!g_human_forward_cycle_initialised)
+                if (lidar_range <= kHumanLidarStopDistance)
                 {
-                    g_human_forward_cycle_start = now;
-                    g_human_forward_cycle_initialised = true;
+                    g_human_forward_cycle_initialised = false;
+                    desired_linear = 0.0;
                 }
-
-                double pulse_elapsed =
-                    (now - g_human_forward_cycle_start).seconds();
-
-                if (pulse_elapsed >= pulse_period)
+                else if (lidar_range <=
+                    kHumanLidarStopDistance + kHumanLidarSlowdownMargin)
                 {
-                    g_human_forward_cycle_start = now;
-                    pulse_elapsed = 0.0;
-                }
+                    // Pulsed slowdown band.
+                    const double pulse_period =
+                        kUltrasonicForwardPulseOnSeconds +
+                        kUltrasonicForwardPulseOffSeconds;
 
-                desired_linear =
-                    pulse_elapsed < kUltrasonicForwardPulseOnSeconds
-                        ? kUltrasonicApproachMaxSpeed
-                        : 0.0;
+                    if (!g_human_forward_cycle_initialised)
+                    {
+                        g_human_forward_cycle_start = now;
+                        g_human_forward_cycle_initialised = true;
+                    }
+
+                    double pulse_elapsed =
+                        (now - g_human_forward_cycle_start).seconds();
+
+                    if (pulse_elapsed >= pulse_period)
+                    {
+                        g_human_forward_cycle_start = now;
+                        pulse_elapsed = 0.0;
+                    }
+
+                    desired_linear =
+                        pulse_elapsed < kUltrasonicForwardPulseOnSeconds
+                            ? kUltrasonicApproachMaxSpeed
+                            : 0.0;
+                }
+                else
+                {
+                    g_human_forward_cycle_initialised = false;
+                    desired_linear = kUltrasonicApproachMaxSpeed;
+                }
             }
             else
             {
+                // No valid LiDAR return in the human cone. Fall back to
+                // ultrasonic if available, otherwise hold position.
+                g_ultrasonic_no_echo_approach_count++;
                 g_human_forward_cycle_initialised = false;
-                desired_linear = kUltrasonicApproachMaxSpeed;
+
+                if (ultrasonic_range_valid)
+                {
+                    desired_linear = ultrasonic_range <= kUltrasonicStopDistance
+                        ? 0.0
+                        : kUltrasonicNoEchoApproachSpeed;
+
+                    RCLCPP_WARN_THROTTLE(
+                        this->get_logger(),
+                        *this->get_clock(),
+                        1000,
+                        "HUMAN: No LiDAR return in human cone. "
+                        "Falling back to ultrasonic %.2f m.",
+                        ultrasonic_range);
+                }
+                else
+                {
+                    desired_linear = 0.0;
+
+                    RCLCPP_WARN_THROTTLE(
+                        this->get_logger(),
+                        *this->get_clock(),
+                        1000,
+                        "HUMAN: No LiDAR or ultrasonic range available. Holding position.");
+                }
             }
         }
-        else
-        {
-            // The ultrasonic node is alive but no finite echo is available.
-            // Continue at the tested reliable speed until either sensor obtains
-            // a finite return. Only ultrasonic distance can stop human approach.
-            g_ultrasonic_no_echo_approach_count++;
-            g_human_forward_cycle_initialised = false;
-            desired_linear = kUltrasonicNoEchoApproachSpeed;
 
-            RCLCPP_WARN_THROTTLE(
-                this->get_logger(),
-                *this->get_clock(),
-                1000,
-                "HUMAN: Ultrasonic sensors alive with no finite echo. "
-                "Approaching at reliable %.2f m/s.",
-                kUltrasonicNoEchoApproachSpeed);
-        }
-
+        // Interaction distance is now LiDAR-driven.
+        const double lidar_range_interact = getHumanLidarRange(human_centre_offset_);
         const bool at_interaction_distance =
-            ultrasonic_range_valid &&
-            ultrasonic_range <=
-                kUltrasonicInteractionEnterDistance;
+            std::isfinite(lidar_range_interact) &&
+            lidar_range_interact > kMinValidRange &&
+            lidar_range_interact <= kHumanLidarStopDistance;
         const bool interaction_alignment_good =
             g_human_centre_locked &&
             absolute_offset <=
@@ -9121,7 +9164,7 @@ void MechelangeloBehaviour::controlLoop()
             g_interaction_hold_active = true;
             g_interaction_hold_time = now;
             g_interaction_hold_range_m =
-                ultrasonic_range;
+                lidar_range_interact;
             g_interaction_hold_offset =
                 human_centre_offset_;
             g_human_interaction_success_count++;
@@ -9130,24 +9173,29 @@ void MechelangeloBehaviour::controlLoop()
             publishInteractionActive(now, true, true);
 
             writeHumanInteractionStatsLog(
-                "ultrasonic_pose_verified_entered_interaction",
+                "lidar_pose_verified_entered_interaction",
                 now);
 
             RCLCPP_INFO(
                 this->get_logger(),
-                "HUMAN: Centred and stopped at %.2f m. Beginning interaction.",
-                ultrasonic_range);
+                "HUMAN: Centred and stopped at %.2f m (LiDAR). Beginning interaction.",
+                lidar_range_interact);
             break;
         }
 
-        // The physical base has a forward dead zone: commands below 0.12 m/s
-        // do not move it. Publish either zero or the tested 0.12 m/s directly.
-        // Final-distance damping is produced by timed 0.12 m/s pulses rather
-        // than ineffective smaller velocity commands.
-        twist.linear.x =
-            desired_linear > 0.0
-                ? kUltrasonicApproachMaxSpeed
-                : 0.0;
+        // When stopping, ramp toward zero at kHumanApproachDecelRate rather than
+        // cutting to zero immediately, so the base does not lurch to a halt.
+        if (desired_linear > 0.0)
+        {
+            twist.linear.x = kUltrasonicApproachMaxSpeed;
+        }
+        else
+        {
+            const double decel_step =
+                kHumanApproachDecelRate * kControlPeriodSeconds;
+            twist.linear.x =
+                std::max(0.0, current_twist_.linear.x - decel_step);
+        }
         twist.angular.z = desired_angular;
 
         RCLCPP_INFO_THROTTLE(
