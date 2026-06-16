@@ -1,3 +1,53 @@
+/**
+ * @file behaviour.cpp
+ * @brief Implementation of MechelangeloBehaviour — DVD-bounce exploration and
+ *        fused-sensor human interaction for the MECHelangelo gallery robot.
+ *
+ * @details
+ * This file contains the complete implementation of the behaviour node.
+ * All tuning constants, file-scope FSM state, auxiliary enums, and helper
+ * functions are kept here so that `behaviour.hpp` remains a clean interface
+ * boundary.
+ *
+ * ### Key sections (in file order)
+ *
+ * 1. **Behaviour constants** — `kControlPeriodSeconds`, `kForwardSpeed`,
+ *    `kDvdOpenClearanceDistance`, `kHumanTargetDistance`, etc.
+ * 2. **File-scope FSM state** — `g_human_motion_phase`,
+ *    `g_human_target_confidence`, `g_fused_human_*`, planner / escape /
+ *    waypoint sub-state, and per-run diagnostic counters.
+ * 3. **Auxiliary enums** — `HumanMotionPhase`, `HumanTargetConfidence`,
+ *    `ProactiveAvoidanceStage`, `DeterministicEscapeStage`.
+ * 4. **Static helper functions** — debug log writers, state-name printers,
+ *    arm-down / interaction-active publishers, `resetHumanMotionController()`,
+ *    cooldown utilities.
+ * 5. **MechelangeloBehaviour class methods** — constructor, `run()`,
+ *    `blindAutonomous()`, `controlLoop()`, sensor callbacks, LaserScan
+ *    filtering, fused human tracker, arc planner, escape / waypoint recovery.
+ *
+ * ### DVD-bounce exploration
+ *
+ * The robot treats the gallery like a DVD screensaver: drive straight until a
+ * blocking segment enters `stop_distance_m_`, stop for ~3 s, then re-scan for
+ * arcs wider than `kDvdMinSectorWidth` where every beam exceeds
+ * `kDvdOpenClearanceDistance` (4.5 m) or is infinite.  A random heading is
+ * selected from the preferred 55°–150° side-bounce band (falling back to
+ * 35°–165° when no preferred candidate exists), then the robot aligns
+ * (IMU-confirmed when available) and drives forward.
+ *
+ * ### Human approach / interaction
+ *
+ * On a `/human_tracking` rising edge:
+ * 1. **APPROACH** — Persistent target lock (camera bearing + LiDAR cluster)
+ *    is propagated each tick via commanded velocity and IMU yaw delta.
+ *    A dynamic-window arc planner samples 0.35 s commands and picks the best.
+ * 2. **REPOSITION / ESCAPE / waypoint** — When the 1.5 m arm-clearance bubble
+ *    is blocked, lateral repositioning is attempted.  Stagnation triggers a
+ *    forced escape arc; persistent blockage triggers an adaptive S-curve
+ *    waypoint manoeuvre.
+ * 3. **SETTLE** — 5 consecutive scans confirming clear bubble + centring.
+ * 4. **INTERACTION** — 30 s mimicry session, then cooldown before next detection.
+ */
 /////////////////////////////////////////////////////////////////////////
 /// DVD bounce + adaptive human clearance waypoint / S-curve test
 

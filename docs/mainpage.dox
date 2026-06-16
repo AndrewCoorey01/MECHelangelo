@@ -1,0 +1,307 @@
+/**
+ * @mainpage MECHelangelo — Autonomous Gallery Robot
+ *
+ * @section overview Overview
+ *
+ * MECHelangelo is an autonomous, interactive gallery robot built on a
+ * differential-drive mobile base.  It navigates a simulated or physical gallery
+ * environment using a DVD-screensaver-style exploration strategy, detects
+ * visitors with a camera and MediaPipe pose estimation, approaches them to a
+ * safe interaction distance, and then mirrors their arm poses using a pair of
+ * servo-driven arms controlled by a per-arm KNN classifier.
+ *
+ * The system runs under **ROS 2 Humble** on a **Raspberry Pi 5**.
+ * On the physical robot a dedicated **Raspberry Pi 4** runs the camera pipeline
+ * and exposes its output via HTTP.  In simulation an equivalent ROS node runs
+ * the same pipeline using a Gazebo virtual camera and/or a USB laptop camera.
+ *
+ * The robot's name is a portmanteau of **MECH**anical and Micha**elangelo**,
+ * reflecting its role as an interactive artistic robot that mirrors human
+ * movement.
+ *
+ * @section architecture System Architecture
+ *
+ * @subsection arch_physical Physical robot data-flow
+ * @code
+ * YDLIDAR X4  ──/scan──────────────────────┐
+ * Sense HAT   ──/imu───────────────────────┤
+ *                                           ▼
+ * Pi 4 Flask /state ──► pi4_bridge ──► mechelangelo_behaviour ──► /cmd_vel ──► ThunderBorg
+ *                                                               └──► /arm/right_pose
+ *                                                               └──► /arm/left_pose
+ *                                                               └──► /interaction_active
+ * @endcode
+ *
+ * @subsection arch_sim Simulation data-flow
+ * @code
+ * Gazebo camera ──► sim_pi4_state_camera (tracking)  ──► /sim_pi4/tracking_state ─┐
+ * USB camera    ──► sim_pi4_state_camera (mimicry)   ──► /sim_pi4/mimicry_state  ─┤
+ *                                                                                   ▼
+ *                                                               sim_pi4_state_bridge
+ *                                                                        │
+ *                                               /human_tracking ◄────────┤
+ *                                               /human_detected ◄────────┘
+ *                                                        │
+ * /scan (Gazebo) ──► mechelangelo_behaviour ─────────────┘
+ *                           │
+ *                           ├──► /cmd_vel ──► Gazebo differential drive
+ *                           ├──► /arm/right_pose ──► sim_named_arm_pose_bridge
+ *                           ├──► /arm/left_pose  ──► sim_named_arm_pose_bridge
+ *                           └──► /interaction_active ──► sim_pi4_state_camera (mimicry gate)
+ * @endcode
+ *
+ * @section packages ROS 2 Packages
+ *
+ * @subsection pkg_behaviour mechelangelo_behaviour
+ *
+ * | Attribute | Value |
+ * |-----------|-------|
+ * | Language  | C++ (ament_cmake) |
+ * | Node name | `mechelangelo_behaviour` |
+ * | Source    | `src/mechelangelo_behaviour/src/behaviour.cpp` |
+ * | Header    | `src/mechelangelo_behaviour/src/behaviour.hpp` |
+ *
+ * The core navigation and human-interaction state machine.  Runs at **10 Hz**
+ * and implements two high-level operating modes.
+ *
+ * **DVD-bounce exploration** cycles through NavigationState::SEARCHING →
+ * NavigationState::ALIGNING → NavigationState::MOVING → NavigationState::STOPPED,
+ * driving the robot around the gallery by selecting the longest clear LiDAR heading
+ * after each wall stop.  The heading selection deliberately avoids the obstacle
+ * that was just stopped for, biasing toward side-bounce angles (55°–150°)
+ * so the robot covers the room rather than reversing.
+ *
+ * **Human approach and interaction** (NavigationState::HUMAN_DETECTED) fuses
+ * the camera-supplied bearing with LiDAR range via a persistent target lock,
+ * runs a dynamic-window arc planner to navigate to a 1.5 m arm-clearance bubble,
+ * manages several recovery sub-modes (REPOSITION, ESCAPE, SETTLE, S-curve waypoint),
+ * times a 30-second mimicry session, then returns to DVD exploration with a
+ * detection cooldown to avoid immediately interrupting the next exploration run.
+ *
+ * Subscribed topics:
+ * | Topic | Message type | Description |
+ * |-------|-------------|-------------|
+ * | `/scan` | `sensor_msgs/LaserScan` | Raw LiDAR scan (360°, YDLIDAR X4) |
+ * | `/imu` | `sensor_msgs/Imu` | Orientation for IMU-confirmed turns |
+ * | `/human_tracking` | `std_msgs/Float32MultiArray` | `[detected, centre_offset, dist_m]` |
+ * | `/human_detected` | `std_msgs/Bool` | Edge-trigger for human lock acquire/loss |
+ * | `/arm/mimicry_right_pose` | `std_msgs/String` | Forwarded to right arm during interaction |
+ * | `/arm/mimicry_left_pose` | `std_msgs/String` | Forwarded to left arm during interaction |
+ *
+ * Published topics:
+ * | Topic | Message type | Description |
+ * |-------|-------------|-------------|
+ * | `/cmd_vel` | `geometry_msgs/Twist` | Velocity command to base |
+ * | `/arm/right_pose` | `std_msgs/String` | Named pose for right arm |
+ * | `/arm/left_pose` | `std_msgs/String` | Named pose for left arm |
+ * | `/interaction_active` | `std_msgs/Bool` | Latched interaction gate |
+ * | `/voice_prompt` | `std_msgs/String` | Text for the future audio system |
+ * | `/scan_filtered` | `sensor_msgs/LaserScan` | Noise-filtered scan (debug) |
+ * | `/behaviour_obstacle_markers` | `visualization_msgs/MarkerArray` | Blocking segments (RViz debug) |
+ *
+ * ROS parameters:
+ * | Parameter | Default | Description |
+ * |-----------|---------|-------------|
+ * | `stop_distance_m` | `1.5` | Wall stop distance in metres. Set to `0.75` for the physical robot. |
+ * | `approach_arm_pose_name` | `"arm_down"` | Named pose sent to both arms during non-interaction states. |
+ *
+ * @subsection pkg_perception mechelangelo_perception
+ *
+ * | Attribute | Value |
+ * |-----------|-------|
+ * | Language  | Python (ament_python) |
+ * | Source    | `src/mechelangelo_perception/mechelangelo_perception/` |
+ *
+ * The perception pipeline bridges camera data into ROS topics consumed by the
+ * behaviour node.  Contains the following nodes:
+ *
+ * | Python file | Node name | Role |
+ * |-------------|-----------|------|
+ * | `sim_pi4_state_camera.py` | `sim_pi4_state_camera` | MediaPipe pose detection (tracking or mimicry role) |
+ * | `sim_pi4_state_bridge.py` | `sim_pi4_state_bridge` | Combines tracking + mimicry JSON state into `/human_tracking` |
+ * | `pi4_bridge.py` | `pi4_bridge` | Physical-robot HTTP poller: Pi 4 `/state` → ROS topics |
+ * | `sim_interaction_gate.py` | `sim_interaction_gate` | Emits `/interaction_active` when range + centring criteria are met |
+ * | `sim_named_arm_pose_bridge.py` | `sim_named_arm_pose_bridge` | Converts named arm poses to Gazebo 8-joint trajectories |
+ * | `dual_ultrasonic.py` | `dual_ultrasonic_node` | GPIO HY-SRF05 / HC-SR04 ultrasonic distance driver (physical robot) |
+ *
+ * **sim_pi4_state_camera** (`--role tracking`): Subscribes to the Gazebo robot
+ * camera image topic, runs MediaPipe Pose every other frame, implements a
+ * LockState tracker that acquires and holds a single-person lock (with a 5-second
+ * grace period on visibility loss), and publishes a JSON state blob containing
+ * `turn_cmd` (`TURN_LEFT` / `TURN_RIGHT` / `STOP`) and `locked`.
+ * A Flask debug server exposes a live MJPEG stream and the current state.
+ *
+ * **sim_pi4_state_camera** (`--role mimicry`): Reads a USB/laptop camera,
+ * extracts 11 joint-angle/position features from MediaPipe Pose, classifies
+ * each arm with an ArmKNN weighted KNN classifier (k=9, majority-vote window of
+ * 10 frames), and publishes confirmed pose names — gated behind
+ * `/interaction_active` so the arms only move once the robot has arrived.
+ * KNN training data is persisted as JSON files on disk and can be extended at
+ * runtime via HTTP `GET /record/right/<pose>` and `/record/left/<pose>`.
+ *
+ * **ArmKNN**: An 11-feature, weighted Euclidean KNN classifier.  Features:
+ * shoulder angle, elbow angle, upper-arm Z depth, forearm Z depth, wrist
+ * relative Y/X, elbow relative Y/X, forearm 2D angle, upper-arm 2D angle,
+ * elbow from shoulder midpoint.  Feature weights emphasise elbow-from-centre
+ * (weight 4.0) and elbow position (2.5) over pure angles.
+ *
+ * **sim_pi4_state_bridge**: Mirrors `pi4_bridge.py` but reads from
+ * `/sim_pi4/tracking_state` and `/sim_pi4/mimicry_state` ROS String topics
+ * instead of polling HTTP.  Converts the tri-state `turn_cmd` into a smoothed
+ * floating-point `centre_offset` (alpha = 0.35) for the behaviour node.
+ *
+ * **pi4_bridge** (physical robot only): Polls `http://172.20.10.3:5000/state`
+ * at 10 Hz with a 300 ms timeout.  Translates `TURN_LEFT` / `TURN_RIGHT` /
+ * `STOP` into a centre_offset and publishes `/human_tracking`,
+ * `/human_detected`, `/arm/right_pose`, `/arm/left_pose`, `/arm/turn`, and
+ * `/arm/locked`.  Falls back to a safe "human lost" state on any HTTP failure.
+ *
+ * **sim_interaction_gate** (simulation helper): An independent node that
+ * evaluates whether the robot has reached a human-interaction pose and publishes
+ * `/interaction_active` accordingly.  Used in simulation runs that do not rely
+ * on the behaviour node's internal interaction-hold logic.
+ *
+ * **sim_named_arm_pose_bridge**: Converts named pose strings (e.g. `"salute"`)
+ * received on `/arm/right_pose` and `/arm/left_pose` into a full 8-joint
+ * `trajectory_msgs/JointTrajectory` message for the Gazebo arm controllers.
+ * Uses a servo-degree → joint-radian conversion that maps the physical LX-16A
+ * servo range (0–240°, centre 120°) to ±2.09 rad.
+ *
+ * **dual_ultrasonic**: GPIO driver for two front-facing HY-SRF05 / HC-SR04
+ * ultrasonic sensors.  Alternates triggering to avoid cross-talk, applies a
+ * median filter over the last 5 valid readings, and publishes
+ * `sensor_msgs/Range` on `/ultrasonic/left` and `/ultrasonic/right`.
+ * Echo lines must be voltage-divided (10 kΩ / 10 kΩ) before reaching the Pi GPIO.
+ *
+ * @subsection pkg_base mechelangelo_base_driver
+ *
+ * | Attribute | Value |
+ * |-----------|-------|
+ * | Language  | Python (ament_python) |
+ * | Node name | `mechelangelo_base_driver` |
+ * | Source    | `src/mechelangelo_base_driver/mechelangelo_base_driver/base_driver.py` |
+ *
+ * Subscribes to `/cmd_vel` (`geometry_msgs/Twist`) and drives the robot's two
+ * DC motors via the **PiBorg ThunderBorg** I²C motor controller.  Converts
+ * linear and angular velocity into open-loop left/right motor percentages using
+ * configurable max-speed parameters.  A software watchdog cuts motor power if
+ * `/cmd_vel` is silent for more than a configurable timeout.  The ThunderBorg
+ * I²C comms failsafe is also configured so the motors cut out if the Pi loses
+ * the bus.
+ *
+ * @subsection pkg_bringup mechelangelo_bringup
+ *
+ * | Attribute | Value |
+ * |-----------|-------|
+ * | Language  | Python launch files |
+ * | Source    | `src/mechelangelo_bringup/launch/` |
+ *
+ * Top-level launch files for bringing up the physical robot:
+ *
+ * | File | Purpose |
+ * |------|---------|
+ * | `robot.launch.py` | Full physical bringup: URDF, LiDAR, IMU, base driver, behaviour, perception |
+ * | `physical_autonomous.launch.py` | Autonomous physical run, sets `stop_distance_m:=0.75` |
+ *
+ * Simulation-specific launch files live in `mechelangelo_gazebo`.
+ * Custom Gazebo SDF environment models (gallery walls, floor, barrels, statues,
+ * artwork textures) also reside here under `Models/`.
+ *
+ * @subsection pkg_lidar mechelangelo_lidar_driver
+ *
+ * | Attribute | Value |
+ * |-----------|-------|
+ * | Language  | Python (ament_python) |
+ * | Node name | `mechelangelo_lidar_driver` |
+ *
+ * Driver for the **YDLIDAR X4** 2-D LiDAR.  Publishes `/scan`
+ * (`sensor_msgs/LaserScan`) at ~10 Hz with a 360° sweep.
+ * The behaviour node runs a two-stage noise filter (local neighbour test +
+ * segment-extraction test) on this scan before using it for obstacle avoidance
+ * and human range estimation.
+ *
+ * @subsection pkg_imu mechelangelo_imu_driver
+ *
+ * | Attribute | Value |
+ * |-----------|-------|
+ * | Language  | Python (ament_python) |
+ * | Node name | `mechelangelo_imu_driver` |
+ *
+ * Driver for the **Raspberry Pi Sense HAT** (LSM9DS1 9-DOF IMU, RTIMULib).
+ * The IMU link is at (0, 0, 0.37 m) relative to `base_link`.
+ *
+ * Published topics:
+ * | Topic | Type | Content |
+ * |-------|------|---------|
+ * | `/imu` | `sensor_msgs/Imu` | Orientation quaternion + angular velocity |
+ * | `/mag` | `sensor_msgs/MagneticField` | Magnetometer vector |
+ * | `/pressure` | `sensor_msgs/FluidPressure` | Barometric pressure |
+ * | `/humidity` | `sensor_msgs/RelativeHumidity` | Relative humidity |
+ * | `/temp_p` | `sensor_msgs/Temperature` | Temperature (pressure sensor) |
+ * | `/temp_h` | `sensor_msgs/Temperature` | Temperature (humidity sensor) |
+ *
+ * @subsection pkg_description mechelangelo_description
+ *
+ * | Attribute | Value |
+ * |-----------|-------|
+ * | Language  | URDF / xacro |
+ * | Source    | `src/mechelangelo_description/urdf/` |
+ *
+ * Robot URDF description files.
+ *
+ * | File | Content |
+ * |------|---------|
+ * | `mechelangelo_final.urdf` | Complete robot: base + dual 4-DOF arms + sensors |
+ * | `mechelangelo_base.urdf` | Base-only (no arms) |
+ * | `mechelangelo_arm.urdf` | Single-arm test model |
+ * | `mechelangelo_dual_arms.urdf` | Dual-arm test model |
+ *
+ * Arm meshes (STL / DAE) are in `meshes/Arms/`.  Base meshes are in
+ * `meshes/base_final/`.
+ *
+ * @subsection pkg_gazebo mechelangelo_gazebo
+ *
+ * | Attribute | Value |
+ * |-----------|-------|
+ * | Language  | Python launch files, SDF world / model files |
+ * | Source    | `src/mechelangelo_gazebo/` |
+ *
+ * Gazebo Classic simulation environment.
+ *
+ * **Models** (in `models/`):
+ * - `gallery_floor`, `empty_gallery_floor`, `empty_gallery_walls` — gallery geometry.
+ * - `barrels`, `walls` (with artwork textures), `statues` — gallery props.
+ * - Eight human NPC models: `human_female_1` – `human_female_4`,
+ *   `human_male_1` – `human_male_4`.
+ * - `mechelangelo_dual_arms` — the robot model with arm meshes and controllers.
+ *
+ * **Launch files**:
+ * | File | Purpose |
+ * |------|---------|
+ * | `mechelangelo.launch.py` | Full simulation: gallery world + robot |
+ * | `environment.launch.py` | Gallery world only (no robot) |
+ * | `empty_gallery.launch.py` | Empty gallery (no props/artwork) |
+ * | `mechelangelo_full_mimicry_sim.launch.py` | Combined sim approach + USB mimicry camera |
+ * | `environment_arm.launch.py` | Arm-only test environment |
+ *
+ * Arm joint-trajectory controller parameters are in `config/arm_controllers.yaml`.
+ *
+ * @section topic_map Complete Key Topic Map
+ *
+ * @code
+ * [YDLIDAR X4]        /scan                    ──► mechelangelo_behaviour
+ * [Sense HAT]         /imu                     ──► mechelangelo_behaviour
+ * [pi4_bridge /       /human_tracking           ──► mechelangelo_behaviour
+ *  sim bridge]        /human_detected           ──► mechelangelo_behaviour
+ * [mechelangelo_       /cmd_vel                 ──► base_driver / Gazebo
+ *  behaviour]          /arm/right_pose          ──► arm bridge / Dynamixel
+ *                      /arm/left_pose           ──► arm bridge / Dynamixel
+ *                      /interaction_active      ──► sim_pi4_state_camera (mimicry)
+ *                      /voice_prompt            ──► (future audio node)
+ *                      /scan_filtered           ──► RViz debug
+ *                      /behaviour_obstacle_markers ──► RViz debug
+ * [sim arm bridge]     /set_joint_trajectory    ──► Gazebo joint controllers
+ * [dual_ultrasonic]    /ultrasonic/left         ──► (available to behaviour)
+ *                      /ultrasonic/right        ──► (available to behaviour)
+ * @endcode
+ */

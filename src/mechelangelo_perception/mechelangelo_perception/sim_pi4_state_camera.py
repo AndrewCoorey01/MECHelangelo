@@ -1,59 +1,58 @@
 #!/usr/bin/env python3
 """
-sim_pi4_state_camera.py
+@file sim_pi4_state_camera.py
+@brief Simulation stand-in for the physical Raspberry Pi 4 camera program.
 
-Simulation version of the physical Pi 4 camera program.
+@details
+This ROS 2 node replicates the camera-state interface of the physical Pi 4
+so that the behaviour node's subscription to ``/human_tracking`` works
+identically in simulation and on the real robot.
 
-Purpose
--------
-This node lets the simulation use the same camera-state interface as the
-physical Pi 4 code.
+The node operates in one of two **roles** selected via ``--role``:
 
-It has two roles:
+**tracking**
+  - Camera source: Gazebo robot camera (``--camera sim``) or USB device
+    (``--camera usb``).
+  - Runs MediaPipe Pose on every other frame to detect and lock onto a person.
+  - Publishes a JSON state message on ``--state-topic`` shaped like the
+    physical Pi 4 ``/state`` endpoint::
 
-1) tracking
-   - Camera source: usually Gazebo robot camera.
-   - Detects and locks onto the sim human.
-   - Publishes a JSON state message shaped like the physical Pi 4 /state:
-       {
-         "right_confirmed": null,
-         "left_confirmed": null,
-         "turn_cmd": "TURN_LEFT" / "TURN_RIGHT" / "STOP",
-         "locked": true / false
-       }
-   - This state is consumed by sim_pi4_state_bridge.py, which publishes
-     /human_tracking for the behaviour node.
+        {
+          "right_confirmed": null,
+          "left_confirmed": null,
+          "turn_cmd": "TURN_LEFT" | "TURN_RIGHT" | "STOP",
+          "locked": true | false
+        }
 
-2) mimicry
-   - Camera source: usually laptop/USB camera.
-   - Uses the same KNN-style pose-name classification structure as the
-     physical Pi 4 camera code.
-   - Does not publish arm poses until /interaction_active is true.
-   - Publishes confirmed pose names in the same state shape:
-       {
-         "right_confirmed": "salute",
-         "left_confirmed": "arm_down",
-         "turn_cmd": "STOP",
-         "locked": true
-       }
+  - ``sim_pi4_state_bridge`` consumes this state and translates it into
+    ``/human_tracking`` for the behaviour node.
 
-Debug stream
-------------
-Each instance also exposes:
-  http://localhost:<flask-port>/
-  http://localhost:<flask-port>/state
-  http://localhost:<flask-port>/video
-  http://localhost:<flask-port>/knn/status
+**mimicry**
+  - Camera source: USB / laptop camera (``--camera usb``).
+  - Extracts 11 per-arm features from MediaPipe landmarks, classifies each
+    arm via ``ArmKNN`` (k=9, majority-vote window 10 frames), and publishes
+    confirmed pose names in the same JSON state shape.
+  - **Arm poses are only published after** ``/interaction_active`` is ``True``,
+    so the arms cannot move until the behaviour node confirms the robot has
+    reached the interaction distance.
 
-Training
---------
-For mimicry mode, the KNN files must exist. Defaults:
-  /home/pi/pose_knn_right.json
-  /home/pi/pose_knn_left.json
+**Debug HTTP server (Flask)**
+Each instance starts a Flask server on ``--flask-port`` (default 5010)::
 
-You can override them with:
-  --right-knn-file /path/to/pose_knn_right.json
-  --left-knn-file  /path/to/pose_knn_left.json
+    http://localhost:<port>/         Landing page with live MJPEG preview
+    http://localhost:<port>/state    Latest JSON state
+    http://localhost:<port>/video    MJPEG video stream
+    http://localhost:<port>/knn/status  KNN classifier statistics
+
+**KNN training (mimicry role)**
+Training examples can be added at runtime via HTTP::
+
+    GET /record/right/<pose_name>    Record the current frame as a right-arm example
+    GET /record/left/<pose_name>     Record the current frame as a left-arm example
+
+Default KNN data files (override with CLI flags):
+  - ``/home/pi/pose_knn_right.json``
+  - ``/home/pi/pose_knn_left.json``
 """
 
 import argparse
