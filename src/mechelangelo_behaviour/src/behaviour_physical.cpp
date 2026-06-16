@@ -6852,14 +6852,14 @@ static int g_autonomous_last_dvd_turn_sign = 1;
 // with infinity and will not stop the robot.
 
 // Stage 1: local neighbour test.
-static constexpr int kNoiseNeighbourWindow = 4;          // check +/- 4 beams
-static constexpr int kNoiseMinNeighbourCount = 2;        // require at least 2 close neighbours
-static constexpr double kNoiseNeighbourDistance = 0.22;  // m in local XY space
+static constexpr int kNoiseNeighbourWindow = 5;          // check +/- 4 beams
+static constexpr int kNoiseMinNeighbourCount = 1;        // require at least 2 close neighbours
+static constexpr double kNoiseNeighbourDistance = 0.25;  // m in local XY space
 
 // Stage 2: segment extraction test.
-static constexpr double kSegmentJoinDistance = 0.18;     // m max gap between consecutive points
-static constexpr int kSegmentMinPoints = 4;              // reject tiny speckle clusters
-static constexpr double kSegmentMinLength = 0.05;        // m reject near-zero length segments
+static constexpr double kSegmentJoinDistance = 0.28;     // m max gap between consecutive points
+static constexpr int kSegmentMinPoints = 3;              // reject tiny speckle clusters
+static constexpr double kSegmentMinLength = 0.03;        // m reject near-zero length segments
 
 // ------------------------------------------------------
 // Human tracking tuning
