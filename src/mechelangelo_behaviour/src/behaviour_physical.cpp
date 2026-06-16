@@ -6861,6 +6861,10 @@ static constexpr double kSegmentJoinDistance = 0.28;     // m max gap between co
 static constexpr int kSegmentMinPoints = 3;              // reject tiny speckle clusters
 static constexpr double kSegmentMinLength = 0.03;        // m reject near-zero length segments
 
+// Stage 3: temporal majority vote across a ring buffer of recent scans.
+static constexpr int kTemporalBufferSize = 5;            // number of scans to accumulate
+static constexpr int kTemporalVoteThreshold = 3;         // minimum votes (out of 5) to keep a beam
+
 // ------------------------------------------------------
 // Human tracking tuning
 // ------------------------------------------------------
@@ -9437,7 +9441,53 @@ sensor_msgs::msg::LaserScan MechelangeloBehaviour::filterLaserScan(
         }
     }
 
-    return final_filtered;
+    // Stage 3: temporal majority vote.
+    // Push the spatially-filtered ranges into the ring buffer, then only
+    // keep a beam if it was finite in at least kTemporalVoteThreshold of the
+    // last kTemporalBufferSize scans. The emitted range is the median of the
+    // valid readings, which is more stable than any single frame's value.
+    scan_history_.push_back(final_filtered.ranges);
+    if (static_cast<int>(scan_history_.size()) > kTemporalBufferSize)
+    {
+        scan_history_.pop_front();
+    }
+
+    if (static_cast<int>(scan_history_.size()) < kTemporalBufferSize)
+    {
+        // Not enough history yet — return spatial-only result so the robot
+        // is not blind for the first few scans after startup.
+        return final_filtered;
+    }
+
+    sensor_msgs::msg::LaserScan temporal_filtered = final_filtered;
+    std::fill(temporal_filtered.ranges.begin(),
+              temporal_filtered.ranges.end(),
+              std::numeric_limits<float>::infinity());
+
+    for (int i = 0; i < scan_count; ++i)
+    {
+        std::vector<float> valid_readings;
+        valid_readings.reserve(kTemporalBufferSize);
+
+        for (const auto &hist : scan_history_)
+        {
+            if (i < static_cast<int>(hist.size()) && std::isfinite(hist[i]))
+            {
+                valid_readings.push_back(hist[i]);
+            }
+        }
+
+        if (static_cast<int>(valid_readings.size()) >= kTemporalVoteThreshold)
+        {
+            const std::size_t mid = valid_readings.size() / 2;
+            std::nth_element(valid_readings.begin(),
+                             valid_readings.begin() + static_cast<std::ptrdiff_t>(mid),
+                             valid_readings.end());
+            temporal_filtered.ranges[i] = valid_readings[mid];
+        }
+    }
+
+    return temporal_filtered;
 }
 
 std::vector<LaserSegment> MechelangeloBehaviour::buildLaserSegments(

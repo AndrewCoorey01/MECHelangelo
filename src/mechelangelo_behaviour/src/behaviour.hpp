@@ -44,6 +44,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
+#include <deque>
 #include <random>
 #include <vector>
 
@@ -572,6 +573,9 @@ private:
 
     /** @brief Segment list derived from `latest_scan_` (populated by `laserScanCallback()`). */
     std::vector<LaserSegment> latest_segments_;
+
+    /** @brief Ring buffer of post-Stage-2 range vectors used for temporal majority voting. */
+    std::deque<std::vector<float>> scan_history_;
 
     /** @brief Most recent IMU message (populated by `imuCallback()`). */
     sensor_msgs::msg::Imu latest_imu_;
