@@ -9,6 +9,9 @@ Pi 4 /state provides:
   left_confirmed
   turn_cmd        TURN_LEFT / TURN_RIGHT / STOP
   locked          true / false
+                  true while the Pi is holding a target, including grace
+  grace_active    true / false
+                  true when the Pi is holding a stale target for reacquisition
   tracking_valid  true / false
                  true only when the camera currently sees the human,
                  false during grace/lost states
@@ -21,7 +24,8 @@ This bridge publishes:
 
   /human_detected       std_msgs/Bool
   /human_tracking       std_msgs/Float32MultiArray
-                         [detected, centre_offset, distance_m]
+                         [locked, centre_offset, distance_m,
+                          tracking_valid, grace_active]
 
 Important:
   The Pi camera has no depth.
@@ -99,7 +103,7 @@ class Pi4Bridge(Node):
             10
         )
 
-        self.last_tracking_valid = False
+        self.last_locked = False
         self.filtered_centre_offset = 0.0
 
         self.create_timer(1.0 / POLL_HZ, self.poll)
@@ -123,21 +127,29 @@ class Pi4Bridge(Node):
         turn_cmd = str(turn_cmd or "STOP").strip().upper()
 
         if turn_cmd == "TURN_LEFT":
-            return -TURN_OFFSET
+            return TURN_OFFSET
 
         if turn_cmd == "TURN_RIGHT":
-            return TURN_OFFSET
+            return -TURN_OFFSET
 
         return 0.0
 
-    def publish_human_tracking(self, locked, centre_offset):
+    def publish_human_tracking(
+        self,
+        locked,
+        centre_offset,
+        tracking_valid=False,
+        grace_active=False,
+    ):
         """
         Publish the continuous tracking message used by behaviour.
 
         Format:
-          data[0] = detected
+          data[0] = locked
           data[1] = centre_offset
           data[2] = distance_m
+          data[3] = tracking_valid
+          data[4] = grace_active
 
         distance_m = -1.0 because the Pi camera has no depth.
         Behaviour must use LiDAR for distance.
@@ -147,6 +159,8 @@ class Pi4Bridge(Node):
             1.0 if locked else 0.0,
             float(centre_offset),
             -1.0,
+            1.0 if tracking_valid else 0.0,
+            1.0 if grace_active else 0.0,
         ]
         self.pub_human_tracking.publish(msg)
 
@@ -162,13 +176,15 @@ class Pi4Bridge(Node):
 
         self.publish_human_tracking(
             locked=False,
-            centre_offset=0.0
+            centre_offset=0.0,
+            tracking_valid=False,
+            grace_active=False,
         )
 
-        if self.last_tracking_valid:
+        if self.last_locked:
             self.pub_human_detected.publish(Bool(data=False))
 
-        self.last_tracking_valid = False
+        self.last_locked = False
 
     def poll(self):
         try:
@@ -211,6 +227,7 @@ class Pi4Bridge(Node):
         left_pose = data.get("left_confirmed") or ""
         turn_cmd = str(data.get("turn_cmd") or "STOP").strip().upper()
         locked = bool(data.get("locked", False))
+        grace_active = bool(data.get("grace_active", False))
         tracking_valid = bool(data.get("tracking_valid", locked))
         behaviour_turn_cmd = turn_cmd if tracking_valid else "STOP"
 
@@ -233,27 +250,31 @@ class Pi4Bridge(Node):
         else:
             self.filtered_centre_offset = 0.0
 
-        # Only publish /human_detected when lock changes.
+        # Only publish /human_detected when the raw target lock changes.
+        # Grace remains "detected" so behaviour can hold still for reacquisition
+        # instead of resuming autonomous search.
         # /human_tracking is published continuously below.
-        if tracking_valid != self.last_tracking_valid:
-            self.pub_human_detected.publish(Bool(data=tracking_valid))
+        if locked != self.last_locked:
+            self.pub_human_detected.publish(Bool(data=locked))
 
-            if tracking_valid:
+            if locked:
                 self.get_logger().warn(
-                    "Live human tracking acquired — interrupting autonomous behaviour"
+                    "Human target lock acquired — interrupting autonomous behaviour"
                 )
             else:
                 self.get_logger().warn(
-                    "Live human tracking lost — behaviour will return to autonomous search"
+                    "Human target lock lost — behaviour will return to autonomous search"
                 )
 
         # Continuous message used by behaviour.
         self.publish_human_tracking(
-            locked=tracking_valid,
-            centre_offset=self.filtered_centre_offset
+            locked=locked,
+            centre_offset=self.filtered_centre_offset,
+            tracking_valid=tracking_valid,
+            grace_active=grace_active,
         )
 
-        self.last_tracking_valid = tracking_valid
+        self.last_locked = locked
 
 
 def main():

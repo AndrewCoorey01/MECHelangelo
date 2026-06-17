@@ -277,9 +277,11 @@ private:
      * @brief Continuous tracking heartbeat from the camera pipeline.
      *
      * @param msg  `std_msgs/Float32MultiArray` on `/human_tracking`.
-     *             `data[0]` = detected (1.0 / 0.0).
+     *             `data[0]` = locked (1.0 / 0.0).
      *             `data[1]` = centre_offset (−0.5 = hard left, 0 = centred, +0.5 = hard right).
      *             `data[2]` = distance_m (always −1.0 from camera; behaviour uses LiDAR).
+     *             `data[3]` = tracking_valid (optional; 1.0 only for live visual tracking).
+     *             `data[4]` = grace_active (optional; 1.0 while camera is reacquiring).
      *
      * @details
      * Updates `human_locked_`, `human_centre_offset_`, `human_distance_m_`,
@@ -590,6 +592,12 @@ private:
 
     /** @brief `true` while the camera reports a detected / locked human. */
     bool human_locked_;
+
+    /** @brief `true` only when the latest camera lock has live visual data. */
+    bool human_tracking_valid_;
+
+    /** @brief `true` while the Pi camera is holding a target during grace. */
+    bool human_tracking_grace_active_;
 
     /**
      * @brief Normalised horizontal image offset of the detected human.

@@ -8215,6 +8215,8 @@ static void writeHumanPlannerDebugLog(
 MechelangeloBehaviour::MechelangeloBehaviour()
 : Node("mechelangelo_behaviour"),
   human_locked_(false),
+  human_tracking_valid_(false),
+  human_tracking_grace_active_(false),
   human_centre_offset_(0.0),
   human_distance_m_(-1.0),
   blind_autonomous_active_(false),
@@ -8793,7 +8795,31 @@ void MechelangeloBehaviour::controlLoop()
 
         const bool visual_fresh =
             human_locked_ &&
+            human_tracking_valid_ &&
             time_since_tracking <= kHumanVisualFreshTimeout;
+
+        const bool reacquire_fresh =
+            human_locked_ &&
+            human_tracking_grace_active_ &&
+            time_since_tracking <= kHumanVisualFreshTimeout;
+
+        if (reacquire_fresh)
+        {
+            g_human_motion_phase = HumanMotionPhase::RECOVERY;
+            g_ultrasonic_interaction_good_samples = 0;
+            g_human_centre_locked = false;
+            g_human_turn_cycle_initialised = false;
+            g_human_forward_cycle_initialised = false;
+            twist.linear.x = 0.0;
+            twist.angular.z = 0.0;
+
+            RCLCPP_WARN_THROTTLE(
+                this->get_logger(),
+                *this->get_clock(),
+                500,
+                "HUMAN: Camera target in grace. Holding still for reacquisition.");
+            break;
+        }
 
         // Do not spin blindly from a stale camera offset. Stop immediately,
         // wait briefly for the camera to reacquire, then return to DVD travel.
@@ -8811,6 +8837,8 @@ void MechelangeloBehaviour::controlLoop()
                 playVoiceLine(VoiceGroup::PERSON_LOST, now, 1.0, true);
                 g_human_abandoned_before_interaction_count++;
                 human_locked_ = false;
+                human_tracking_valid_ = false;
+                human_tracking_grace_active_ = false;
                 g_interaction_hold_active = false;
                 resetHumanMotionController();
                 clearObstacleMarkers();
@@ -9338,11 +9366,21 @@ void MechelangeloBehaviour::humanTrackingCallback(
 
     const rclcpp::Time now = this->now();
     const bool detected = msg->data[0] > 0.5F;
+    const bool tracking_valid =
+        msg->data.size() >= 4
+            ? msg->data[3] > 0.5F
+            : detected;
+    const bool grace_active =
+        msg->data.size() >= 5
+            ? msg->data[4] > 0.5F
+            : (detected && !tracking_valid);
 
     if (detected && humanDetectionCooldownActive(now))
     {
         g_human_detection_ignored_cooldown_count++;
         human_locked_ = false;
+        human_tracking_valid_ = false;
+        human_tracking_grace_active_ = false;
 
         RCLCPP_WARN_THROTTLE(
             this->get_logger(),
@@ -9360,8 +9398,12 @@ void MechelangeloBehaviour::humanTrackingCallback(
     }
 
     human_locked_ = detected;
+    human_tracking_valid_ = detected && tracking_valid;
+    human_tracking_grace_active_ = detected && grace_active;
     human_centre_offset_ =
-        static_cast<double>(msg->data[1]);
+        human_tracking_valid_
+            ? static_cast<double>(msg->data[1])
+            : 0.0;
 
     // Preserve the third field for message compatibility only. Ultrasonic
     // Range messages are the sole human-distance source on the physical robot.
@@ -9371,6 +9413,8 @@ void MechelangeloBehaviour::humanTrackingCallback(
 
     if (!detected)
     {
+        human_tracking_valid_ = false;
+        human_tracking_grace_active_ = false;
         return;
     }
 
