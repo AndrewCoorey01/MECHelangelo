@@ -9306,6 +9306,14 @@ void MechelangeloBehaviour::imuCallback(const sensor_msgs::msg::Imu::SharedPtr m
 
 void MechelangeloBehaviour::humanDetectedCallback(const std_msgs::msg::Bool::SharedPtr msg)
 {
+    RCLCPP_INFO_THROTTLE(
+        this->get_logger(),
+        *this->get_clock(),
+        500,
+        "DBG humanDetectedCallback: data=%s cooldown=%s",
+        msg->data ? "true" : "false",
+        humanDetectionCooldownActive(this->now()) ? "active" : "off");
+
     if (!msg->data)
     {
         return;
@@ -9354,6 +9362,16 @@ void MechelangeloBehaviour::humanDetectedCallback(const std_msgs::msg::Bool::Sha
 void MechelangeloBehaviour::humanTrackingCallback(
     const std_msgs::msg::Float32MultiArray::SharedPtr msg)
 {
+    const bool dbg_detected = !msg->data.empty() && msg->data[0] > 0.5F;
+    RCLCPP_INFO_THROTTLE(
+        this->get_logger(),
+        *this->get_clock(),
+        500,
+        "DBG humanTrackingCallback: detected=%s cooldown=%s state=%d",
+        dbg_detected ? "true" : "false",
+        humanDetectionCooldownActive(this->now()) ? "active" : "off",
+        static_cast<int>(current_state_));
+
     if (msg->data.size() < 3)
     {
         RCLCPP_WARN_THROTTLE(
