@@ -9,6 +9,9 @@ Pi 4 /state provides:
   left_confirmed
   turn_cmd        TURN_LEFT / TURN_RIGHT / STOP
   locked          true / false
+  tracking_valid  true / false
+                 true only when the camera currently sees the human,
+                 false during grace/lost states
 
 This bridge publishes:
   /arm/right_pose       std_msgs/String
@@ -96,7 +99,7 @@ class Pi4Bridge(Node):
             10
         )
 
-        self.last_locked = False
+        self.last_tracking_valid = False
         self.filtered_centre_offset = 0.0
 
         self.create_timer(1.0 / POLL_HZ, self.poll)
@@ -162,10 +165,10 @@ class Pi4Bridge(Node):
             centre_offset=0.0
         )
 
-        if self.last_locked:
+        if self.last_tracking_valid:
             self.pub_human_detected.publish(Bool(data=False))
 
-        self.last_locked = False
+        self.last_tracking_valid = False
 
     def poll(self):
         try:
@@ -208,45 +211,49 @@ class Pi4Bridge(Node):
         left_pose = data.get("left_confirmed") or ""
         turn_cmd = str(data.get("turn_cmd") or "STOP").strip().upper()
         locked = bool(data.get("locked", False))
+        tracking_valid = bool(data.get("tracking_valid", locked))
+        behaviour_turn_cmd = turn_cmd if tracking_valid else "STOP"
 
-        # Publish original arm/debug topics.
+        # Publish original arm/debug topics. /arm/locked keeps the Pi camera's
+        # raw lock state, while /arm/turn is suppressed during grace so stale
+        # left/right commands are visible as STOP on the Pi 5 side.
         self.pub_right.publish(String(data=right_pose))
         self.pub_left.publish(String(data=left_pose))
-        self.pub_turn.publish(String(data=turn_cmd))
+        self.pub_turn.publish(String(data=behaviour_turn_cmd))
         self.pub_locked.publish(Bool(data=locked))
 
         # Convert Pi 4 left/right/stop command into behaviour centre offset.
-        raw_offset = self.turn_cmd_to_offset(turn_cmd)
+        raw_offset = self.turn_cmd_to_offset(behaviour_turn_cmd)
 
-        if not locked:
-            raw_offset = 0.0
-
-        self.filtered_centre_offset = (
-            (1.0 - OFFSET_SMOOTHING_ALPHA) * self.filtered_centre_offset
-            + OFFSET_SMOOTHING_ALPHA * raw_offset
-        )
+        if tracking_valid:
+            self.filtered_centre_offset = (
+                (1.0 - OFFSET_SMOOTHING_ALPHA) * self.filtered_centre_offset
+                + OFFSET_SMOOTHING_ALPHA * raw_offset
+            )
+        else:
+            self.filtered_centre_offset = 0.0
 
         # Only publish /human_detected when lock changes.
         # /human_tracking is published continuously below.
-        if locked != self.last_locked:
-            self.pub_human_detected.publish(Bool(data=locked))
+        if tracking_valid != self.last_tracking_valid:
+            self.pub_human_detected.publish(Bool(data=tracking_valid))
 
-            if locked:
+            if tracking_valid:
                 self.get_logger().warn(
-                    "Human lock acquired — interrupting autonomous behaviour"
+                    "Live human tracking acquired — interrupting autonomous behaviour"
                 )
             else:
                 self.get_logger().warn(
-                    "Human lock lost — behaviour will return to autonomous search"
+                    "Live human tracking lost — behaviour will return to autonomous search"
                 )
 
         # Continuous message used by behaviour.
         self.publish_human_tracking(
-            locked=locked,
+            locked=tracking_valid,
             centre_offset=self.filtered_centre_offset
         )
 
-        self.last_locked = locked
+        self.last_tracking_valid = tracking_valid
 
 
 def main():
