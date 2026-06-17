@@ -6871,7 +6871,7 @@ static constexpr int kTemporalVoteThreshold = 2;         // minimum votes (out o
 // /human_tracking message format:
 // data[0] = detected, data[1] = centre_offset, data[2] = distance_m
 // centre_offset is normalised image offset from centre: -0.5 left, 0 centre, +0.5 right.
-static constexpr double kHumanTargetDistance = 1.5;     // m
+static constexpr double kHumanTargetDistance = 1.75;     // m
 static constexpr double kHumanDistanceTolerance = 0.15; // m
 static constexpr double kHumanMaxForwardSpeed = 0.16;   // m/s, slower approach helps keep person in camera
 static constexpr double kHumanMaxReverseSpeed = 0.12;   // m/s
@@ -6940,7 +6940,7 @@ static constexpr double kHumanInteractionHoldRangeSlack = 0.25;   // extra dista
 // Human interaction session timing. Once a valid interaction pose is reached,
 // hold interaction for this long, then return to DVD exploration and ignore
 // camera-triggered human interrupts for a short cooldown period.
-static constexpr double kHumanInteractionDurationSeconds = 10.0;
+static constexpr double kHumanInteractionDurationSeconds = 30.0;
 static constexpr double kHumanDetectionCooldownSeconds = 10.0;
 
 // Safety zone.
