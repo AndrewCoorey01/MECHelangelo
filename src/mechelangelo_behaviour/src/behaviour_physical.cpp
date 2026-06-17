@@ -6920,7 +6920,7 @@ static constexpr double kUltrasonicFailedStopTimeoutSeconds = 10.0;
 static constexpr double kCameraHorizontalFov = 60.0 * M_PI / 180.0;
 static constexpr double kHumanLidarWindow = 10.0 * M_PI / 180.0;
 static constexpr double kLidarCameraMaxDisagreement = 0.4;
-static constexpr double kHumanLidarStopDistance = 1.65;
+static constexpr double kHumanLidarStopDistance = 1.75;
 static constexpr double kHumanLidarStopTolerance = 0.20;
 // LiDAR is the primary human-approach stopping sensor. kHumanLidarSlowdownMargin
 // is added to kHumanLidarStopDistance to define the pulsed-slowdown band start.
@@ -9230,10 +9230,11 @@ void MechelangeloBehaviour::controlLoop()
             this->get_logger(),
             *this->get_clock(),
             500,
-            "HUMAN: centred=%s offset=%.3f left=%s %.2f right=%s %.2f "
+            "HUMAN: centred=%s offset=%.3f lidar=%.2f m left=%s %.2f right=%s %.2f "
             "nearest=%s %.2f stop_wait=%s settle=%d/%d cmd v=%.2f w=%.3f.",
             g_human_centre_locked ? "yes" : "no",
             human_centre_offset_,
+            lidar_range_interact,
             left_alive ? "alive" : "stale",
             left_range,
             right_alive ? "alive" : "stale",
