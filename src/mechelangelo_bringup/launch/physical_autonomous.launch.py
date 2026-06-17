@@ -40,13 +40,13 @@ def generate_launch_description():
             output='screen',
         ),
 
-        # Node(
-        #     package='mechelangelo_base_driver',
-        #     executable='base_driver',
-        #     name='mechelangelo_base_driver',
-        #     parameters=[base_config],
-        #     output='screen',
-        # ),
+        Node(
+            package='mechelangelo_base_driver',
+            executable='base_driver',
+            name='mechelangelo_base_driver',
+            parameters=[base_config],
+            output='screen',
+        ),
 
         Node(
             package='mechelangelo_perception',
