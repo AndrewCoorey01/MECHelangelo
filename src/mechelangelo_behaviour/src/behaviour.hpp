@@ -475,6 +475,24 @@ private:
      */
     double getHumanLidarRange(double centre_offset) const;
 
+    /**
+     * @brief Minimum valid LiDAR range in the human bearing cone across ALL
+     *        buffered scans (not the temporal median).
+     *
+     * @details
+     * Used for stop/slowdown decisions.  The temporal median can report a large
+     * distance even when the person is close, because intermittent through-body
+     * readings push the median above the real distance.  The minimum of recent
+     * scans catches the closest genuine return and triggers the slowdown band
+     * earlier without affecting the smooth navigation path.
+     *
+     * @param centre_offset  Normalised image offset (same convention as
+     *                       `getHumanLidarRange`).
+     * @return               Minimum valid range seen in any buffered scan, or
+     *                       infinity if scan_history_ is empty.
+     */
+    double getHumanLidarMinRecentRange(double centre_offset) const;
+
     // ------------------------------------------------------------------
     // Safety-zone helpers
     // ------------------------------------------------------------------

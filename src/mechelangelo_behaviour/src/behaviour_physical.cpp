@@ -19,7 +19,6 @@
 
 #include "ament_index_cpp/get_package_share_directory.hpp"
 #include "std_msgs/msg/string.hpp"
-#include "sensor_msgs/msg/range.hpp"
 
 using namespace std::chrono_literals;
 
@@ -146,36 +145,22 @@ static constexpr double kHumanRecoveryCreepSpeed = 0.00; // never move blindly a
 
 
 // ------------------------------------------------------
-// Physical human approach: camera bearing + ultrasonic range
+// Physical human approach: camera bearing + LiDAR range
 // ------------------------------------------------------
-// The LiDAR still runs continuously for filtered wall/obstacle protection.
-// It is no longer used to estimate human distance in HUMAN_DETECTED.
-// Camera centre_offset controls steering, while the nearest fresh ultrasonic
-// return controls the forward speed and the 1.5 m interaction stop.
-static constexpr double kUltrasonicStopDistance = 1.50;          // m, nominal interaction stop
-static constexpr double kUltrasonicInteractionEnterDistance = 1.52; // m, small sensor tolerance around 1.50 m
-static constexpr double kUltrasonicSlowdownStartDistance = 1.60; // m, begin final slowdown
-static constexpr double kUltrasonicFreshTimeout = 0.45;          // s
-static constexpr double kUltrasonicLastEchoHoldTimeout = 0.55;   // s
-static constexpr double kUltrasonicNoEchoApproachSpeed = 0.12;   // m/s, minimum reliable physical forward speed
-static constexpr double kUltrasonicApproachMaxSpeed = 0.12;      // m/s, tested reliable approach speed
-static constexpr double kUltrasonicApproachAcceleration = 0.20;  // retained for compatibility
-static constexpr double kUltrasonicApproachDeceleration = 0.80;  // retained for compatibility
-static constexpr double kUltrasonicAngularAcceleration = 0.45;   // retained for compatibility
-static constexpr double kUltrasonicHumanTurnGain = 1.2;          // retained for diagnostics
-static constexpr double kUltrasonicHumanMaxTurnSpeed = 0.375;    // rad/s, slowest reliable physical turn
-static constexpr double kUltrasonicCentreDeadZone = 0.06;        // lock centre inside this offset
-static constexpr double kUltrasonicCentreReleaseZone = 0.11;     // re-centre if target drifts beyond this
-static constexpr double kUltrasonicTurnPulseOnSeconds = 0.22;    // short correction pulse
-static constexpr double kUltrasonicTurnPulseOffSeconds = 0.28;   // stationary camera update period
-static constexpr double kUltrasonicForwardPulseOnSeconds = 0.20; // final 1.60-1.50 m pulse at 0.12 m/s
-static constexpr double kUltrasonicForwardPulseOffSeconds = 0.40;// stationary range-update pause
-static constexpr double kUltrasonicInteractionMaxOffset = 0.08;  // must be centred before interaction
-static constexpr int kUltrasonicInteractionSettleSamples = 3;    // 0.3 s at 10 Hz
-static constexpr double kUltrasonicInteractionMaxLinearSpeed = 0.03; // m/s
-// If an ultrasonic reading keeps the base stopped but camera alignment never
-// becomes valid, abandon that attempt instead of waiting indefinitely.
-static constexpr double kUltrasonicFailedStopTimeoutSeconds = 10.0;
+// Camera centre_offset controls steering; LiDAR controls forward speed and stop.
+static constexpr double kHumanApproachSpeed = 0.12;          // m/s, tested reliable approach speed
+static constexpr double kHumanApproachMaxTurnSpeed = 0.375;  // rad/s, slowest reliable physical turn
+static constexpr double kHumanCentreReleaseZone = 0.11;      // re-centre if target drifts beyond this
+static constexpr double kHumanTurnPulseOnSeconds = 0.22;     // short correction pulse
+static constexpr double kHumanTurnPulseOffSeconds = 0.28;    // stationary camera update period
+static constexpr double kHumanForwardPulseOnSeconds = 0.20;  // slowdown band: 0.12 m/s pulse on
+static constexpr double kHumanForwardPulseOffSeconds = 0.40; // slowdown band: decel pause
+static constexpr double kHumanInteractionMaxOffset = 0.08;   // must be centred before interaction
+static constexpr int kHumanInteractionSettleSamples = 3;     // 0.3 s at 10 Hz
+static constexpr double kHumanInteractionMaxLinearSpeed = 0.03; // m/s
+// If the base is stopped at distance but camera alignment never becomes valid,
+// abandon the attempt instead of waiting indefinitely.
+static constexpr double kHumanFailedStopTimeoutSeconds = 10.0;
 
 // LiDAR validation for human distance.
 static constexpr double kCameraHorizontalFov = 60.0 * M_PI / 180.0;
@@ -707,27 +692,9 @@ static bool g_last_interaction_active_value = false;
 static std::string g_approach_arm_pose_name = "arm_down";
 
 
-struct UltrasonicChannelState
-{
-    bool message_received = false;
-    bool current_echo_valid = false;
-    double current_range_m = std::numeric_limits<double>::infinity();
-    double last_finite_range_m = std::numeric_limits<double>::infinity();
-    rclcpp::Time last_message_time;
-    rclcpp::Time last_finite_time;
-};
-
-static UltrasonicChannelState g_ultrasonic_left;
-static UltrasonicChannelState g_ultrasonic_right;
-static rclcpp::Subscription<sensor_msgs::msg::Range>::SharedPtr
-    g_ultrasonic_left_subscriber;
-static rclcpp::Subscription<sensor_msgs::msg::Range>::SharedPtr
-    g_ultrasonic_right_subscriber;
-static int g_ultrasonic_interaction_good_samples = 0;
-static int g_ultrasonic_stale_stop_count = 0;
-static int g_ultrasonic_no_echo_approach_count = 0;
-static bool g_ultrasonic_stop_wait_active = false;
-static rclcpp::Time g_ultrasonic_stop_wait_start;
+static int g_human_settle_good_samples = 0;
+static bool g_human_stop_wait_active = false;
+static rclcpp::Time g_human_stop_wait_start;
 
 // Simple physical human-centering state. The base cannot turn below 0.375 rad/s,
 // so small visual corrections are issued as short pulses separated by a
@@ -738,32 +705,6 @@ static rclcpp::Time g_human_turn_cycle_start;
 static bool g_human_forward_cycle_initialised = false;
 static rclcpp::Time g_human_forward_cycle_start;
 
-static void updateUltrasonicChannel(
-    UltrasonicChannelState &channel,
-    const sensor_msgs::msg::Range::SharedPtr msg,
-    const rclcpp::Time &now)
-{
-    channel.message_received = true;
-    channel.last_message_time = now;
-
-    const double range = static_cast<double>(msg->range);
-    const bool valid =
-        std::isfinite(range) &&
-        range >= static_cast<double>(msg->min_range) &&
-        range <= static_cast<double>(msg->max_range) &&
-        range > 0.0;
-
-    channel.current_echo_valid = valid;
-    channel.current_range_m = valid
-        ? range
-        : std::numeric_limits<double>::infinity();
-
-    if (valid)
-    {
-        channel.last_finite_range_m = range;
-        channel.last_finite_time = now;
-    }
-}
 
 enum class VoiceGroup
 {
@@ -1143,8 +1084,8 @@ static void resetHumanMotionController()
     g_human_centre_locked = false;
     g_human_turn_cycle_initialised = false;
     g_human_forward_cycle_initialised = false;
-    g_ultrasonic_stop_wait_active = false;
-    g_ultrasonic_interaction_good_samples = 0;
+    g_human_stop_wait_active = false;
+    g_human_settle_good_samples = 0;
 }
 
 static bool humanDetectionCooldownActive(const rclcpp::Time &now)
@@ -1294,25 +1235,6 @@ MechelangeloBehaviour::MechelangeloBehaviour()
         std::bind(&MechelangeloBehaviour::humanTrackingCallback, this, std::placeholders::_1));
 
 
-    g_ultrasonic_left_subscriber =
-        this->create_subscription<sensor_msgs::msg::Range>(
-            "/ultrasonic/left",
-            rclcpp::SensorDataQoS(),
-            [this](const sensor_msgs::msg::Range::SharedPtr msg)
-            {
-                updateUltrasonicChannel(
-                    g_ultrasonic_left, msg, this->now());
-            });
-
-    g_ultrasonic_right_subscriber =
-        this->create_subscription<sensor_msgs::msg::Range>(
-            "/ultrasonic/right",
-            rclcpp::SensorDataQoS(),
-            [this](const sensor_msgs::msg::Range::SharedPtr msg)
-            {
-                updateUltrasonicChannel(
-                    g_ultrasonic_right, msg, this->now());
-            });
 
     last_human_tracking_time_ = this->now();
     g_last_visible_human_time = this->now();
@@ -1366,7 +1288,7 @@ void MechelangeloBehaviour::blindAutonomous()
     stop_counter_ = 0;
     align_yaw_initialised_ = false;
     g_interaction_hold_active = false;
-    g_ultrasonic_interaction_good_samples = 0;
+    g_human_settle_good_samples = 0;
     g_human_centre_locked = false;
     g_human_turn_cycle_initialised = false;
     resetHumanMotionController();
@@ -1475,51 +1397,6 @@ void MechelangeloBehaviour::controlLoop()
             g_autonomous_last_dvd_turn_sign = target_angle_ >= 0.0 ? 1 : -1;
         }
 
-        auto freshUltrasonicRange = [&](const UltrasonicChannelState &channel,
-                                        double &range_out)
-        {
-            if (!channel.message_received ||
-                (now - channel.last_message_time).seconds() >
-                    kUltrasonicFreshTimeout)
-            {
-                return false;
-            }
-
-            if (channel.current_echo_valid)
-            {
-                range_out = channel.current_range_m;
-                return true;
-            }
-
-            if (std::isfinite(channel.last_finite_range_m) &&
-                (now - channel.last_finite_time).seconds() <=
-                    kUltrasonicLastEchoHoldTimeout)
-            {
-                range_out = channel.last_finite_range_m;
-                return true;
-            }
-
-            return false;
-        };
-
-        double left_ultrasonic_range =
-            std::numeric_limits<double>::infinity();
-        double right_ultrasonic_range =
-            std::numeric_limits<double>::infinity();
-        const bool left_ultrasonic_valid =
-            freshUltrasonicRange(g_ultrasonic_left, left_ultrasonic_range);
-        const bool right_ultrasonic_valid =
-            freshUltrasonicRange(g_ultrasonic_right, right_ultrasonic_range);
-        const bool ultrasonic_valid =
-            left_ultrasonic_valid || right_ultrasonic_valid;
-        const double nearest_ultrasonic_range = std::min(
-            left_ultrasonic_valid
-                ? left_ultrasonic_range
-                : std::numeric_limits<double>::infinity(),
-            right_ultrasonic_valid
-                ? right_ultrasonic_range
-                : std::numeric_limits<double>::infinity());
-
         std::vector<LaserSegment> blocking_segments;
         const bool blocked_by_segment =
             findBlockingObstaclesInFront(blocking_segments);
@@ -1527,11 +1404,8 @@ void MechelangeloBehaviour::controlLoop()
         const bool lidar_front_open =
             !blocked_by_segment &&
             (std::isinf(front_range) || front_range > stop_distance_m_);
-        const bool ultrasonic_front_open =
-            !ultrasonic_valid ||
-            nearest_ultrasonic_range > stop_distance_m_;
 
-        if (lidar_front_open && ultrasonic_front_open)
+        if (lidar_front_open)
         {
             twist.linear.x = 0.0;
             twist.angular.z = 0.0;
@@ -1541,10 +1415,8 @@ void MechelangeloBehaviour::controlLoop()
 
             RCLCPP_INFO(
                 this->get_logger(),
-                "ALIGNING: Front is open. Starting DVD forward movement. lidar=%.2f ultrasonic=%s %.2f.",
-                front_range,
-                ultrasonic_valid ? "valid" : "stale",
-                nearest_ultrasonic_range);
+                "ALIGNING: Front is open. Starting DVD forward movement. lidar=%.2f.",
+                front_range);
             break;
         }
 
@@ -1571,11 +1443,9 @@ void MechelangeloBehaviour::controlLoop()
             this->get_logger(),
             *this->get_clock(),
             1000,
-            "ALIGNING: Rotating until front opens. direction=%s, lidar %.2f m, ultrasonic %s %.2f m, cmd %.3f rad/s.",
+            "ALIGNING: Rotating until front opens. direction=%s, lidar %.2f m, cmd %.3f rad/s.",
             g_autonomous_last_dvd_turn_sign >= 0 ? "left" : "right",
             front_range,
-            ultrasonic_valid ? "valid" : "stale",
-            nearest_ultrasonic_range,
             twist.angular.z);
         break;
     }
@@ -1721,7 +1591,7 @@ void MechelangeloBehaviour::controlLoop()
                 g_human_detection_cooldown_active = true;
                 g_human_detection_cooldown_start_time = now;
                 human_locked_ = false;
-                g_ultrasonic_interaction_good_samples = 0;
+                g_human_settle_good_samples = 0;
                 g_human_centre_locked = false;
                 g_human_turn_cycle_initialised = false;
                 resetHumanMotionController();
@@ -1760,7 +1630,7 @@ void MechelangeloBehaviour::controlLoop()
         if (reacquire_fresh)
         {
             g_human_motion_phase = HumanMotionPhase::RECOVERY;
-            g_ultrasonic_interaction_good_samples = 0;
+            g_human_settle_good_samples = 0;
             g_human_centre_locked = false;
             g_human_turn_cycle_initialised = false;
             g_human_forward_cycle_initialised = false;
@@ -1780,7 +1650,7 @@ void MechelangeloBehaviour::controlLoop()
         if (!visual_fresh)
         {
             g_human_motion_phase = HumanMotionPhase::RECOVERY;
-            g_ultrasonic_interaction_good_samples = 0;
+            g_human_settle_good_samples = 0;
             g_human_centre_locked = false;
             g_human_turn_cycle_initialised = false;
             twist.linear.x = 0.0;
@@ -1817,81 +1687,14 @@ void MechelangeloBehaviour::controlLoop()
         const double absolute_offset =
             std::fabs(human_centre_offset_);
 
-        auto channelMessageFresh =
-            [&](const UltrasonicChannelState &channel)
-        {
-            return channel.message_received &&
-                (now - channel.last_message_time).seconds() <=
-                    kUltrasonicFreshTimeout;
-        };
-
-        auto channelUsableRange =
-            [&](const UltrasonicChannelState &channel,
-                double &range_out)
-        {
-            if (!channelMessageFresh(channel))
-            {
-                return false;
-            }
-
-            if (channel.current_echo_valid)
-            {
-                range_out = channel.current_range_m;
-                return true;
-            }
-
-            // Hold a recent finite echo briefly so a single missed pulse does
-            // not make the robot accelerate near the human.
-            if (std::isfinite(channel.last_finite_range_m) &&
-                (now - channel.last_finite_time).seconds() <=
-                    kUltrasonicLastEchoHoldTimeout)
-            {
-                range_out = channel.last_finite_range_m;
-                return true;
-            }
-
-            return false;
-        };
-
-        const bool left_alive =
-            channelMessageFresh(g_ultrasonic_left);
-        const bool right_alive =
-            channelMessageFresh(g_ultrasonic_right);
-        const bool ultrasonic_alive =
-            left_alive || right_alive;
-
-        double left_range =
-            std::numeric_limits<double>::infinity();
-        double right_range =
-            std::numeric_limits<double>::infinity();
-
-        const bool left_range_valid =
-            channelUsableRange(g_ultrasonic_left, left_range);
-        const bool right_range_valid =
-            channelUsableRange(g_ultrasonic_right, right_range);
-        const bool ultrasonic_range_valid =
-            left_range_valid || right_range_valid;
-
-        const double ultrasonic_range = std::min(
-            left_range_valid
-                ? left_range
-                : std::numeric_limits<double>::infinity(),
-            right_range_valid
-                ? right_range
-                : std::numeric_limits<double>::infinity());
-
-        // Human approach intentionally ignores LiDAR. Camera controls bearing;
-        // ultrasonic Range controls forward motion, slowdown and stopping.
-        // The heavy LiDAR filter remains active only in DVD exploration.
-
         // Centre first. Once centred, tolerate a small amount of drift while
         // driving. If the target leaves the release zone, stop and re-centre.
-        if (absolute_offset <= kUltrasonicCentreDeadZone)
+        if (absolute_offset <= kHumanCentreDeadZone)
         {
             g_human_centre_locked = true;
         }
         else if (absolute_offset >=
-            kUltrasonicCentreReleaseZone)
+            kHumanCentreReleaseZone)
         {
             g_human_centre_locked = false;
         }
@@ -1902,8 +1705,8 @@ void MechelangeloBehaviour::controlLoop()
         {
             playVoiceLine(VoiceGroup::CENTERING, now, 8.0);
             const double pulse_period =
-                kUltrasonicTurnPulseOnSeconds +
-                kUltrasonicTurnPulseOffSeconds;
+                kHumanTurnPulseOnSeconds +
+                kHumanTurnPulseOffSeconds;
 
             if (!g_human_turn_cycle_initialised)
             {
@@ -1921,11 +1724,11 @@ void MechelangeloBehaviour::controlLoop()
             }
 
             if (pulse_elapsed <
-                kUltrasonicTurnPulseOnSeconds)
+                kHumanTurnPulseOnSeconds)
             {
                 desired_angular =
                     std::copysign(
-                        kUltrasonicHumanMaxTurnSpeed,
+                        kHumanApproachMaxTurnSpeed,
                         -human_centre_offset_);
             }
         }
@@ -1936,11 +1739,6 @@ void MechelangeloBehaviour::controlLoop()
 
         double desired_linear = 0.0;
 
-        // LiDAR is the primary stopping sensor during human approach.
-        // Camera bearing is used to aim the range lookup at the human.
-        // Ultrasonic is an emergency backup: if either sensor reads closer
-        // than kUltrasonicStopDistance it forces a stop regardless of LiDAR.
-        //
         // The physical base does not move reliably below 0.12 m/s, so every
         // nonzero forward command is exactly 0.12 m/s. Between
         // (kHumanLidarStopDistance + kHumanLidarSlowdownMargin) and
@@ -1952,29 +1750,18 @@ void MechelangeloBehaviour::controlLoop()
         }
         else
         {
-            const double lidar_range = getHumanLidarRange(human_centre_offset_);
+            // Use the minimum of the temporal median and the minimum of recent
+            // buffered scans. The median can report a large distance while the
+            // person is already close (intermittent through-body reflections
+            // push the median above the true distance). The min-recent catches
+            // any genuine close return and triggers the slowdown band earlier.
+            const double lidar_range_median = getHumanLidarRange(human_centre_offset_);
+            const double lidar_range_min_recent = getHumanLidarMinRecentRange(human_centre_offset_);
+            const double lidar_range = std::min(lidar_range_median, lidar_range_min_recent);
             const bool lidar_range_valid =
                 std::isfinite(lidar_range) && lidar_range > kMinValidRange;
 
-            const bool ultrasonic_emergency =
-                ultrasonic_range_valid &&
-                ultrasonic_range <= kUltrasonicStopDistance;
-
-            if (ultrasonic_emergency)
-            {
-                // Ultrasonic backup: something is very close — force stop.
-                g_ultrasonic_stale_stop_count++;
-                g_human_forward_cycle_initialised = false;
-                desired_linear = 0.0;
-
-                RCLCPP_WARN_THROTTLE(
-                    this->get_logger(),
-                    *this->get_clock(),
-                    500,
-                    "HUMAN: Ultrasonic emergency backup triggered at %.2f m. Holding.",
-                    ultrasonic_range);
-            }
-            else if (lidar_range_valid)
+            if (lidar_range_valid)
             {
                 if (lidar_range <= kHumanLidarStopDistance)
                 {
@@ -1986,8 +1773,8 @@ void MechelangeloBehaviour::controlLoop()
                 {
                     // Pulsed slowdown band.
                     const double pulse_period =
-                        kUltrasonicForwardPulseOnSeconds +
-                        kUltrasonicForwardPulseOffSeconds;
+                        kHumanForwardPulseOnSeconds +
+                        kHumanForwardPulseOffSeconds;
 
                     if (!g_human_forward_cycle_initialised)
                     {
@@ -2005,52 +1792,36 @@ void MechelangeloBehaviour::controlLoop()
                     }
 
                     desired_linear =
-                        pulse_elapsed < kUltrasonicForwardPulseOnSeconds
-                            ? kUltrasonicApproachMaxSpeed
+                        pulse_elapsed < kHumanForwardPulseOnSeconds
+                            ? kHumanApproachSpeed
                             : 0.0;
                 }
                 else
                 {
                     g_human_forward_cycle_initialised = false;
-                    desired_linear = kUltrasonicApproachMaxSpeed;
+                    desired_linear = kHumanApproachSpeed;
                 }
             }
             else
             {
-                // No valid LiDAR return in the human cone. Fall back to
-                // ultrasonic if available, otherwise hold position.
-                g_ultrasonic_no_echo_approach_count++;
+                // No valid LiDAR return in the human cone — hold position.
                 g_human_forward_cycle_initialised = false;
+                desired_linear = 0.0;
 
-                if (ultrasonic_range_valid)
-                {
-                    desired_linear = ultrasonic_range <= kUltrasonicStopDistance
-                        ? 0.0
-                        : kUltrasonicNoEchoApproachSpeed;
-
-                    RCLCPP_WARN_THROTTLE(
-                        this->get_logger(),
-                        *this->get_clock(),
-                        1000,
-                        "HUMAN: No LiDAR return in human cone. "
-                        "Falling back to ultrasonic %.2f m.",
-                        ultrasonic_range);
-                }
-                else
-                {
-                    desired_linear = 0.0;
-
-                    RCLCPP_WARN_THROTTLE(
-                        this->get_logger(),
-                        *this->get_clock(),
-                        1000,
-                        "HUMAN: No LiDAR or ultrasonic range available. Holding position.");
-                }
+                RCLCPP_WARN_THROTTLE(
+                    this->get_logger(),
+                    *this->get_clock(),
+                    1000,
+                    "HUMAN: No LiDAR return in human cone. Holding position.");
             }
         }
 
-        // Interaction distance is now LiDAR-driven.
-        const double lidar_range_interact = getHumanLidarRange(human_centre_offset_);
+        // Interaction distance is now LiDAR-driven. Use the same min(median,
+        // min_recent) logic so the AT-STOP check fires as soon as any recent
+        // scan placed the human inside the threshold, not just the median.
+        const double lidar_range_interact_median = getHumanLidarRange(human_centre_offset_);
+        const double lidar_range_interact_min = getHumanLidarMinRecentRange(human_centre_offset_);
+        const double lidar_range_interact = std::min(lidar_range_interact_median, lidar_range_interact_min);
         const bool at_interaction_distance =
             std::isfinite(lidar_range_interact) &&
             lidar_range_interact > kMinValidRange &&
@@ -2058,26 +1829,26 @@ void MechelangeloBehaviour::controlLoop()
         const bool interaction_alignment_good =
             g_human_centre_locked &&
             absolute_offset <=
-                kUltrasonicInteractionMaxOffset;
+                kHumanInteractionMaxOffset;
         const bool base_nearly_stopped =
             std::fabs(current_twist_.linear.x) <=
-                kUltrasonicInteractionMaxLinearSpeed;
+                kHumanInteractionMaxLinearSpeed;
 
         // A close ultrasonic reading can stop the base even when the camera
         // alignment does not agree. Do not remain trapped in that state.
         if (at_interaction_distance)
         {
-            if (!g_ultrasonic_stop_wait_active)
+            if (!g_human_stop_wait_active)
             {
-                g_ultrasonic_stop_wait_active = true;
-                g_ultrasonic_stop_wait_start = now;
+                g_human_stop_wait_active = true;
+                g_human_stop_wait_start = now;
             }
 
             const double stop_wait_elapsed =
-                (now - g_ultrasonic_stop_wait_start).seconds();
+                (now - g_human_stop_wait_start).seconds();
 
             if (stop_wait_elapsed >=
-                kUltrasonicFailedStopTimeoutSeconds)
+                kHumanFailedStopTimeoutSeconds)
             {
                 twist.linear.x = 0.0;
                 twist.angular.z = 0.0;
@@ -2099,13 +1870,13 @@ void MechelangeloBehaviour::controlLoop()
                     "HUMAN: Ultrasonic kept the base stopped for %.1f s "
                     "without a valid centred interaction. Abandoning attempt "
                     "and returning to DVD exploration.",
-                    kUltrasonicFailedStopTimeoutSeconds);
+                    kHumanFailedStopTimeoutSeconds);
                 break;
             }
         }
         else
         {
-            g_ultrasonic_stop_wait_active = false;
+            g_human_stop_wait_active = false;
         }
 
         if (at_interaction_distance &&
@@ -2119,18 +1890,18 @@ void MechelangeloBehaviour::controlLoop()
 
             if (base_nearly_stopped)
             {
-                g_ultrasonic_interaction_good_samples++;
+                g_human_settle_good_samples++;
             }
         }
         else
         {
-            g_ultrasonic_interaction_good_samples = 0;
+            g_human_settle_good_samples = 0;
             g_human_motion_phase =
                 HumanMotionPhase::APPROACH;
         }
 
-        if (g_ultrasonic_interaction_good_samples >=
-            kUltrasonicInteractionSettleSamples)
+        if (g_human_settle_good_samples >=
+            kHumanInteractionSettleSamples)
         {
             playVoiceLine(VoiceGroup::MIMICRY, now, 1.0, true);
             twist.linear.x = 0.0;
@@ -2147,8 +1918,8 @@ void MechelangeloBehaviour::controlLoop()
             g_interaction_hold_offset =
                 human_centre_offset_;
             g_human_interaction_success_count++;
-            g_ultrasonic_stop_wait_active = false;
-            g_ultrasonic_interaction_good_samples = 0;
+            g_human_stop_wait_active = false;
+            g_human_settle_good_samples = 0;
             publishInteractionActive(now, true, true);
 
             RCLCPP_INFO(
@@ -2162,7 +1933,7 @@ void MechelangeloBehaviour::controlLoop()
         // cutting to zero immediately, so the base does not lurch to a halt.
         if (desired_linear > 0.0)
         {
-            twist.linear.x = kUltrasonicApproachMaxSpeed;
+            twist.linear.x = kHumanApproachSpeed;
         }
         else
         {
@@ -2173,32 +1944,27 @@ void MechelangeloBehaviour::controlLoop()
         }
         twist.angular.z = desired_angular;
 
-        // Per-cycle approach trace: LiDAR distance, ultrasonic L/R, phase, stop status.
-        // Fires every 500 ms until the robot enters INTERACTION mode (which breaks out early).
+        // Per-cycle approach trace. Shows median and min-recent separately so
+        // filter divergence is visible when the LiDAR intermittently misses the
+        // human (median stays high; min-recent catches genuine close returns).
         RCLCPP_INFO_THROTTLE(
             this->get_logger(),
             *this->get_clock(),
             500,
             "HUMAN [%s]: centred=%s offset=%.3f | "
-            "LiDAR=%.2f m (%s) stop@%.2f m -> %s | "
-            "US-L=%s %.2f  US-R=%s %.2f  nearest=%.2f (%s) | "
+            "LiDAR med=%.2f min=%.2f m stop@%.2f -> %s | "
             "settle=%d/%d  cmd v=%.3f w=%.3f",
             humanMotionPhaseName(g_human_motion_phase),
             g_human_centre_locked ? "yes" : "no",
             human_centre_offset_,
-            lidar_range_interact,
-            (std::isfinite(lidar_range_interact) && lidar_range_interact > kMinValidRange)
-                ? "valid" : "no-return",
+            lidar_range_interact_median,
+            lidar_range_interact_min,
             kHumanLidarStopDistance,
             at_interaction_distance ? "AT-STOP" :
                 ((std::isfinite(lidar_range_interact) && lidar_range_interact > kMinValidRange)
                     ? "approach" : "blind"),
-            left_alive ? "alive" : "stale", left_range,
-            right_alive ? "alive" : "stale", right_range,
-            ultrasonic_range,
-            ultrasonic_range_valid ? "valid" : "no-echo",
-            g_ultrasonic_interaction_good_samples,
-            kUltrasonicInteractionSettleSamples,
+            g_human_settle_good_samples,
+            kHumanInteractionSettleSamples,
             twist.linear.x,
             twist.angular.z);
 
@@ -2289,7 +2055,7 @@ void MechelangeloBehaviour::humanDetectedCallback(const std_msgs::msg::Bool::Sha
         resetHumanMotionController();
         g_human_centre_locked = false;
         g_human_turn_cycle_initialised = false;
-        g_ultrasonic_interaction_good_samples = 0;
+        g_human_settle_good_samples = 0;
 
         // Break cleanly out of an autonomous bounce before camera alignment.
         geometry_msgs::msg::Twist stop;
@@ -2378,7 +2144,7 @@ void MechelangeloBehaviour::humanTrackingCallback(
         resetHumanMotionController();
         g_human_centre_locked = false;
         g_human_turn_cycle_initialised = false;
-        g_ultrasonic_interaction_good_samples = 0;
+        g_human_settle_good_samples = 0;
         g_human_detection_accepted_count++;
 
         // Cancel any in-progress DVD turn immediately. The next control cycle
@@ -3288,6 +3054,38 @@ double MechelangeloBehaviour::getHumanLidarRange(double centre_offset) const
     const double end_angle = estimated_human_angle + kHumanLidarWindow;
 
     return getMinimumRange(start_angle, end_angle);
+}
+
+double MechelangeloBehaviour::getHumanLidarMinRecentRange(double centre_offset) const
+{
+    if (scan_history_.empty() ||
+        latest_scan_.ranges.empty() ||
+        latest_scan_.angle_increment == 0.0)
+    {
+        return std::numeric_limits<double>::infinity();
+    }
+
+    const double estimated_human_angle = -centre_offset * kCameraHorizontalFov;
+    const double start_angle = estimated_human_angle - kHumanLidarWindow;
+    const double end_angle = estimated_human_angle + kHumanLidarWindow;
+
+    const int scan_count = static_cast<int>(latest_scan_.ranges.size());
+    double min_range = std::numeric_limits<double>::infinity();
+
+    for (const auto &hist_ranges : scan_history_)
+    {
+        for (int i = 0; i < scan_count && i < static_cast<int>(hist_ranges.size()); ++i)
+        {
+            const double angle = latest_scan_.angle_min +
+                static_cast<double>(i) * latest_scan_.angle_increment;
+            if (angle < start_angle || angle > end_angle)
+                continue;
+            const float r = hist_ranges[i];
+            if (std::isfinite(r) && r > kMinValidRange)
+                min_range = std::min(min_range, static_cast<double>(r));
+        }
+    }
+    return min_range;
 }
 
 void MechelangeloBehaviour::captureSafetyZoneBaseline()
