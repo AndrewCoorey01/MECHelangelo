@@ -1,3 +1,22 @@
+// =============================================================================
+// MECHelangelo Behaviour Node — Version 4 (current active build, 0.15 m/s)
+//
+// This is the current active version as of 2026-06. It is a reference copy;
+// the live code is in src/mechelangelo_behaviour/src/behaviour_physical.cpp.
+//
+// Key differences from v3:
+//   - kForwardSpeed = 0.15 m/s  (up from 0.12 m/s — base now reliable at 0.15)
+//   - kTurnSpeed    = 0.425 rad/s
+//   - LiDAR is the PRIMARY human-approach stopping sensor (kHumanLidarStopDistance=1.65 m)
+//     with ultrasonic as emergency backup (kUltrasonicStopDistance=1.50 m)
+//   - Pulsed forward approach in the 1.65–1.85 m slowdown band
+//   - kHumanApproachDecelRate = 0.10 m/s² ramp-to-stop on LiDAR trigger
+//   - Temporal majority-vote scan filter (kTemporalBufferSize=4, kTemporalVoteThreshold=2)
+//   - Voice lines (VoiceGroup enum) instead of single voice_prompt topic
+//   - kHumanInteractionDurationSeconds = 30 s interaction hold
+//   - Ultrasonic failed-stop timeout (kUltrasonicFailedStopTimeoutSeconds=10 s)
+// =============================================================================
+
 /////////////////////////////////////////////////////////////////////////
 /// DVD bounce LiDAR exploration + camera/dual-ultrasonic human approach
 
@@ -8,6 +27,8 @@
 #include <deque>
 #include <cmath>
 #include <cstdlib>
+#include <fstream>
+#include <iomanip>
 #include <limits>
 #include <functional>
 #include <memory>
@@ -181,21 +202,14 @@ static constexpr double kUltrasonicFailedStopTimeoutSeconds = 10.0;
 static constexpr double kCameraHorizontalFov = 60.0 * M_PI / 180.0;
 static constexpr double kHumanLidarWindow = 10.0 * M_PI / 180.0;
 static constexpr double kLidarCameraMaxDisagreement = 0.4;
-// Stop distance raised from 1.65m to 1.80m to account for:
-//   - Decel overshoot (~30mm at 0.20 m/s², ~66mm at the old 0.10 m/s²)
-//   - Temporal LiDAR filter lag (~10–20mm at 0.12 m/s closing speed)
-//   - Physical motor/wheel inertia (~10–20mm additional coast after command)
-// Combined worst-case pushes the actual stop point ~50–60mm past the commanded
-// threshold, so 1.80m commanded gives ~1.72–1.75m physical stopping distance —
-// comfortably above the 1.50m ultrasonic emergency threshold.
-static constexpr double kHumanLidarStopDistance = 1.80;
+static constexpr double kHumanLidarStopDistance = 1.65;
 static constexpr double kHumanLidarStopTolerance = 0.20;
 // LiDAR is the primary human-approach stopping sensor. kHumanLidarSlowdownMargin
 // is added to kHumanLidarStopDistance to define the pulsed-slowdown band start.
-static constexpr double kHumanLidarSlowdownMargin = 0.25;  // m above stop to begin slowdown pulses
-// Deceleration rate when the stop condition is reached. Increased from 0.10 to
-// 0.20 m/s² to halve the commanded overshoot (0.030m vs 0.066m at 0.12 m/s).
-static constexpr double kHumanApproachDecelRate = 0.20;    // m/s²
+static constexpr double kHumanLidarSlowdownMargin = 0.20;  // m above stop to begin slowdown pulses
+// Soft deceleration rate used when the human-approach stop condition is reached.
+// Softer than kStopLinearDecel so the base does not lurch to a halt.
+static constexpr double kHumanApproachDecelRate = 0.10;    // m/s²
 
 // Once the robot reaches a usable interaction pose, hold it instead of
 // continuing to creep forward or dropping straight back into DVD exploration
@@ -765,6 +779,14 @@ static void updateUltrasonicChannel(
     }
 }
 
+static constexpr const char *kHumanPlannerDebugLogFilename =
+    "human_planner_debug.txt";
+
+static constexpr const char *kHumanStatsLogFilename =
+    "human_interaction_stats.txt";
+static constexpr const char *kDvdDebugLogFilename =
+    "dvd_bounce_debug.txt";
+
 enum class VoiceGroup
 {
     AUTONOMOUS,
@@ -902,6 +924,41 @@ static void playVoiceLine(VoiceGroup group, const rclcpp::Time &now,
     std::system(command.str().c_str());
     g_last_voice_play_time = now;
     g_last_voice_play_time_initialised = true;
+}
+
+static std::string behaviourDebugDirectory()
+{
+    const char *home = std::getenv("HOME");
+    std::vector<std::string> candidates;
+
+    if (home != nullptr)
+    {
+        candidates.push_back(
+            std::string(home) +
+            "/ros2_ws/src/MECHelangelo/src/mechelangelo_behaviour/debug");
+    }
+
+    candidates.push_back("/home/andy/ros2_ws/src/MECHelangelo/src/mechelangelo_behaviour/debug");
+    candidates.push_back("/home/pi/ros2_ws/src/MECHelangelo/src/mechelangelo_behaviour/debug");
+
+    for (const std::string &candidate : candidates)
+    {
+        const std::string test_path = candidate + "/.write_test";
+        std::ofstream test_file(test_path, std::ios::app);
+        if (test_file.good())
+        {
+            return candidate;
+        }
+    }
+
+    // Deliberately do not fall back to /tmp: if this path is wrong, the failed
+    // file write makes it obvious that the workspace path needs to be adjusted.
+    return "/home/andy/ros2_ws/src/MECHelangelo/src/mechelangelo_behaviour/debug";
+}
+
+static std::string debugLogPath(const std::string &filename)
+{
+    return behaviourDebugDirectory() + "/" + filename;
 }
 
 static double normaliseAngleForFileScope(double angle_rad)
@@ -1168,6 +1225,274 @@ static double humanDetectionCooldownRemaining(const rclcpp::Time &now)
     const double elapsed = (now - g_human_detection_cooldown_start_time).seconds();
     return std::max(0.0, kHumanDetectionCooldownSeconds - elapsed);
 }
+
+static void writeHumanInteractionStatsLog(
+    const std::string &event,
+    const rclcpp::Time &now)
+{
+    std::ofstream log(debugLogPath(kHumanStatsLogFilename));
+    log << std::fixed << std::setprecision(3);
+    log << "=== Mechelangelo Human Interaction Stats ===\n";
+    log << "Last event: " << event << "\n";
+    log << "ROS time: " << now.seconds() << " s\n\n";
+
+    log << "DVD exploration headings selected: " << g_dvd_heading_selection_count << "\n";
+    log << "Human detections accepted: " << g_human_detection_accepted_count << "\n";
+    log << "Human detections ignored during cooldown: "
+        << g_human_detection_ignored_cooldown_count << "\n\n";
+
+    log << "Successful entries into interaction state: "
+        << g_human_interaction_success_count << "\n";
+    log << "Completed 30 s interactions: "
+        << g_human_interaction_completed_count << "\n";
+    log << "Abandoned before reaching interaction: "
+        << g_human_abandoned_before_interaction_count << "\n";
+    log << "Abandoned after reaching interaction: "
+        << g_human_abandoned_after_interaction_count << "\n\n";
+
+    log << "Current human motion phase: "
+        << humanMotionPhaseName(g_human_motion_phase) << "\n";
+    log << "Persistent target confidence: "
+        << humanTargetConfidenceName(g_human_target_confidence) << "\n";
+    log << "Camera-guided fallback active: "
+        << (g_human_camera_guided_mode_active ? "yes" : "no") << "\n";
+    log << "Camera-guided LiDAR guard valid: "
+        << (g_human_camera_guided_lidar_guard_valid ? "yes" : "no") << "\n";
+    log << "Camera-guided guard range: "
+        << g_human_camera_guided_guard_range << " m\n";
+    log << "Camera-guided cycles: "
+        << g_human_camera_guided_cycle_count << "\n";
+    log << "Persistent target point: x=" << g_human_target_x
+        << " y=" << g_human_target_y << " m\n";
+    log << "Proactive avoidance stage: "
+        << proactiveAvoidanceStageName(g_human_proactive_stage) << "\n";
+    log << "Persistent target locks: " << g_human_target_lock_count << "\n";
+    log << "LiDAR target reassociations: "
+        << g_human_target_lidar_reassociation_count << "\n";
+    log << "Reposition hysteresis active: "
+        << (g_reposition_hysteresis_active ? "yes" : "no") << "\n";
+    log << "Committed reposition active: "
+        << (g_reposition_command_active ? "yes" : "no") << "\n";
+    log << "Reposition commits: " << g_human_reposition_commit_count << "\n";
+    log << "Settle attempts: " << g_human_settle_attempt_count << "\n";
+    log << "Settle successes: " << g_human_settle_success_count << "\n";
+    log << "Settle rejected/restarted: " << g_human_settle_rejected_count << "\n";
+    log << "Reposition candidates rejected for weak improvement: "
+        << g_human_reposition_no_improvement_count << "\n\n";
+
+    log << "Latest human range: " << g_debug_last_human_range << " m\n";
+    log << "Latest human offset: " << g_debug_last_human_offset << "\n";
+    log << "Latest blocked beams: " << g_debug_last_blocked_beams << "\n";
+    log << "Latest minimum clearance: " << g_debug_last_min_clearance << " m\n";
+    log << "Latest minimum bubble margin: " << g_debug_last_min_margin << " m\n";
+    log << "Latest committed reposition heading: "
+        << g_debug_last_reposition_heading * 180.0 / M_PI << " deg\n\n";
+
+    log << "Fused human valid: " << (g_fused_human_valid ? "yes" : "no") << "\n";
+    log << "Fused human bearing: " << g_fused_human_bearing * 180.0 / M_PI << " deg\n";
+    log << "Fused human range: " << g_fused_human_range << " m\n";
+    log << "Fused human safety range: " << g_fused_human_safety_range << " m\n";
+    log << "Associated LiDAR cluster valid: " << (g_human_cluster_valid ? "yes" : "no") << "\n";
+    log << "Associated cluster points: " << g_human_cluster_point_count << "\n";
+    log << "Associated cluster angle: " << g_human_cluster_angle * 180.0 / M_PI << " deg\n";
+    log << "Associated cluster median range: " << g_human_cluster_median_range << " m\n";
+    log << "Associated cluster safety range: " << g_human_cluster_safety_range << " m\n";
+    log << "LiDAR associations successful: " << g_human_lidar_association_success_count << "\n";
+    log << "LiDAR associations failed: " << g_human_lidar_association_failure_count << "\n\n";
+
+    log << "Planner command active: " << (g_human_planner_command_active ? "yes" : "no") << "\n";
+    log << "Planner linear command: " << g_human_planner_linear << " m/s\n";
+    log << "Planner angular command: " << g_human_planner_angular << " rad/s\n";
+    log << "Planner score: " << g_human_planner_score << "\n";
+    log << "Predicted minimum human distance: " << g_human_planner_predicted_min_human_distance << " m\n";
+    log << "Predicted final human range: " << g_human_planner_predicted_final_range << " m\n";
+    log << "Predicted final human bearing: " << g_human_planner_predicted_final_bearing * 180.0 / M_PI << " deg\n";
+    log << "Safe planner candidates: " << g_human_planner_safe_candidates << "\n";
+    log << "Rejected for human distance: " << g_human_planner_rejected_human_distance << "\n";
+    log << "Rejected for obstacle clearance: " << g_human_planner_rejected_obstacle << "\n";
+    log << "Rejected for camera view: " << g_human_planner_rejected_view << "\n";
+    log << "Planner commands selected: " << g_human_planner_command_count << "\n";
+    log << "Planner cycles with no safe command: " << g_human_planner_no_safe_command_count << "\n";
+    log << "Minimum-distance supervisor stops: " << g_human_minimum_distance_stop_count << "\n";
+    log << "Visual recovery cycles: " << g_human_visual_recovery_count << "\n";
+    log << "Forced escape active: " << (g_human_escape_active ? "yes" : "no") << "\n";
+    log << "Forced escapes triggered: " << g_human_escape_trigger_count << "\n";
+    log << "Forced escapes completed: " << g_human_escape_complete_count << "\n";
+    log << "Forced escape timeouts: " << g_human_escape_timeout_count << "\n";
+    log << "Escape direction: " << g_human_escape_direction_angle * 180.0 / M_PI << " deg\n";
+    log << "Deterministic escape stage: "
+        << deterministicEscapeStageName(g_human_deterministic_escape_stage) << "\n";
+    log << "Deterministic escape triggers: "
+        << g_human_deterministic_escape_trigger_count << "\n";
+    log << "Deterministic escape completions: "
+        << g_human_deterministic_escape_complete_count << "\n";
+    log << "Deterministic escape blocked/voice cases: "
+        << g_human_deterministic_escape_blocked_count << "\n";
+    log << "Adaptive waypoint starts: " << g_human_waypoint_start_count << "\n";
+    log << "Adaptive waypoint completions: " << g_human_waypoint_complete_count << "\n";
+    log << "Adaptive waypoint aborts: " << g_human_waypoint_abort_count << "\n";
+    log << "Adaptive clearance deficit: " << g_human_waypoint_clearance_deficit << " m\n";
+    log << "Adaptive target lateral shift: " << g_human_waypoint_target_lateral << " m\n";
+    log << "Adaptive target forward shift: " << g_human_waypoint_target_forward << " m\n";
+    log << "Adaptive arc duration per phase: " << g_human_waypoint_arc_duration << " s\n";
+    log << "Adaptive trigger streak: " << g_human_waypoint_trigger_streak << "\n";
+    log << "No-safe-command streak: " << g_human_no_safe_command_streak << "\n";
+    log << "Latest rear clearance: " << g_human_last_rear_clearance << " m\n";
+    log << "Latest front clearance: " << g_human_last_front_clearance << " m\n";
+    log << "Too-close backoffs: " << g_human_too_close_backoff_count << "\n";
+    log << "Step-back voice prompts: " << g_human_step_back_prompt_count << "\n";
+    log << "Proactive approach avoidance active: "
+        << (g_human_proactive_avoidance_active ? "yes" : "no") << "\n";
+    log << "Proactive approach triggers: "
+        << g_human_proactive_trigger_count << "\n";
+    log << "Proactive risky scan streak: "
+        << g_human_proactive_risk_cycles << "\n";
+    log << "Proactive clear scan streak: "
+        << g_human_proactive_clear_cycles << "\n";
+    log << "Current proactive threat points: "
+        << g_human_proactive_threat_point_count << "\n";
+    log << "Nearest non-human return: "
+        << g_human_proactive_nearest_nonhuman_range << " m\n";
+    log << "Nearest route/final-pose threat: "
+        << g_human_proactive_nearest_threat_range << " m\n";
+    log << "Proactive avoidance direction: "
+        << g_human_proactive_direction_angle * 180.0 / M_PI << " deg\n";
+    log << "Projected straight-path blocked beams: "
+        << g_human_proactive_projected_blocked_beams << "\n";
+    log << "Projected straight-path bubble margin: "
+        << g_human_proactive_projected_margin << " m\n";
+    log << "Arms-down pose name: " << g_approach_arm_pose_name << "\n";
+    log << "Behaviour interaction topic active: "
+        << (g_last_interaction_active_value ? "yes" : "no") << "\n";
+    log << "Mimicry arm poses forwarded: " << g_arm_mimicry_forward_count << "\n";
+    log << "Inactive/default mimicry poses ignored: " << g_arm_mimicry_ignored_count << "\n\n";
+
+    log << "Interaction session active: "
+        << (g_interaction_session_active ? "yes" : "no") << "\n";
+    if (g_interaction_session_active)
+    {
+        log << "Interaction elapsed: "
+            << (now - g_interaction_session_start_time).seconds() << " / "
+            << kHumanInteractionDurationSeconds << " s\n";
+    }
+
+    log << "Human detection cooldown active: "
+        << (humanDetectionCooldownActive(now) ? "yes" : "no") << "\n";
+    if (humanDetectionCooldownActive(now))
+    {
+        log << "Cooldown remaining: "
+            << humanDetectionCooldownRemaining(now) << " s\n";
+    }
+
+    log << "\nRear safety radius during HUMAN_DETECTED: "
+        << kHumanRearSafetyRadius << " m for rear +/-"
+        << kHumanRearSectorHalfAngle * 180.0 / M_PI << " deg around 180 deg\n";
+    log << "Front/side safety radius during HUMAN_DETECTED: "
+        << kSafetyZoneRadius << " m\n";
+}
+
+static void writeHumanPlannerDebugLog(
+    const std::string &event,
+    const rclcpp::Time &now)
+{
+    std::ofstream log(debugLogPath(kHumanPlannerDebugLogFilename));
+    log << std::fixed << std::setprecision(4);
+    log << "=== Mechelangelo Fused Human / Arc Planner Debug ===\n";
+    log << "Last event: " << event << "\n";
+    log << "ROS time: " << now.seconds() << " s\n";
+    log << "Motion phase: " << humanMotionPhaseName(g_human_motion_phase) << "\n\n";
+
+    log << "Fused valid: " << (g_fused_human_valid ? "yes" : "no") << "\n";
+    log << "Bearing: " << g_fused_human_bearing * 180.0 / M_PI << " deg\n";
+    log << "Range: " << g_fused_human_range << " m\n";
+    log << "Safety range: " << g_fused_human_safety_range << " m\n";
+    log << "Target confidence: " << humanTargetConfidenceName(g_human_target_confidence) << "\n";
+    log << "Camera-guided fallback: "
+        << (g_human_camera_guided_mode_active ? "active" : "inactive") << "\n";
+    log << "Camera-guided LiDAR guard: "
+        << (g_human_camera_guided_lidar_guard_valid ? "valid" : "unavailable")
+        << ", range=" << g_human_camera_guided_guard_range << " m\n";
+    log << "Target locked: " << (g_human_target_locked ? "yes" : "no") << "\n";
+    log << "Target point: x=" << g_human_target_x << " y=" << g_human_target_y << " m\n";
+    log << "Target snapshot points: " << g_human_target_snapshot_point_count << "\n";
+    log << "Target snapshot angular width: " << g_human_target_snapshot_angular_width * 180.0 / M_PI << " deg\n";
+    log << "Target locks: " << g_human_target_lock_count << "\n";
+    log << "Target LiDAR reassociations: " << g_human_target_lidar_reassociation_count << "\n";
+    log << "Target prediction cycles: " << g_human_target_prediction_count << "\n";
+    log << "Target losses: " << g_human_target_lost_count << "\n";
+    log << "LiDAR cluster valid: " << (g_human_cluster_valid ? "yes" : "no") << "\n";
+    log << "Cluster indices: " << g_human_cluster_start_index << " to " << g_human_cluster_end_index << "\n";
+    log << "Cluster points: " << g_human_cluster_point_count << "\n";
+    log << "Cluster angle: " << g_human_cluster_angle * 180.0 / M_PI << " deg\n";
+    log << "Cluster median: " << g_human_cluster_median_range << " m\n";
+    log << "Cluster safety range: " << g_human_cluster_safety_range << " m\n";
+    log << "Cluster association score: " << g_human_cluster_score << "\n\n";
+
+    log << "Command active: " << (g_human_planner_command_active ? "yes" : "no") << "\n";
+    log << "Linear: " << g_human_planner_linear << " m/s\n";
+    log << "Angular: " << g_human_planner_angular << " rad/s\n";
+    log << "Score: " << g_human_planner_score << "\n";
+    log << "Predicted min human distance: " << g_human_planner_predicted_min_human_distance << " m\n";
+    log << "Predicted final human range: " << g_human_planner_predicted_final_range << " m\n";
+    log << "Predicted final human bearing: " << g_human_planner_predicted_final_bearing * 180.0 / M_PI << " deg\n\n";
+
+    log << "Safe candidates: " << g_human_planner_safe_candidates << "\n";
+    log << "Rejected human distance: " << g_human_planner_rejected_human_distance << "\n";
+    log << "Rejected obstacle: " << g_human_planner_rejected_obstacle << "\n";
+    log << "Rejected camera view: " << g_human_planner_rejected_view << "\n";
+    log << "Absolute minimum human distance: " << kHumanAbsoluteMinimumDistance << " m\n";
+    log << "Planner minimum human distance: " << kHumanPlannerMinimumDistance << " m\n";
+    log << "Desired interaction distance: " << kHumanDesiredInteractionDistance << " m\n";
+    log << "Forced escape active: " << (g_human_escape_active ? "yes" : "no") << "\n";
+    log << "Stagnation tracking: " << (g_human_stagnation_tracking ? "yes" : "no") << "\n";
+    log << "Escape direction: " << g_human_escape_direction_angle * 180.0 / M_PI << " deg\n";
+    log << "Escape triggers: " << g_human_escape_trigger_count << "\n";
+    log << "Escape completions: " << g_human_escape_complete_count << "\n";
+    log << "Escape timeouts: " << g_human_escape_timeout_count << "\n";
+    log << "Deterministic escape stage: "
+        << deterministicEscapeStageName(g_human_deterministic_escape_stage) << "\n";
+    log << "Deterministic escape side: "
+        << g_human_deterministic_escape_side_sign << "\n";
+    log << "Adaptive waypoint lateral/forward: "
+        << g_human_waypoint_target_lateral << " / "
+        << g_human_waypoint_target_forward << " m\n";
+    log << "Adaptive waypoint clearance deficit: "
+        << g_human_waypoint_clearance_deficit << " m\n";
+    log << "Adaptive arc duration: "
+        << g_human_waypoint_arc_duration << " s per arc\n";
+    log << "Adaptive trigger streak: "
+        << g_human_waypoint_trigger_streak << "\n";
+    log << "No-safe-command streak: " << g_human_no_safe_command_streak << "\n";
+    log << "Rear/front clearance: " << g_human_last_rear_clearance
+        << " / " << g_human_last_front_clearance << " m\n";
+    log << "Too-close backoff active: "
+        << (g_human_too_close_backoff_active ? "yes" : "no") << "\n";
+    log << "Proactive approach avoidance: "
+        << (g_human_proactive_avoidance_active ? "yes" : "no") << "\n";
+    log << "Proactive stage: "
+        << proactiveAvoidanceStageName(g_human_proactive_stage) << "\n";
+    log << "Proactive direction: "
+        << g_human_proactive_direction_angle * 180.0 / M_PI << " deg\n";
+    log << "Proactive risky scan streak: "
+        << g_human_proactive_risk_cycles << "\n";
+    log << "Proactive clear scan streak: "
+        << g_human_proactive_clear_cycles << "\n";
+    log << "Current threat points: "
+        << g_human_proactive_threat_point_count << "\n";
+    log << "Nearest non-human return: "
+        << g_human_proactive_nearest_nonhuman_range << " m\n";
+    log << "Nearest route/final-pose threat: "
+        << g_human_proactive_nearest_threat_range << " m\n";
+    log << "Warning/release distances: "
+        << kHumanApproachObstacleWarningDistance << " / "
+        << kHumanApproachObstacleReleaseDistance << " m\n";
+    log << "Projected straight-path blocked beams: "
+        << g_human_proactive_projected_blocked_beams << "\n";
+    log << "Projected straight-path margin: "
+        << g_human_proactive_projected_margin << " m\n";
+}
+
+
 
 MechelangeloBehaviour::MechelangeloBehaviour()
 : Node("mechelangelo_behaviour"),
@@ -1730,6 +2055,9 @@ void MechelangeloBehaviour::controlLoop()
                 publishInteractionActive(now, false, true);
                 publishArmsDown(now, true);
 
+                writeHumanInteractionStatsLog(
+                    "ultrasonic_interaction_complete", now);
+
                 RCLCPP_INFO(
                     this->get_logger(),
                     "HUMAN: Interaction complete. Resuming filtered-LiDAR DVD exploration.");
@@ -2094,6 +2422,9 @@ void MechelangeloBehaviour::controlLoop()
                 publishInteractionActive(now, false, true);
                 publishArmsDown(now, true);
 
+                writeHumanInteractionStatsLog(
+                    "ultrasonic_stop_timeout_return_to_dvd", now);
+
                 RCLCPP_WARN(
                     this->get_logger(),
                     "HUMAN: Ultrasonic kept the base stopped for %.1f s "
@@ -2151,6 +2482,10 @@ void MechelangeloBehaviour::controlLoop()
             g_ultrasonic_interaction_good_samples = 0;
             publishInteractionActive(now, true, true);
 
+            writeHumanInteractionStatsLog(
+                "lidar_pose_verified_entered_interaction",
+                now);
+
             RCLCPP_INFO(
                 this->get_logger(),
                 "HUMAN: Centred and stopped at %.2f m (LiDAR). Beginning interaction.",
@@ -2173,30 +2508,21 @@ void MechelangeloBehaviour::controlLoop()
         }
         twist.angular.z = desired_angular;
 
-        // Per-cycle approach trace: LiDAR distance, ultrasonic L/R, phase, stop status.
-        // Fires every 500 ms until the robot enters INTERACTION mode (which breaks out early).
         RCLCPP_INFO_THROTTLE(
             this->get_logger(),
             *this->get_clock(),
             500,
-            "HUMAN [%s]: centred=%s offset=%.3f | "
-            "LiDAR=%.2f m (%s) stop@%.2f m -> %s | "
-            "US-L=%s %.2f  US-R=%s %.2f  nearest=%.2f (%s) | "
-            "settle=%d/%d  cmd v=%.3f w=%.3f",
-            humanMotionPhaseName(g_human_motion_phase),
+            "HUMAN: centred=%s offset=%.3f left=%s %.2f right=%s %.2f "
+            "nearest=%s %.2f stop_wait=%s settle=%d/%d cmd v=%.2f w=%.3f.",
             g_human_centre_locked ? "yes" : "no",
             human_centre_offset_,
-            lidar_range_interact,
-            (std::isfinite(lidar_range_interact) && lidar_range_interact > kMinValidRange)
-                ? "valid" : "no-return",
-            kHumanLidarStopDistance,
-            at_interaction_distance ? "AT-STOP" :
-                ((std::isfinite(lidar_range_interact) && lidar_range_interact > kMinValidRange)
-                    ? "approach" : "blind"),
-            left_alive ? "alive" : "stale", left_range,
-            right_alive ? "alive" : "stale", right_range,
-            ultrasonic_range,
+            left_alive ? "alive" : "stale",
+            left_range,
+            right_alive ? "alive" : "stale",
+            right_range,
             ultrasonic_range_valid ? "valid" : "no-echo",
+            ultrasonic_range,
+            g_ultrasonic_stop_wait_active ? "active" : "off",
             g_ultrasonic_interaction_good_samples,
             kUltrasonicInteractionSettleSamples,
             twist.linear.x,
@@ -2269,6 +2595,8 @@ void MechelangeloBehaviour::humanDetectedCallback(const std_msgs::msg::Bool::Sha
     if (humanDetectionCooldownActive(this->now()))
     {
         g_human_detection_ignored_cooldown_count++;
+        writeHumanInteractionStatsLog("manual_human_detection_ignored_during_cooldown", this->now());
+
         RCLCPP_WARN_THROTTLE(
             this->get_logger(),
             *this->get_clock(),
@@ -2387,17 +2715,9 @@ void MechelangeloBehaviour::humanTrackingCallback(
         current_twist_ = stop;
         cmd_vel_publisher_->publish(stop);
 
-        const double lidar_at_detection = getHumanLidarRange(human_centre_offset_);
-        const bool lidar_at_detection_valid =
-            std::isfinite(lidar_at_detection) && lidar_at_detection > kMinValidRange;
-
-        RCLCPP_INFO(
+        RCLCPP_WARN(
             this->get_logger(),
-            "HUMAN SPOTTED: camera offset=%.3f  LiDAR=%.2f m (%s)  "
-            "stop threshold=%.2f m  Approaching.",
-            human_centre_offset_,
-            lidar_at_detection,
-            lidar_at_detection_valid ? "valid" : "no-return");
+            "Camera human detected. DVD motion stopped; beginning centre-first approach.");
     }
 
     g_last_visible_human_valid = true;
@@ -3002,6 +3322,58 @@ bool MechelangeloBehaviour::getLongestRange(double &out_angle, double &out_range
         out_angle = angleForIndex(selected_index);
         out_range = rangeForLog(selected_index);
 
+        {
+            std::ofstream log(debugLogPath(kDvdDebugLogFilename));
+            log << std::fixed << std::setprecision(4);
+            log << "=== DVD Bounce Heading Selection ===\n";
+            log << "DVD heading selections so far: " << g_dvd_heading_selection_count << "\n";
+            log << "Successful interaction entries: " << g_human_interaction_success_count << "\n";
+            log << "Completed 30 s interactions: " << g_human_interaction_completed_count << "\n";
+            log << "Abandoned before interaction: " << g_human_abandoned_before_interaction_count << "\n";
+            log << "Abandoned after interaction: " << g_human_abandoned_after_interaction_count << "\n";
+            log << "Cooldown ignored detections: " << g_human_detection_ignored_cooldown_count << "\n";
+            log << "Current human phase: " << humanMotionPhaseName(g_human_motion_phase) << "\n";
+            log << "Reposition commits: " << g_human_reposition_commit_count << "\n";
+            log << "Settle successes: " << g_human_settle_success_count << "\n\n";
+            log << "Open beam rule: inf OR range >= " << kDvdOpenClearanceDistance << " m\n";
+            log << "Minimum accepted sector width: " << kDvdMinSectorWidth * 180.0 / M_PI << " deg\n";
+            log << "Sector edge margin: " << kDvdSectorEdgeMargin * 180.0 / M_PI << " deg\n";
+            log << "Preferred bounce band: +/-"
+                << kDvdPreferredMinTurnAngle * 180.0 / M_PI << " to +/-"
+                << kDvdPreferredMaxTurnAngle * 180.0 / M_PI << " deg\n";
+            log << "Fallback bounce band: +/-"
+                << kDvdAvoidFrontAngle * 180.0 / M_PI << " to +/-"
+                << kDvdAvoidReverseAngle * 180.0 / M_PI << " deg\n\n";
+
+            log << "Accepted open sectors: " << accepted_sector_count << "\n";
+            log << "Widest open sector beams: " << widest_sector_count << "\n";
+            log << "Preferred left candidates: " << preferred_left_candidates.size() << "\n";
+            log << "Preferred right candidates: " << preferred_right_candidates.size() << "\n";
+            log << "Fallback candidates: " << fallback_all_candidates.size() << "\n\n";
+
+            log << "=== Result ===\n";
+            log << "Selected behaviour: "
+                << (used_preferred_bounce_band ? "preferred random side-bounce" : "fallback random safe bounce")
+                << "\n";
+            log << "Selected side: "
+                << (used_left_side ? "left/positive" : (used_right_side ? "right/negative" : "unknown"))
+                << "\n";
+            log << "Selected index: " << selected_index << "\n";
+            log << "Selected angle: " << out_angle * 180.0 / M_PI << " deg\n";
+            log << "Representative range: " << out_range << " m\n\n";
+
+            log << "=== Laser Scan Values ===\n";
+            for (int i = 0; i < scan_count; ++i)
+            {
+                const double angle_deg = angleForIndex(i) * 180.0 / M_PI;
+                log << "  [" << std::setw(4) << i << "]  angle="
+                    << std::setw(9) << angle_deg << " deg  range="
+                    << latest_scan_.ranges[i] << " m  open="
+                    << (open_beam[i] ? "yes" : "no") << "  preferred="
+                    << (isPreferredBounceAngle(i) ? "yes" : "no") << "\n";
+            }
+        }
+
         return true;
     }
 
@@ -3082,6 +3454,21 @@ bool MechelangeloBehaviour::getLongestRange(double &out_angle, double &out_range
     g_dvd_heading_selection_count++;
     out_angle = normaliseAngle(latest_scan_.angle_min + best_mid_index * latest_scan_.angle_increment);
     out_range = max_finite_range;
+
+    {
+        std::ofstream log(debugLogPath(kDvdDebugLogFilename));
+        log << std::fixed << std::setprecision(4);
+        log << "=== DVD Bounce Heading Selection ===\n";
+        log << "DVD heading selections so far: " << g_dvd_heading_selection_count << "\n";
+        log << "Successful interaction entries: " << g_human_interaction_success_count << "\n";
+        log << "Completed 30 s interactions: " << g_human_interaction_completed_count << "\n";
+        log << "Abandoned before interaction: " << g_human_abandoned_before_interaction_count << "\n";
+        log << "Abandoned after interaction: " << g_human_abandoned_after_interaction_count << "\n";
+        log << "Cooldown ignored detections: " << g_human_detection_ignored_cooldown_count << "\n\n";
+        log << "Selected behaviour: fallback longest finite scan\n";
+        log << "Longest finite range: " << out_range << " m\n";
+        log << "Selected angle: " << out_angle * 180.0 / M_PI << " deg\n";
+    }
 
     return true;
 }
