@@ -72,6 +72,13 @@ def generate_launch_description():
         ),
 
         Node(
+            package='mechelangelo_perception',
+            executable='pi4_bridge',
+            name='pi4_bridge',
+            output='screen',
+        ),
+
+        Node(
             package='mechelangelo_behaviour',
             executable='mechelangelo_behaviour_physical',
             name='mechelangelo_behaviour',

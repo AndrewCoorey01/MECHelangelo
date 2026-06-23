@@ -39,11 +39,27 @@ static constexpr double kControlPeriodSeconds = 0.1;
 // smaller values that leave the motors stalled.
 static constexpr double kForwardSpeed = 0.15;       // m/s, physical DVD cruise
 static constexpr double kTurnSpeed = 0.425;         // rad/s, below the 0.45 driver cap
+// REVIEW_UNUSED: kAngleGain and kTurnAngularAcceleration are not referenced by
+// this physical implementation. They look like leftovers from an older
+// proportional/acceleration-limited aligner.
+static constexpr double kAngleGain = 0.55;          // retained for compatibility
 static constexpr double kAlignmentTolerance = 0.10; // radians, about 5.7 degrees
+static constexpr double kTurnAngularAcceleration = 0.45; // retained for compatibility
 
 // Smooth commanded stops so the physical base does not snap from motion to zero.
 static constexpr double kStopLinearDecel = 0.16;  // m/s^2
 static constexpr double kStopAngularDecel = 0.45; // rad/s^2
+
+// Stop this far before a real obstacle/wall.
+// Loaded from the ROS parameter 'stop_distance_m'.
+// Default: 1.5 m (simulation). Physical robot: set to 0.75 in the launch file.
+
+// 5 loops x 0.1 s = 0.5 seconds. The reactive turn loop below keeps the robot
+// moving out of corners instead of sitting through long stop/search cycles.
+// REVIEW_REDUNDANT: STOPPED is still implemented below, but no current path in
+// this file assigns current_state_ = NavigationState::STOPPED, so this pause
+// duration and stop_counter_ appear unreachable unless that transition returns.
+static constexpr int kStopDurationLoops = 5;
 
 // Ignore returns too close to the robot body / lidar blind spot.
 static constexpr double kMinValidRange = 0.5; // m
@@ -121,8 +137,21 @@ static constexpr int kTemporalVoteThreshold = 2;         // minimum votes (out o
 // /human_tracking message format:
 // data[0] = detected, data[1] = centre_offset, data[2] = distance_m
 // centre_offset is normalised image offset from centre: -0.5 left, 0 centre, +0.5 right.
+// REVIEW_UNUSED: Most constants in this old proportional human-tracking block
+// are no longer used by the physical camera+LiDAR pulse approach. Current uses
+// from this block are kHumanCentreDeadZone and kHumanLostTimeout only.
+static constexpr double kHumanTargetDistance = 1.75;     // m
+static constexpr double kHumanDistanceTolerance = 0.15; // m
+static constexpr double kHumanMaxForwardSpeed = 0.16;   // m/s, slower approach helps keep person in camera
+static constexpr double kHumanMaxReverseSpeed = 0.12;   // m/s
+static constexpr double kHumanMaxTurnSpeed = 0.50;      // rad/s, gentler human tracking so the camera does not swing off target
+static constexpr double kHumanTurnGain = 1.8;           // image offset to angular speed
+static constexpr double kHumanForwardGain = 0.35;       // distance error to linear speed
 static constexpr double kHumanCentreDeadZone = 0.06;    // normalised image width
 static constexpr double kHumanLostTimeout = 1.5;        // seconds, wait stationary before returning to DVD exploration
+static constexpr double kHumanRecoveryTurnSpeed = 0.375; // retained for compatibility
+static constexpr double kHumanRecoveryCreepSpeed = 0.00; // never move blindly after camera loss
+
 
 // ------------------------------------------------------
 // Physical human approach: camera bearing + LiDAR range
@@ -145,14 +174,20 @@ static constexpr double kHumanFailedStopTimeoutSeconds = 10.0;
 // LiDAR validation for human distance.
 static constexpr double kCameraHorizontalFov = 60.0 * M_PI / 180.0;
 static constexpr double kHumanLidarWindow = 10.0 * M_PI / 180.0;
+// REVIEW_UNUSED: kLidarCameraMaxDisagreement is not used by the current
+// physical approach. There is no active camera-vs-LiDAR disagreement check.
+static constexpr double kLidarCameraMaxDisagreement = 0.4;
 // Stop distance raised from 1.65m to 1.80m to account for:
-//   - Deceleration overshoot (~30mm at 0.20 m/s², ~66mm at the old 0.10 m/s²)
+//   - Decel overshoot (~30mm at 0.20 m/s², ~66mm at the old 0.10 m/s²)
 //   - Temporal LiDAR filter lag (~10–20mm at 0.12 m/s closing speed)
 //   - Physical motor/wheel inertia (~10–20mm additional coast after command)
 // Combined worst-case pushes the actual stop point ~50–60mm past the commanded
 // threshold, so 1.80m commanded gives ~1.72–1.75m physical stopping distance —
 // comfortably above the 1.50m ultrasonic emergency threshold.
 static constexpr double kHumanLidarStopDistance = 1.80;
+// REVIEW_UNUSED: kHumanLidarStopTolerance is not referenced. The current stop
+// condition is lidar_range <= kHumanLidarStopDistance with no tolerance band.
+static constexpr double kHumanLidarStopTolerance = 0.20;
 // LiDAR is the primary human-approach stopping sensor. kHumanLidarSlowdownMargin
 // is added to kHumanLidarStopDistance to define the pulsed-slowdown band start.
 static constexpr double kHumanLidarSlowdownMargin = 0.25;  // m above stop to begin slowdown pulses
@@ -160,20 +195,290 @@ static constexpr double kHumanLidarSlowdownMargin = 0.25;  // m above stop to be
 // 0.20 m/s² to halve the commanded overshoot (0.030m vs 0.066m at 0.12 m/s).
 static constexpr double kHumanApproachDecelRate = 0.20;    // m/s²
 
+// Once the robot reaches a usable interaction pose, hold it instead of
+// continuing to creep forward or dropping straight back into DVD exploration
+// when the detector flickers for a moment.
+// REVIEW_UNUSED: This interaction-hold tuning is not read by the current
+// physical state machine. g_interaction_hold_* values are set/cleared below,
+// but the hold timeout/range/offset latch behaviour is not implemented here.
+static constexpr double kHumanInteractionHoldTimeout = 5.0;       // seconds to hold pose through brief detector loss
+static constexpr double kHumanInteractionHoldMaxOffset = 0.18;    // human must be reasonably centred to latch interaction hold
+static constexpr double kHumanRecoveryRotateOffsetThreshold = 0.15; // do not rotate during recovery if human was basically centred
+static constexpr double kHumanInteractionHoldRangeSlack = 0.25;   // extra distance slack while staying latched
+
 // Human interaction session timing. Once a valid interaction pose is reached,
 // hold interaction for this long, then return to DVD exploration and ignore
 // camera-triggered human interrupts for a short cooldown period.
 static constexpr double kHumanInteractionDurationSeconds = 30.0;
 static constexpr double kHumanDetectionCooldownSeconds = 10.0;
 
-// Camera tracking freshness. The camera supplies bearing/visibility; LiDAR
-// supplies all range decisions.
+// Safety zone.
+// REVIEW_REDUNDANT: Safety-zone helpers still exist at the bottom of this file,
+// but the physical HUMAN_DETECTED path no longer calls captureSafetyZoneBaseline()
+// or isSafetyZoneViolated(). kSafetyZoneRadius is therefore documentation-only
+// in this file, while the exclusion angle/threshold are only used inside the
+// currently uncalled helper.
+static constexpr double kSafetyZoneRadius = 1.5;
+static constexpr double kSafetyZoneIntruderThreshold = 0.3;
+static constexpr double kSafetyZoneHumanExclusionAngle = 25.0 * M_PI / 180.0;
+
+// During HUMAN_DETECTED, the robot is allowed to have a closer wall behind it
+// because the arms and human interaction are mainly front/side constrained.
+// This avoids false blocking when the base turns imperfectly and the rear of
+// the LiDAR/base drifts slightly toward the wall it just stopped near.
+static constexpr double kHumanRearSafetyRadius = 1.0; // m, rear-only during human approach/interaction
+static constexpr double kHumanRearSectorHalfAngle = 45.0 * M_PI / 180.0; // rear cone around +/-180 deg
+
+// In human reposition mode, the 1.5 m bubble is a requirement for arm interaction,
+// not a hard stop for base motion. These smaller radii are the true emergency
+// stop distances while the robot is trying to move out of a bad interaction pose.
+static constexpr double kHumanModeFrontSideHardStopRadius = 0.85; // m
+static constexpr double kHumanModeRearHardStopRadius = 1.0;       // m, keep rear at 1 m as requested
+
+// ------------------------------------------------------
+// Human interaction repositioning tuning
+// ------------------------------------------------------
+// The robot needs a clear space around itself before arm interaction.
+// If the human is visible but the 1.5 m arm bubble is blocked by a wall or
+// obstacle, the robot does not drive straight at the human. Instead it samples
+// short forward/arc moves and chooses the one predicted to clear the bubble
+// while still keeping the human in view.
+// REVIEW_UNUSED: The interaction-bubble sampled repositioner appears to be
+// legacy in this physical file. The current HUMAN_DETECTED branch only performs
+// camera centring, LiDAR approach/slowdown, settle, and timed interaction.
+// Only kInteractionBubbleRadius/SafetyMargin are referenced by the uncalled
+// humanModeInteractionBubbleRadiusForAngle() helper below.
+static constexpr double kInteractionBubbleRadius = 1.5;                 // m, arm movement clearance around robot
+static constexpr double kInteractionBubbleSafetyMargin = 0.10;          // m, extra buffer added to the bubble check
+static constexpr double kInteractionHumanExclusionAngle = 25.0 * M_PI / 180.0; // ignore tracked human cone
+static constexpr int kInteractionAllowedBlockedBeams = 3;               // tolerate a few filtered/noisy beams
+static constexpr double kInteractionRepositionLookahead = 0.65;         // m, predicted short move distance
+static constexpr double kInteractionRepositionSpeed = 0.11;             // m/s, enough movement to escape a bad pose
+static constexpr double kInteractionRepositionTurnGain = 0.85;          // rad/s per rad target heading
+static constexpr double kInteractionRepositionMaxAngularSpeed = 0.45;   // rad/s, still below normal exploration turning
+static constexpr double kInteractionPathHalfWidth = 0.45;               // m, collision corridor half-width
+static constexpr double kInteractionPathForwardBuffer = 0.25;           // m, extra forward collision buffer
+static constexpr double kInteractionMaxCandidateAngle = 60.0 * M_PI / 180.0;
+static constexpr double kInteractionRecenterFirstOffset = 0.38;         // if human is near camera edge, re-centre before repositioning
+static constexpr double kInteractionViewLossOffset = 0.48;              // heavy penalty if predicted offset approaches camera edge
+static constexpr double kInteractionParallelBiasAngle = 35.0 * M_PI / 180.0; // prefer shallow wall-parallel arcs
+
+
+// Reposition smoothing and interaction-state hysteresis.
+// The robot commits to one short arc instead of selecting a new direction every
+// 100 ms. It then stops briefly and verifies several scans before interaction.
+// REVIEW_UNUSED: This whole reposition-smoothing block is not consumed by the
+// current physical control path.
+static constexpr double kInteractionRepositionCommitSeconds = 0.80;
+static constexpr double kInteractionSettleDurationSeconds = 0.80;
+static constexpr int kInteractionSettleRequiredGoodSamples = 5;
+static constexpr int kInteractionRepositionEnterBlockedBeams = 12;
+static constexpr int kInteractionRepositionExitBlockedBeams = 5;
+static constexpr double kInteractionRepositionEnterMinMargin = -0.20; // m inside required bubble
+static constexpr double kInteractionRepositionExitMinMargin = -0.08;  // tolerate small scan/geometry error
+static constexpr int kInteractionMinBlockedImprovementBeams = 4;
+static constexpr double kInteractionMinBlockedImprovementFraction = 0.10;
+static constexpr double kInteractionMinClearanceImprovement = 0.08; // m
+static constexpr double kInteractionCommandSmoothingAlpha = 0.35;
+
+
+// ------------------------------------------------------
+// Fused human tracking + safe local arc planner
+// ------------------------------------------------------
+// Camera provides only the person's bearing and visibility. Human distance is
+// always taken from LiDAR: preferably a coherent associated segment, otherwise
+// the nearest valid LiDAR return in a narrow cone around the camera bearing.
+// Camera-reported depth is intentionally ignored because the real camera has no
+// depth capability.
+// REVIEW_UNUSED: The fused human target tracker and arc planner constants below
+// are not referenced by this physical implementation. They match older behaviour
+// logic kept in the file after the current pulse-based approach replaced it.
+static constexpr double kHumanAssociationWindow = 16.0 * M_PI / 180.0;
+static constexpr int kHumanAssociationMinPoints = 3;
+static constexpr double kHumanAssociationRangeScale = 1.50;
+static constexpr double kHumanFusionBearingAlpha = 0.45;
+static constexpr double kHumanFusionRangeAlpha = 0.35;
+static constexpr double kHumanFusionSafetyRangeAlphaDown = 0.70;
+static constexpr double kHumanFusionSafetyRangeAlphaUp = 0.25;
+static constexpr double kHumanFusionMaxRangeStep = 0.35;
+static constexpr double kHumanLidarFreshTimeout = 0.60;
 static constexpr double kHumanVisualFreshTimeout = 0.60;
 
+// Persistent human target lock. A camera-confirmed LiDAR cluster is stored as a
+// point in the robot frame, propagated through the robot's own motion and then
+// reassociated using both Cartesian position and cluster shape. This prevents a
+// nearby wall from replacing the human when the camera briefly loses them.
+static constexpr double kHumanTargetCartesianGate = 0.75; // m
+static constexpr double kHumanTargetRangeGate = 0.80;     // m
+static constexpr double kHumanTargetBearingGate = 20.0 * M_PI / 180.0;
+static constexpr double kHumanTargetVisualBearingGate = 26.0 * M_PI / 180.0;
+static constexpr double kHumanTargetLidarTrackTimeout = 1.50; // s
+static constexpr double kHumanTargetPredictionTimeout = 3.00; // s
+static constexpr double kHumanTargetPositionAlphaConfirmed = 0.45;
+static constexpr double kHumanTargetPositionAlphaLidarOnly = 0.25;
+static constexpr double kHumanTargetCameraBearingAlpha = 0.25;
+static constexpr double kHumanTargetSizePenaltyScale = 20.0;
+static constexpr double kHumanLidarOnlyMaxForwardSpeed = 0.08;
+static constexpr double kHumanLidarOnlyMaxAngularSpeed = 0.25;
+static constexpr double kHumanLidarOnlyMotionTimeout = 2.50; // s
+
+// Camera-guided, LiDAR-ranged fallback. If no coherent human segment can be
+// associated, the camera still supplies bearing while the nearest valid LiDAR
+// return in this narrow cone supplies the only distance estimate. Translation
+// is allowed only while that LiDAR guard is fresh and safely beyond the human
+// minimum distance. Camera depth is never used.
+static constexpr double kHumanCameraGuidedMaxForwardSpeed = 0.10; // m/s
+static constexpr double kHumanCameraGuidedMaxAngularSpeed = 0.35; // rad/s
+static constexpr double kHumanCameraGuardWindow = 10.0 * M_PI / 180.0;
+static constexpr double kHumanCameraGuardRangeAlpha = 0.45;
+
+// Human distance safety. The planner aims farther than the absolute limit so
+// sensor delay, base momentum and turning translation do not take the robot
+// inside 1.5 m.
+static constexpr double kHumanAbsoluteMinimumDistance = 1.50;
+static constexpr double kHumanPlannerMinimumDistance = 1.65;
+static constexpr double kHumanDesiredInteractionDistance = 1.80;
+static constexpr double kHumanDesiredInteractionTolerance = 0.18;
+static constexpr double kHumanSlowdownDistance = 2.15;
+
+// Dynamic-window-style arc planner. Commands are selected for a short horizon,
+// held briefly, and acceleration-limited between control cycles.
+static constexpr double kHumanPlannerHorizon = 1.20;
+static constexpr double kHumanPlannerSimulationStep = 0.15;
+static constexpr double kHumanPlannerCommandDuration = 0.35;
+static constexpr double kHumanPlannerMaxViewAngle = 30.0 * M_PI / 180.0;
+static constexpr double kHumanPlannerInteractionViewAngle = 12.0 * M_PI / 180.0;
+static constexpr double kHumanPlannerLinearAcceleration = 0.30;   // m/s^2
+static constexpr double kHumanPlannerAngularAcceleration = 0.90;  // rad/s^2
+static constexpr double kHumanPlannerMaxForwardSpeed = 0.16;
+static constexpr double kHumanPlannerMaxReverseSpeed = 0.14;
+static constexpr double kHumanPlannerMaxAngularSpeed = 0.45;
+static constexpr double kHumanPlannerBubbleExitMargin = -0.08;
+static constexpr int kHumanPlannerBubbleExitBlockedBeams = 5;
+static constexpr double kHumanPlannerSettleDuration = 0.80;
+static constexpr int kHumanPlannerSettleGoodSamples = 5;
+
+// Forced wall escape. Normal repositioning is allowed to prefer a stable human
+// pose, but if the interaction bubble remains badly blocked without improving,
+// the controller temporarily switches objectives and commits to moving away
+// from the obstruction while keeping the human safely in view.
+// REVIEW_UNUSED: Forced escape tuning is not used by the current physical
+// HUMAN_DETECTED branch.
+static constexpr double kHumanEscapeStagnationDuration = 1.10;
+static constexpr double kHumanEscapeCommitDuration = 1.80;
+static constexpr double kHumanEscapeMaximumDuration = 7.00;
+static constexpr double kHumanEscapePlanningHorizon = 4.00;
+static constexpr double kHumanEscapeSimulationStep = 0.20;
+static constexpr double kHumanEscapeMaxViewAngle = 35.0 * M_PI / 180.0;
+static constexpr double kHumanEscapeMaximumRange = 2.80;
+static constexpr int kHumanEscapeBlockedBeamThreshold = 20;
+static constexpr double kHumanEscapeMarginThreshold = -0.15;
+static constexpr int kHumanEscapeBlockedImprovement = 8;
+static constexpr double kHumanEscapeMarginImprovement = 0.06;
+static constexpr double kHumanEscapeStationaryPenalty = 28.0;
+
+
+// Deterministic close-wall recovery. This is only used after the sampled arc
+// planner has repeatedly found no safe command. It creates an S-shaped lateral
+// shift: back away to make human-distance room, arc away from the wall, then
+// counter-steer to face the human again. Emergency scan checks remain active on
+// every control cycle.
+// REVIEW_UNUSED: Deterministic close-wall recovery is not entered in this
+// physical file.
+static constexpr int kHumanNoSafeFallbackTriggerCycles = 5; // 0.5 s at 10 Hz
+static constexpr double kHumanDeterministicBackoffTargetRange = 2.15; // m
+static constexpr double kHumanDeterministicBackoffMaxSeconds = 2.50;
+static constexpr double kHumanDeterministicBackoffSpeed = 0.14; // m/s
+static constexpr double kHumanDeterministicClearArcSpeed = 0.14; // m/s
+static constexpr double kHumanDeterministicReturnArcSpeed = 0.12; // m/s
+static constexpr double kHumanDeterministicArcAngularSpeed = 0.32; // rad/s
+static constexpr double kHumanDeterministicClearArcSeconds = 1.35;
+static constexpr double kHumanDeterministicReturnArcSeconds = 1.35;
+static constexpr double kHumanDeterministicRearClearance = 1.15; // m
+static constexpr double kHumanDeterministicFrontClearance = 1.00; // m
+static constexpr double kHumanDeterministicRearConeHalfAngle = 40.0 * M_PI / 180.0;
+static constexpr double kHumanDeterministicFrontConeHalfAngle = 35.0 * M_PI / 180.0;
+static constexpr double kHumanDeterministicMaxHumanBearing = 30.0 * M_PI / 180.0;
+
+// Adaptive clearance waypoint / S-curve recovery.
+// Instead of repeatedly applying tiny local corrections, the controller computes
+// one proportional lateral shift from the current interaction-bubble deficit.
+// Two opposite constant-curvature arcs then create an S-shaped path that finishes
+// approximately parallel to the original human approach heading.
+// REVIEW_UNUSED: Adaptive waypoint/S-curve recovery is not entered in this
+// physical file.
+static constexpr int kHumanWaypointTriggerCycles = 4; // 0.4 s persistent blockage
+static constexpr double kHumanWaypointActivationMaxRange = 3.20; // m from human
+static constexpr double kHumanWaypointImmediateMargin = -0.28; // m, severe enough to start immediately
+static constexpr double kHumanWaypointEntryMargin = -0.12; // m
+static constexpr int kHumanWaypointEntryBlockedBeams = 20;
+static constexpr double kHumanWaypointClearanceBuffer = 0.12; // m beyond measured deficit
+static constexpr double kHumanWaypointMinimumLateralShift = 0.30; // m
+static constexpr double kHumanWaypointMaximumLateralShift = 0.60; // m
+static constexpr double kHumanWaypointArcSpeed = 0.16; // m/s
+static constexpr double kHumanWaypointArcAngularSpeed = 0.34; // rad/s
+static constexpr double kHumanWaypointMinimumArcSeconds = 1.50;
+static constexpr double kHumanWaypointMaximumArcSeconds = 3.80;
+static constexpr double kHumanWaypointMaximumTotalSeconds = 8.50;
+static constexpr double kHumanWaypointViewSoftLimit = 24.0 * M_PI / 180.0;
+static constexpr double kHumanWaypointViewHardLimit = 31.0 * M_PI / 180.0;
+static constexpr double kHumanWaypointCompletionMargin = -0.05; // m
+static constexpr int kHumanWaypointCompletionBlockedBeams = 8;
+
+// If the robot encounters a human closer than the planner safety band, reverse
+// until a usable interaction distance is restored. If there is not enough room
+// behind the robot, publish a voice-prompt placeholder instead of moving.
+// REVIEW_UNUSED: Too-close reverse/backoff tuning and the step-back prompt
+// helper are not called by the current physical control path.
+static constexpr double kHumanTooCloseBackoffTrigger = 1.66; // m
+static constexpr double kHumanTooCloseBackoffRelease = 1.85; // m
+static constexpr double kHumanTooCloseReverseSpeed = 0.14; // m/s
+static constexpr double kHumanTooCloseMaxAngularSpeed = 0.12; // rad/s
+static constexpr double kHumanStepBackPromptRepeatSeconds = 5.0;
+
+// A forced escape must create real lateral displacement. The earlier controller
+// could select straight reverse motion even when the wall-repulsion vector was
+// almost exactly sideways. These values force a curved trajectory toward the
+// free side while still enforcing the camera-view and human-distance limits.
+// REVIEW_UNUSED: These forced-escape lateral-displacement penalties are not
+// consumed by the current physical control path.
+static constexpr double kHumanEscapeMinimumAngularSpeed = 0.18; // rad/s
+static constexpr double kHumanEscapeMinimumLateralDisplacement = 0.18; // m over prediction horizon
+static constexpr double kHumanEscapeStrongLateralDirection = 0.35; // abs(sin(direction))
+static constexpr double kHumanEscapeWrongSidePenalty = 24.0;
+static constexpr double kHumanEscapeInsufficientLateralPenalty = 24.0;
+
+// Proactive wall avoidance during the first human approach.
+//
+// IMPORTANT: merely losing a small amount of clearance is not enough to enter
+// repositioning. A current non-human LiDAR return must first enter the 2.0 m
+// warning zone, and that return must threaten either the swept base corridor or
+// the final interaction bubble. This prevents clear paths from activating a
+// stale wall-avoidance direction.
+// REVIEW_UNUSED: Proactive wall-avoidance tuning is not referenced by the
+// current physical approach logic.
+static constexpr double kHumanApproachLookaheadDistance = 0.65; // m, retained for diagnostics/scoring
+static constexpr double kHumanApproachObstacleWarningDistance = 2.00; // m, begin checking path risk
+static constexpr double kHumanApproachObstacleReleaseDistance = 2.15; // m, hysteresis release
+static constexpr double kHumanApproachCorridorHalfWidth = 0.55; // m, swept base corridor
+static constexpr double kHumanApproachCorridorForwardBuffer = 0.20; // m
+static constexpr int kHumanApproachRiskEnterCycles = 3; // consecutive risky scans
+static constexpr int kHumanApproachRiskExitCycles = 4;  // consecutive clear scans
+static constexpr double kHumanApproachAvoidanceTurnOffset = 35.0 * M_PI / 180.0;
+static constexpr double kHumanApproachReturnTurnOffset = 12.0 * M_PI / 180.0;
+static constexpr double kHumanApproachAvoidanceMaxViewAngle = 32.0 * M_PI / 180.0;
+static constexpr double kHumanApproachPreferredViewAngle = 24.0 * M_PI / 180.0;
+static constexpr double kHumanApproachAvoidanceMaxAngularSpeed = 0.30;
+static constexpr double kHumanApproachClearWallMinImprovement = 0.20; // m
+static constexpr double kHumanApproachClearWallThreatFraction = 0.60;
+static constexpr double kHumanApproachAvoidanceZeroTurnPenalty = 10.0;
+static constexpr double kHumanApproachAvoidanceWrongSidePenalty = 12.0;
+
 // Keep both arms in the named arm_down pose whenever the robot is exploring,
-// approaching or settling. Mimicry takes control only after the internal
-// interaction state has started.
+// approaching, repositioning, escaping or settling. Mimicry takes control only
+// after the internal interaction state has started.
 static constexpr double kArmDownRepublishPeriod = 0.50;
+
 
 // Last confirmed visual human observation. Kept file-scope so this patch does not
 // require behaviour.hpp changes. Used to pause/reacquire instead of immediately
@@ -183,6 +488,17 @@ static double g_last_visible_human_centre_offset = 0.0;
 static double g_last_visible_human_distance_m = -1.0;
 static rclcpp::Time g_last_visible_human_time;
 
+// File-scope latch so this test patch does not require behaviour.hpp changes.
+// This becomes active once the robot is centred, at a usable interaction range,
+// and has a clear 1.5 m arm bubble.
+// REVIEW_REDUNDANT: g_interaction_hold_active is only set/cleared in this file,
+// and g_interaction_hold_time/range/offset are written when interaction starts
+// but never read afterwards. This latch can likely be removed or reimplemented.
+static bool g_interaction_hold_active = false;
+static rclcpp::Time g_interaction_hold_time;
+static double g_interaction_hold_range_m = -1.0;
+static double g_interaction_hold_offset = 0.0;
+
 // File-scope interaction session/cooldown and long-run stats. Keeping these
 // outside the class avoids requiring behaviour.hpp changes for this test.
 static bool g_interaction_session_active = false;
@@ -190,15 +506,244 @@ static rclcpp::Time g_interaction_session_start_time;
 static bool g_human_detection_cooldown_active = false;
 static rclcpp::Time g_human_detection_cooldown_start_time;
 
+static int g_dvd_heading_selection_count = 0;
+static int g_human_detection_accepted_count = 0;
+static int g_human_detection_ignored_cooldown_count = 0;
+static int g_human_interaction_success_count = 0;
+static int g_human_interaction_completed_count = 0;
+static int g_human_abandoned_before_interaction_count = 0;
+// REVIEW_UNUSED: This after-interaction abandonment counter is never updated or
+// reported in this physical file.
+static int g_human_abandoned_after_interaction_count = 0;
+
+
 enum class HumanMotionPhase
 {
     APPROACH,
+    REPOSITION,
+    ESCAPE,
     SETTLE,
     INTERACTION,
     RECOVERY
 };
 
+enum class HumanTargetConfidence
+{
+    LOST,
+    PREDICTED,
+    LIDAR_TRACKED,
+    CONFIRMED
+};
+
+enum class ProactiveAvoidanceStage
+{
+    NONE,
+    CLEAR_WALL,
+    RETURN_TO_HUMAN
+};
+
+
+enum class DeterministicEscapeStage
+{
+    NONE,
+    BACK_OFF,
+    CLEAR_ARC,
+    RETURN_ARC
+};
+
 static HumanMotionPhase g_human_motion_phase = HumanMotionPhase::APPROACH;
+static bool g_reposition_hysteresis_active = false;
+static bool g_reposition_command_active = false;
+// REVIEW_UNUSED: The reposition command/settle state below belongs to the old
+// sampled arc repositioner. In this physical file it is reset but not otherwise
+// driven by the active control loop.
+static rclcpp::Time g_reposition_command_start_time;
+static double g_reposition_committed_heading = 0.0;
+static double g_reposition_committed_linear = 0.0;
+static double g_reposition_committed_angular = 0.0;
+static int g_reposition_start_blocked_beams = 0;
+static double g_reposition_start_min_margin = 0.0;
+static rclcpp::Time g_interaction_settle_start_time;
+static int g_interaction_settle_good_samples = 0;
+static int g_interaction_settle_total_samples = 0;
+
+static int g_human_reposition_commit_count = 0;
+static int g_human_settle_attempt_count = 0;
+static int g_human_settle_success_count = 0;
+static int g_human_settle_rejected_count = 0;
+static int g_human_reposition_no_improvement_count = 0;
+
+// REVIEW_UNUSED: These debug fields are never written/read by the current
+// physical code. They look like leftovers from the older human planner debug
+// file output.
+static double g_debug_last_human_range = -1.0;
+static double g_debug_last_human_offset = 0.0;
+static int g_debug_last_blocked_beams = 0;
+static double g_debug_last_min_clearance = std::numeric_limits<double>::infinity();
+static double g_debug_last_min_margin = std::numeric_limits<double>::infinity();
+static double g_debug_last_reposition_heading = 0.0;
+
+// Fused human estimate in the robot frame.
+// REVIEW_UNUSED: Fused target state is reset but not populated or consumed by
+// the current physical HUMAN_DETECTED path.
+static bool g_fused_human_valid = false;
+static double g_fused_human_bearing = 0.0;
+static double g_fused_human_range = -1.0;
+static double g_fused_human_safety_range = -1.0;
+static rclcpp::Time g_fused_human_update_time;
+static rclcpp::Time g_fused_human_last_lidar_time;
+static bool g_fused_human_lidar_ever_valid = false;
+
+// Persistent target snapshot in the current robot frame. The fused bearing/range
+// above are derived from this point so the target continues to move correctly
+// through the scan as the base translates and rotates.
+// REVIEW_UNUSED: Persistent target-lock state is legacy in this file. The
+// current physical path uses human_centre_offset_ plus getHumanLidarRange().
+static HumanTargetConfidence g_human_target_confidence = HumanTargetConfidence::LOST;
+static bool g_human_target_locked = false;
+static double g_human_target_x = 0.0;
+static double g_human_target_y = 0.0;
+static double g_human_target_safety_range = -1.0;
+static int g_human_target_snapshot_point_count = 0;
+static double g_human_target_snapshot_angular_width = 0.0;
+static rclcpp::Time g_human_target_last_confirmed_time;
+static rclcpp::Time g_human_target_last_lidar_match_time;
+static bool g_human_target_imu_yaw_valid = false;
+static double g_human_target_last_imu_yaw = 0.0;
+static int g_human_target_lock_count = 0;
+static int g_human_target_lidar_reassociation_count = 0;
+static int g_human_target_prediction_count = 0;
+static int g_human_target_lost_count = 0;
+
+// Diagnostic state for the camera-led fallback. This mode is intentionally not
+// a separate navigation state: normal approach continues, with reduced speed,
+// until a real LiDAR obstacle threatens the path or a human range guard becomes
+// available.
+// REVIEW_UNUSED: Camera-guided fallback state is reset but not otherwise used.
+static bool g_human_camera_guided_mode_active = false;
+static bool g_human_camera_guided_lidar_guard_valid = false;
+static double g_human_camera_guided_guard_range =
+    std::numeric_limits<double>::infinity();
+static int g_human_camera_guided_cycle_count = 0;
+
+// Short-horizon command latch.
+// REVIEW_UNUSED: Dynamic-window planner command diagnostics are not used by the
+// current physical approach.
+static bool g_human_planner_command_active = false;
+static rclcpp::Time g_human_planner_command_start_time;
+static double g_human_planner_linear = 0.0;
+static double g_human_planner_angular = 0.0;
+static double g_human_planner_score = -std::numeric_limits<double>::infinity();
+static double g_human_planner_predicted_min_human_distance = -1.0;
+static double g_human_planner_predicted_final_range = -1.0;
+static double g_human_planner_predicted_final_bearing = 0.0;
+static int g_human_planner_safe_candidates = 0;
+static int g_human_planner_rejected_human_distance = 0;
+static int g_human_planner_rejected_obstacle = 0;
+static int g_human_planner_rejected_view = 0;
+
+// Last associated LiDAR segment diagnostics.
+// REVIEW_UNUSED: Human cluster-association diagnostics are reset but not
+// updated or reported in this physical file.
+static bool g_human_cluster_valid = false;
+static int g_human_cluster_start_index = -1;
+static int g_human_cluster_end_index = -1;
+static int g_human_cluster_point_count = 0;
+static double g_human_cluster_angle = 0.0;
+static double g_human_cluster_median_range = -1.0;
+static double g_human_cluster_safety_range = -1.0;
+static double g_human_cluster_score = 0.0;
+
+static int g_human_lidar_association_success_count = 0;
+static int g_human_lidar_association_failure_count = 0;
+static int g_human_planner_command_count = 0;
+static int g_human_planner_no_safe_command_count = 0;
+static int g_human_minimum_distance_stop_count = 0;
+static int g_human_visual_recovery_count = 0;
+
+// Stagnation and forced escape state.
+// REVIEW_UNUSED: Forced-escape state is reset but not entered by the current
+// physical control path.
+static bool g_human_escape_active = false;
+static bool g_human_stagnation_tracking = false;
+static rclcpp::Time g_human_stagnation_start_time;
+static rclcpp::Time g_human_escape_start_time;
+static double g_human_stagnation_start_margin = 0.0;
+static int g_human_stagnation_start_blocked_beams = 0;
+static double g_human_escape_direction_angle = 0.0;
+static int g_human_escape_direction_sign = 0;
+static int g_human_escape_trigger_count = 0;
+static int g_human_escape_complete_count = 0;
+static int g_human_escape_timeout_count = 0;
+
+
+// Deterministic fallback used when all sampled escape arcs are rejected.
+// REVIEW_UNUSED: Deterministic escape state is reset but not entered.
+static DeterministicEscapeStage g_human_deterministic_escape_stage =
+    DeterministicEscapeStage::NONE;
+static rclcpp::Time g_human_deterministic_escape_stage_start_time;
+static int g_human_deterministic_escape_side_sign = 0;
+static int g_human_no_safe_command_streak = 0;
+static int g_human_deterministic_escape_trigger_count = 0;
+static int g_human_deterministic_escape_complete_count = 0;
+static int g_human_deterministic_escape_blocked_count = 0;
+
+// Adaptive S-curve waypoint state. The existing deterministic stage enum is
+// reused: BACK_OFF creates human-distance room when required, CLEAR_ARC moves
+// toward the temporary clearance waypoint, and RETURN_ARC counter-steers back
+// toward the human.
+// REVIEW_UNUSED: Adaptive waypoint state is reset but not entered.
+static int g_human_waypoint_trigger_streak = 0;
+static double g_human_waypoint_clearance_deficit = 0.0;
+static double g_human_waypoint_target_lateral = 0.0;
+static double g_human_waypoint_target_forward = 0.0;
+static double g_human_waypoint_arc_duration = 0.0;
+static double g_human_waypoint_initial_margin = 0.0;
+static int g_human_waypoint_start_count = 0;
+static int g_human_waypoint_complete_count = 0;
+static int g_human_waypoint_abort_count = 0;
+static rclcpp::Time g_human_waypoint_total_start_time;
+
+static double g_human_last_rear_clearance =
+    std::numeric_limits<double>::infinity();
+static double g_human_last_front_clearance =
+    std::numeric_limits<double>::infinity();
+
+// Too-close-human backoff and future voice interface.
+// REVIEW_UNUSED: Too-close backoff state and prompt counters are not used
+// because publishHumanStepBackPrompt() is never called.
+static bool g_human_too_close_backoff_active = false;
+static int g_human_too_close_backoff_count = 0;
+static int g_human_step_back_prompt_count = 0;
+static rclcpp::Time g_last_human_step_back_prompt_time;
+static bool g_human_step_back_prompt_time_initialised = false;
+
+// Proactive approach-path diagnostics. This becomes active when a short
+// straight-ahead projection predicts that the robot would enter or worsen the
+// interaction collision zone before reaching the human.
+// REVIEW_UNUSED: Proactive approach-path diagnostics are reset but not updated
+// by the current physical approach.
+static bool g_human_proactive_avoidance_active = false;
+static double g_human_proactive_direction_angle = 0.0;
+static int g_human_proactive_trigger_count = 0;
+static int g_human_proactive_risk_cycles = 0;
+static int g_human_proactive_clear_cycles = 0;
+static int g_human_proactive_threat_point_count = 0;
+static double g_human_proactive_nearest_nonhuman_range =
+    std::numeric_limits<double>::infinity();
+static double g_human_proactive_nearest_threat_range =
+    std::numeric_limits<double>::infinity();
+static int g_human_proactive_projected_blocked_beams = 0;
+static double g_human_proactive_projected_margin =
+    std::numeric_limits<double>::infinity();
+static ProactiveAvoidanceStage g_human_proactive_stage =
+    ProactiveAvoidanceStage::NONE;
+static rclcpp::Time g_human_proactive_stage_start_time;
+static int g_human_proactive_side_sign = 0;
+static int g_human_proactive_entry_threat_points = 0;
+static double g_human_proactive_entry_nearest_threat =
+    std::numeric_limits<double>::infinity();
+static int g_human_proactive_return_count = 0;
 
 // Named arm-pose keepalive. These are file-scope so behaviour.hpp does not need
 // new publisher members for this test.
@@ -217,6 +762,7 @@ static bool g_interaction_active_publish_time_initialised = false;
 static bool g_last_interaction_active_value = false;
 static std::string g_approach_arm_pose_name = "arm_down";
 
+
 static int g_human_settle_good_samples = 0;
 static bool g_human_stop_wait_active = false;
 static rclcpp::Time g_human_stop_wait_start;
@@ -229,6 +775,7 @@ static bool g_human_turn_cycle_initialised = false;
 static rclcpp::Time g_human_turn_cycle_start;
 static bool g_human_forward_cycle_initialised = false;
 static rclcpp::Time g_human_forward_cycle_start;
+
 
 enum class VoiceGroup
 {
@@ -364,22 +911,134 @@ static void playVoiceLine(VoiceGroup group, const rclcpp::Time &now,
         << "fi"
         << "\" >/dev/null 2>&1 &";
 
-    const int play_result = std::system(command.str().c_str());
-    (void)play_result;
+    std::system(command.str().c_str());
     g_last_voice_play_time = now;
     g_last_voice_play_time_initialised = true;
 }
+
+static double normaliseAngleForFileScope(double angle_rad)
+{
+    while (angle_rad > M_PI)
+    {
+        angle_rad -= 2.0 * M_PI;
+    }
+
+    while (angle_rad < -M_PI)
+    {
+        angle_rad += 2.0 * M_PI;
+    }
+
+    return angle_rad;
+}
+
+static bool isRearBeamAngle(double angle_rad)
+{
+    const double angle = normaliseAngleForFileScope(angle_rad);
+    return std::fabs(angle) >= (M_PI - kHumanRearSectorHalfAngle);
+}
+
+static double humanModeSafetyRadiusForAngle(double angle_rad)
+{
+    // During HUMAN_DETECTED this is only the hard-stop safety radius for base
+    // repositioning. The full arm-clearance radius is checked separately by
+    // humanModeInteractionBubbleRadiusForAngle().
+    return isRearBeamAngle(angle_rad)
+        ? kHumanModeRearHardStopRadius
+        : kHumanModeFrontSideHardStopRadius;
+}
+
+static double humanModeInteractionBubbleRadiusForAngle(double angle_rad)
+{
+    // REVIEW_UNUSED: No active caller in behaviour_physical.cpp. This belongs
+    // to the old interaction-bubble planner/safety-zone flow.
+    return isRearBeamAngle(angle_rad)
+        ? kHumanRearSafetyRadius
+        : (kInteractionBubbleRadius + kInteractionBubbleSafetyMargin);
+}
+
 
 static const char *humanMotionPhaseName(HumanMotionPhase phase)
 {
     switch (phase)
     {
     case HumanMotionPhase::APPROACH: return "APPROACH";
+    case HumanMotionPhase::REPOSITION: return "REPOSITION";
+    case HumanMotionPhase::ESCAPE: return "ESCAPE";
     case HumanMotionPhase::SETTLE: return "SETTLE";
     case HumanMotionPhase::INTERACTION: return "INTERACTION";
     case HumanMotionPhase::RECOVERY: return "RECOVERY";
     default: return "UNKNOWN";
     }
+}
+
+static const char *humanTargetConfidenceName(HumanTargetConfidence confidence)
+{
+    // REVIEW_UNUSED: This name helper is not called in the physical file
+    // because the persistent target-confidence tracker is inactive.
+    switch (confidence)
+    {
+    case HumanTargetConfidence::CONFIRMED: return "CONFIRMED";
+    case HumanTargetConfidence::LIDAR_TRACKED: return "LIDAR_TRACKED";
+    case HumanTargetConfidence::PREDICTED: return "PREDICTED";
+    case HumanTargetConfidence::LOST: return "LOST";
+    default: return "UNKNOWN";
+    }
+}
+
+static const char *proactiveAvoidanceStageName(ProactiveAvoidanceStage stage)
+{
+    // REVIEW_UNUSED: This name helper is not called in the physical file
+    // because proactive avoidance is inactive.
+    switch (stage)
+    {
+    case ProactiveAvoidanceStage::CLEAR_WALL: return "CLEAR_WALL";
+    case ProactiveAvoidanceStage::RETURN_TO_HUMAN: return "RETURN_TO_HUMAN";
+    case ProactiveAvoidanceStage::NONE: return "NONE";
+    default: return "UNKNOWN";
+    }
+}
+
+
+static const char *deterministicEscapeStageName(DeterministicEscapeStage stage)
+{
+    // REVIEW_UNUSED: This name helper is not called in the physical file
+    // because deterministic escape is inactive.
+    switch (stage)
+    {
+    case DeterministicEscapeStage::BACK_OFF: return "BACK_OFF";
+    case DeterministicEscapeStage::CLEAR_ARC: return "CLEAR_ARC";
+    case DeterministicEscapeStage::RETURN_ARC: return "RETURN_ARC";
+    case DeterministicEscapeStage::NONE: return "NONE";
+    default: return "UNKNOWN";
+    }
+}
+
+static void publishHumanStepBackPrompt(const rclcpp::Time &now)
+{
+    // REVIEW_UNUSED: No current caller. The physical path holds position when
+    // LiDAR is missing/too close rather than entering the old reverse/prompt
+    // branch.
+    const bool repeat_elapsed =
+        !g_human_step_back_prompt_time_initialised ||
+        (now - g_last_human_step_back_prompt_time).seconds() >=
+            kHumanStepBackPromptRepeatSeconds;
+
+    if (!repeat_elapsed)
+    {
+        return;
+    }
+
+    if (g_voice_prompt_publisher)
+    {
+        std_msgs::msg::String prompt;
+        // A future audio node can subscribe to /voice_prompt and speak this text.
+        prompt.data = "Please take one step back so I have enough room to interact safely.";
+        g_voice_prompt_publisher->publish(prompt);
+    }
+
+    g_last_human_step_back_prompt_time = now;
+    g_human_step_back_prompt_time_initialised = true;
+    g_human_step_back_prompt_count++;
 }
 
 static void publishArmsDown(const rclcpp::Time &now, bool force = false)
@@ -438,6 +1097,72 @@ static void publishInteractionActive(
 static void resetHumanMotionController()
 {
     g_human_motion_phase = HumanMotionPhase::APPROACH;
+    g_reposition_hysteresis_active = false;
+    g_reposition_command_active = false;
+    g_reposition_committed_heading = 0.0;
+    g_reposition_committed_linear = 0.0;
+    g_reposition_committed_angular = 0.0;
+    g_reposition_start_blocked_beams = 0;
+    g_reposition_start_min_margin = 0.0;
+    g_interaction_settle_good_samples = 0;
+    g_interaction_settle_total_samples = 0;
+
+    g_fused_human_valid = false;
+    g_fused_human_bearing = 0.0;
+    g_fused_human_range = -1.0;
+    g_fused_human_safety_range = -1.0;
+    g_fused_human_lidar_ever_valid = false;
+    g_human_target_confidence = HumanTargetConfidence::LOST;
+    g_human_target_locked = false;
+    g_human_target_x = 0.0;
+    g_human_target_y = 0.0;
+    g_human_target_safety_range = -1.0;
+    g_human_target_snapshot_point_count = 0;
+    g_human_target_snapshot_angular_width = 0.0;
+    g_human_target_imu_yaw_valid = false;
+    g_human_planner_command_active = false;
+    g_human_planner_linear = 0.0;
+    g_human_planner_angular = 0.0;
+    g_human_escape_active = false;
+    g_human_stagnation_tracking = false;
+    g_human_escape_direction_angle = 0.0;
+    g_human_escape_direction_sign = 0;
+    g_human_deterministic_escape_stage = DeterministicEscapeStage::NONE;
+    g_human_deterministic_escape_side_sign = 0;
+    g_human_no_safe_command_streak = 0;
+    g_human_waypoint_trigger_streak = 0;
+    g_human_waypoint_clearance_deficit = 0.0;
+    g_human_waypoint_target_lateral = 0.0;
+    g_human_waypoint_target_forward = 0.0;
+    g_human_waypoint_arc_duration = 0.0;
+    g_human_waypoint_initial_margin = 0.0;
+    g_human_too_close_backoff_active = false;
+    g_human_proactive_avoidance_active = false;
+    g_human_proactive_direction_angle = 0.0;
+    g_human_proactive_risk_cycles = 0;
+    g_human_proactive_clear_cycles = 0;
+    g_human_proactive_threat_point_count = 0;
+    g_human_proactive_nearest_nonhuman_range =
+        std::numeric_limits<double>::infinity();
+    g_human_proactive_nearest_threat_range =
+        std::numeric_limits<double>::infinity();
+    g_human_proactive_projected_blocked_beams = 0;
+    g_human_proactive_projected_margin =
+        std::numeric_limits<double>::infinity();
+    g_human_proactive_stage = ProactiveAvoidanceStage::NONE;
+    g_human_proactive_side_sign = 0;
+    g_human_proactive_entry_threat_points = 0;
+    g_human_proactive_entry_nearest_threat =
+        std::numeric_limits<double>::infinity();
+    g_human_cluster_valid = false;
+    g_human_cluster_start_index = -1;
+    g_human_cluster_end_index = -1;
+    g_human_cluster_point_count = 0;
+    g_human_camera_guided_mode_active = false;
+    g_human_camera_guided_lidar_guard_valid = false;
+    g_human_camera_guided_guard_range =
+        std::numeric_limits<double>::infinity();
+
     g_human_centre_locked = false;
     g_human_turn_cycle_initialised = false;
     g_human_forward_cycle_initialised = false;
@@ -475,11 +1200,24 @@ MechelangeloBehaviour::MechelangeloBehaviour()
   human_centre_offset_(0.0),
   human_distance_m_(-1.0),
   blind_autonomous_active_(false),
+  safety_zone_violated_(false),
+  safety_zone_baseline_captured_(false),
   current_state_(NavigationState::SEARCHING),
   target_angle_(0.0),
   target_range_(0.0),
   stop_distance_m_(1.5),
-  align_yaw_initialised_(false)
+  // REVIEW_REDUNDANT: stop_counter_ is only useful if the unreachable STOPPED
+  // state is restored.
+  stop_counter_(0),
+  // REVIEW_REDUNDANT: IMU/yaw members are written by imuCallback()/init only,
+  // but the current ALIGNING behaviour no longer reads them.
+  imu_available_(false),
+  align_start_yaw_(0.0),
+  align_yaw_initialised_(false),
+  // REVIEW_UNUSED: getLongestRange() now uses its own thread_local mt19937, so
+  // these class random members are not consumed by behaviour_physical.cpp.
+  random_engine_(std::random_device{}()),
+  turn_dist_(-1.0, 1.0)
 {
     this->declare_parameter("stop_distance_m", 1.5);
     stop_distance_m_ = this->get_parameter("stop_distance_m").as_double();
@@ -584,6 +1322,8 @@ MechelangeloBehaviour::MechelangeloBehaviour()
         10,
         std::bind(&MechelangeloBehaviour::humanTrackingCallback, this, std::placeholders::_1));
 
+
+
     last_human_tracking_time_ = this->now();
     g_last_visible_human_time = this->now();
     g_last_visible_human_valid = false;
@@ -626,17 +1366,28 @@ void MechelangeloBehaviour::blindAutonomous()
     RCLCPP_INFO(this->get_logger(), "Executing blind autonomous behaviour.");
 
     blind_autonomous_active_ = true;
+    safety_zone_violated_ = false;
+    safety_zone_baseline_captured_ = false;
     // DVD behaviour begins by driving straight. A bounce heading is selected
     // only after the filtered LiDAR reports a wall in front.
     current_state_ = NavigationState::MOVING;
     target_angle_ = 0.0;
     target_range_ = 0.0;
+    stop_counter_ = 0;
     align_yaw_initialised_ = false;
+    g_interaction_hold_active = false;
     g_human_settle_good_samples = 0;
     g_human_centre_locked = false;
     g_human_turn_cycle_initialised = false;
     resetHumanMotionController();
     clearObstacleMarkers();
+}
+
+void MechelangeloBehaviour::mappedAutonomous()
+{
+    // REVIEW_UNUSED: Declared and defined placeholder only; run() always starts
+    // blindAutonomous(), and no caller selects mappedAutonomous().
+    RCLCPP_INFO(this->get_logger(), "Executing mapped autonomous behaviour.");
 }
 
 void MechelangeloBehaviour::controlLoop()
@@ -873,6 +1624,38 @@ void MechelangeloBehaviour::controlLoop()
         break;
     }
 
+    case NavigationState::STOPPED:
+    {
+        // REVIEW_REDUNDANT: This state is currently unreachable in
+        // behaviour_physical.cpp because MOVING transitions directly to
+        // ALIGNING once the smoothed stop reaches zero.
+        stopRobot(twist);
+        stop_counter_++;
+
+        if (stop_counter_ >= kStopDurationLoops)
+        {
+            RCLCPP_INFO(
+                this->get_logger(),
+                "STOPPED: Pause complete. Searching for next direction.");
+
+            stop_counter_ = 0;
+            clearObstacleMarkers();
+            current_state_ = NavigationState::SEARCHING;
+        }
+        else
+        {
+            RCLCPP_INFO_THROTTLE(
+                this->get_logger(),
+                *this->get_clock(),
+                1000,
+                "STOPPED: Pausing %.1f / %.1f seconds",
+                stop_counter_ * kControlPeriodSeconds,
+                kStopDurationLoops * kControlPeriodSeconds);
+        }
+
+        break;
+    }
+
     case NavigationState::HUMAN_DETECTED:
     {
         const rclcpp::Time now = this->now();
@@ -895,8 +1678,10 @@ void MechelangeloBehaviour::controlLoop()
 
             if (interaction_elapsed >= kHumanInteractionDurationSeconds)
             {
+                g_human_interaction_completed_count++;
                 g_interaction_session_active = false;
-                            g_human_detection_cooldown_active = true;
+                g_interaction_hold_active = false;
+                g_human_detection_cooldown_active = true;
                 g_human_detection_cooldown_start_time = now;
                 human_locked_ = false;
                 g_human_settle_good_samples = 0;
@@ -967,10 +1752,12 @@ void MechelangeloBehaviour::controlLoop()
             if (time_since_visible_human > kHumanLostTimeout)
             {
                 playVoiceLine(VoiceGroup::PERSON_LOST, now, 1.0, true);
+                g_human_abandoned_before_interaction_count++;
                 human_locked_ = false;
                 human_tracking_valid_ = false;
                 human_tracking_grace_active_ = false;
-                            resetHumanMotionController();
+                g_interaction_hold_active = false;
+                resetHumanMotionController();
                 clearObstacleMarkers();
                 current_state_ = NavigationState::SEARCHING;
 
@@ -1160,10 +1947,12 @@ void MechelangeloBehaviour::controlLoop()
                 twist.angular.z = 0.0;
                 current_twist_ = twist;
 
+                g_human_abandoned_before_interaction_count++;
                 g_human_detection_cooldown_active = true;
                 g_human_detection_cooldown_start_time = now;
                 human_locked_ = false;
-                            resetHumanMotionController();
+                g_interaction_hold_active = false;
+                resetHumanMotionController();
                 clearObstacleMarkers();
                 current_state_ = NavigationState::SEARCHING;
                 publishInteractionActive(now, false, true);
@@ -1215,6 +2004,13 @@ void MechelangeloBehaviour::controlLoop()
                 HumanMotionPhase::INTERACTION;
             g_interaction_session_active = true;
             g_interaction_session_start_time = now;
+            g_interaction_hold_active = true;
+            g_interaction_hold_time = now;
+            g_interaction_hold_range_m =
+                lidar_range_interact;
+            g_interaction_hold_offset =
+                human_centre_offset_;
+            g_human_interaction_success_count++;
             g_human_stop_wait_active = false;
             g_human_settle_good_samples = 0;
             publishInteractionActive(now, true, true);
@@ -1318,6 +2114,9 @@ void MechelangeloBehaviour::laserScanCallback(const sensor_msgs::msg::LaserScan:
 
 void MechelangeloBehaviour::imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg)
 {
+    // REVIEW_REDUNDANT: The callback caches IMU data, but latest_imu_ and
+    // imu_available_ are not read by the current physical ALIGNING/HUMAN paths.
+    // ALIGNING now rotates until the front opens, not until an IMU yaw target.
     latest_imu_ = *msg;
     imu_available_ = true;
 }
@@ -1331,6 +2130,7 @@ void MechelangeloBehaviour::humanDetectedCallback(const std_msgs::msg::Bool::Sha
 
     if (humanDetectionCooldownActive(this->now()))
     {
+        g_human_detection_ignored_cooldown_count++;
         RCLCPP_WARN_THROTTLE(
             this->get_logger(),
             *this->get_clock(),
@@ -1393,6 +2193,7 @@ void MechelangeloBehaviour::humanTrackingCallback(
 
     if (detected && humanDetectionCooldownActive(now))
     {
+        g_human_detection_ignored_cooldown_count++;
         human_locked_ = false;
         human_tracking_valid_ = false;
         human_tracking_grace_active_ = false;
@@ -1440,6 +2241,7 @@ void MechelangeloBehaviour::humanTrackingCallback(
         g_human_centre_locked = false;
         g_human_turn_cycle_initialised = false;
         g_human_settle_good_samples = 0;
+        g_human_detection_accepted_count++;
 
         // Cancel any in-progress DVD turn immediately. The next control cycle
         // begins the centre-first visual alignment from a stationary base.
@@ -1457,8 +2259,7 @@ void MechelangeloBehaviour::humanTrackingCallback(
             "stop threshold=%.2f m  Approaching.",
             human_centre_offset_,
             lidar_at_detection,
-            lidar_at_detection_valid ? "valid" : "no-return",
-            kHumanLidarStopDistance);
+            lidar_at_detection_valid ? "valid" : "no-return");
     }
 
     g_last_visible_human_valid = true;
@@ -1469,6 +2270,7 @@ void MechelangeloBehaviour::humanTrackingCallback(
     g_last_visible_human_time = now;
     current_state_ = NavigationState::HUMAN_DETECTED;
 }
+
 
 sensor_msgs::msg::LaserScan MechelangeloBehaviour::filterLaserScan(
     const sensor_msgs::msg::LaserScan &raw_scan)
@@ -2026,6 +2828,9 @@ bool MechelangeloBehaviour::getLongestRange(double &out_angle, double &out_range
     };
 
     int selected_index = -1;
+    // REVIEW_UNUSED: This is set when a preferred/fallback bounce band is
+    // chosen, but nothing reads it. It can be removed or added to diagnostics.
+    bool used_preferred_bounce_band = false;
     bool used_left_side = false;
     bool used_right_side = false;
 
@@ -2036,6 +2841,7 @@ bool MechelangeloBehaviour::getLongestRange(double &out_angle, double &out_range
             preferred_right_candidates,
             used_left_side,
             used_right_side);
+        used_preferred_bounce_band = true;
     }
     else if (!fallback_left_candidates.empty() || !fallback_right_candidates.empty())
     {
@@ -2044,16 +2850,19 @@ bool MechelangeloBehaviour::getLongestRange(double &out_angle, double &out_range
             fallback_right_candidates,
             used_left_side,
             used_right_side);
+        used_preferred_bounce_band = false;
     }
     else if (!fallback_all_candidates.empty())
     {
         selected_index = chooseFromCandidates(fallback_all_candidates);
         used_left_side = angleForIndex(selected_index) >= 0.0;
         used_right_side = !used_left_side;
+        used_preferred_bounce_band = false;
     }
 
     if (selected_index >= 0)
     {
+        g_dvd_heading_selection_count++;
         out_angle = angleForIndex(selected_index);
         out_range = rangeForLog(selected_index);
 
@@ -2134,10 +2943,39 @@ bool MechelangeloBehaviour::getLongestRange(double &out_angle, double &out_range
             0.5 * static_cast<double>(std::max(0, best_count - 1)),
         static_cast<double>(scan_count));
 
+    g_dvd_heading_selection_count++;
     out_angle = normaliseAngle(latest_scan_.angle_min + best_mid_index * latest_scan_.angle_increment);
     out_range = max_finite_range;
 
     return true;
+}
+
+int MechelangeloBehaviour::angleToIndex(double angle_rad) const
+{
+    // REVIEW_UNUSED: No active caller in behaviour_physical.cpp. Kept from
+    // earlier scan-window code.
+    if (latest_scan_.ranges.empty() || latest_scan_.angle_increment == 0.0)
+    {
+        return -1;
+    }
+
+    double capped_angle = angle_rad;
+
+    if (capped_angle < latest_scan_.angle_min)
+    {
+        capped_angle = latest_scan_.angle_min;
+    }
+
+    if (capped_angle > latest_scan_.angle_max)
+    {
+        capped_angle = latest_scan_.angle_max;
+    }
+
+    int index = static_cast<int>(
+        std::round((capped_angle - latest_scan_.angle_min) / latest_scan_.angle_increment));
+
+    index = std::clamp(index, 0, static_cast<int>(latest_scan_.ranges.size()) - 1);
+    return index;
 }
 
 double MechelangeloBehaviour::normaliseAngle(double angle_rad) const
@@ -2289,6 +3127,28 @@ void MechelangeloBehaviour::clearObstacleMarkers()
     obstacle_marker_publisher_->publish(marker_array);
 }
 
+void MechelangeloBehaviour::longestLaserScan()
+{
+    // REVIEW_UNUSED: Debug helper is declared/defined but never called. The
+    // active control path calls getLongestRange() directly.
+    double longest_angle = 0.0;
+    double longest_range = 0.0;
+
+    if (!getLongestRange(longest_angle, longest_range))
+    {
+        RCLCPP_WARN(
+            this->get_logger(),
+            "No valid filtered laser scan data available for longest scan calculation.");
+        return;
+    }
+
+    RCLCPP_INFO(
+        this->get_logger(),
+        "Selected exploration heading: Representative range = %.2f m at Angle = %.2f degrees",
+        longest_range,
+        longest_angle * 180.0 / M_PI);
+}
+
 double MechelangeloBehaviour::getHumanLidarRange(double centre_offset) const
 {
     const double estimated_human_angle = -centre_offset * kCameraHorizontalFov;
@@ -2328,6 +3188,73 @@ double MechelangeloBehaviour::getHumanLidarMinRecentRange(double centre_offset) 
         }
     }
     return min_range;
+}
+
+void MechelangeloBehaviour::captureSafetyZoneBaseline()
+{
+    // REVIEW_UNUSED: No active caller in this physical file. The old safety
+    // zone baseline flow exists in behaviour.cpp but was bypassed here.
+    safety_zone_baseline_scan_ = latest_scan_;
+    safety_zone_baseline_captured_ = true;
+    RCLCPP_INFO(this->get_logger(), "SAFETY ZONE: Filtered background baseline captured.");
+}
+
+bool MechelangeloBehaviour::isSafetyZoneViolated(double human_bearing_rad) const
+{
+    // REVIEW_UNUSED: No active caller in this physical file. If safety-zone
+    // checks are restored, also review humanModeSafetyRadiusForAngle() and the
+    // unreachable interaction-bubble helper above.
+    if (!safety_zone_baseline_captured_)
+    {
+        return false;
+    }
+
+    if (latest_scan_.ranges.empty() || latest_scan_.angle_increment == 0.0)
+    {
+        return false;
+    }
+
+    if (safety_zone_baseline_scan_.ranges.size() != latest_scan_.ranges.size())
+    {
+        return false;
+    }
+
+    for (int i = 0; i < static_cast<int>(latest_scan_.ranges.size()); ++i)
+    {
+        const double angle = latest_scan_.angle_min + static_cast<double>(i) * latest_scan_.angle_increment;
+        const double angle_diff = normaliseAngle(angle - human_bearing_rad);
+
+        // Exclude the window around the tracked human so they do not self-trigger.
+        if (std::fabs(angle_diff) <= kSafetyZoneHumanExclusionAngle)
+        {
+            continue;
+        }
+
+        const double current_range = latest_scan_.ranges[i];
+
+        if (!std::isfinite(current_range) || current_range <= kMinValidRange)
+        {
+            continue;
+        }
+
+        const double required_safety_radius = humanModeSafetyRadiusForAngle(angle);
+
+        if (current_range >= required_safety_radius)
+        {
+            continue;
+        }
+
+        const double baseline_range = std::isfinite(safety_zone_baseline_scan_.ranges[i])
+            ? safety_zone_baseline_scan_.ranges[i]
+            : required_safety_radius;
+
+        if (current_range < (baseline_range - kSafetyZoneIntruderThreshold))
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 int main(int argc, char *argv[])

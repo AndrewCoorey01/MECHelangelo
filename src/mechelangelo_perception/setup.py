@@ -50,6 +50,7 @@ entry_points={
         'sim_interaction_gate = mechelangelo_perception.sim_interaction_gate:main',
         'sim_named_arm_pose_bridge = mechelangelo_perception.sim_named_arm_pose_bridge:main',
         'dual_ultrasonic = mechelangelo_perception.dual_ultrasonic:main',
+        'pi4_bridge = mechelangelo_perception.pi4_bridge:main',
     ],
 },
 

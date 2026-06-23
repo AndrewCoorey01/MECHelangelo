@@ -1,51 +1,51 @@
 === Mechelangelo Fused Human / Arc Planner Debug ===
-Last event: selected_fused_safe_arc
-ROS time: 738.0670 s
-Motion phase: REPOSITION
+Last event: interaction_complete
+ROS time: 140.2670 s
+Motion phase: APPROACH
 
-Fused valid: yes
-Bearing: 6.3311 deg
-Range: 6.2954 m
-Safety range: 6.0679 m
-Target confidence: LIDAR_TRACKED
-Camera-guided fallback: active
-Camera-guided LiDAR guard: valid, range=6.0679 m
-Target locked: yes
-Target point: x=6.2402 y=0.8318 m
-Target snapshot points: 128
-Target snapshot angular width: 63.5883 deg
-Target locks: 4827
-Target LiDAR reassociations: 4900
-Target prediction cycles: 5101
-Target losses: 3
+Fused valid: no
+Bearing: 0.0000 deg
+Range: -1.0000 m
+Safety range: -1.0000 m
+Target confidence: LOST
+Camera-guided fallback: inactive
+Camera-guided LiDAR guard: unavailable, range=inf m
+Target locked: no
+Target point: x=0.0000 y=0.0000 m
+Target snapshot points: 0
+Target snapshot angular width: 0.0000 deg
+Target locks: 503
+Target LiDAR reassociations: 503
+Target prediction cycles: 765
+Target losses: 0
 LiDAR cluster valid: no
 Cluster indices: -1 to -1
 Cluster points: 0
-Cluster angle: 0.0000 deg
-Cluster median: -1.0000 m
-Cluster safety range: -1.0000 m
-Cluster association score: inf
+Cluster angle: -1.9993 deg
+Cluster median: 1.9827 m
+Cluster safety range: 1.9710 m
+Cluster association score: 0.4406
 
-Command active: yes
-Linear: 0.1600 m/s
-Angular: 0.1500 rad/s
-Score: 28.3135
-Predicted min human distance: 6.1037 m
-Predicted final human range: 6.1037 m
-Predicted final human bearing: -3.9453 deg
+Command active: no
+Linear: 0.0000 m/s
+Angular: 0.0000 rad/s
+Score: 34.6534
+Predicted min human distance: 1.8980 m
+Predicted final human range: 1.8980 m
+Predicted final human bearing: -0.0000 deg
 
-Safe candidates: 36
+Safe candidates: 25
 Rejected human distance: 0
 Rejected obstacle: 0
-Rejected camera view: 6
+Rejected camera view: 10
 Absolute minimum human distance: 1.5000 m
 Planner minimum human distance: 1.6500 m
 Desired interaction distance: 1.8000 m
 Forced escape active: no
 Stagnation tracking: no
 Escape direction: 0.0000 deg
-Escape triggers: 2
-Escape completions: 2
+Escape triggers: 0
+Escape completions: 0
 Escape timeouts: 0
 Deterministic escape stage: NONE
 Deterministic escape side: 0
@@ -54,16 +54,16 @@ Adaptive waypoint clearance deficit: 0.0000 m
 Adaptive arc duration: 0.0000 s per arc
 Adaptive trigger streak: 0
 No-safe-command streak: 0
-Rear/front clearance: 1.2826 / 4.3558 m
+Rear/front clearance: 4.1824 / 2.6271 m
 Too-close backoff active: no
 Proactive approach avoidance: no
 Proactive stage: NONE
 Proactive direction: 0.0000 deg
 Proactive risky scan streak: 0
-Proactive clear scan streak: 18
+Proactive clear scan streak: 0
 Current threat points: 0
-Nearest non-human return: 1.2772 m
+Nearest non-human return: inf m
 Nearest route/final-pose threat: inf m
 Warning/release distances: 2.0000 / 2.1500 m
 Projected straight-path blocked beams: 0
-Projected straight-path margin: 0.2453 m
+Projected straight-path margin: inf m
