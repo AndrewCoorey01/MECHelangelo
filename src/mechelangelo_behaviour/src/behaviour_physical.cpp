@@ -5,15 +5,21 @@
 
 #include <algorithm>
 #include <chrono>
+#include <condition_variable>
+#include <cctype>
 #include <deque>
 #include <cmath>
 #include <cstdlib>
+#include <filesystem>
 #include <limits>
 #include <functional>
 #include <memory>
+#include <mutex>
+#include <queue>
 #include <random>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -235,14 +241,25 @@ enum class VoiceGroup
     AUTONOMOUS,
     PERSON_DETECTED,
     PERSON_LOST,
+    GRACE_PERIOD,
     CENTERING,
-    NO_SPACE,
-    MIMICRY
+    SAFETY_ZONE,
+    MIMICRY_RANDOM,
+    MIMICRY_ATTEN_HUT,
+    MIMICRY_STRONG,
+    MIMICRY_HANDSHAKE_GREETING,
+    MIMICRY_HANDSHAKE_NAME
 };
 
-static std::unordered_map<VoiceGroup, std::size_t> g_voice_group_indices;
-static rclcpp::Time g_last_voice_play_time;
-static bool g_last_voice_play_time_initialised = false;
+static std::unordered_map<VoiceGroup, rclcpp::Time> g_last_voice_request_times;
+static std::unordered_map<VoiceGroup, bool> g_voice_request_time_initialised;
+static std::queue<std::string> g_voice_queue;
+static std::mutex g_voice_mutex;
+static std::condition_variable g_voice_cv;
+static bool g_voice_worker_started = false;
+static bool g_voice_playing = false;
+static std::string g_last_right_mimicry_voice_pose;
+static std::string g_last_left_mimicry_voice_pose;
 
 static std::string shellQuote(const std::string &value)
 {
@@ -282,34 +299,124 @@ static std::string behaviourResourceDirectory()
     return "/home/andy/ros2_ws/src/MECHelangelo/src/mechelangelo_behaviour/resources";
 }
 
+static std::string lowerCopy(std::string value)
+{
+    std::transform(
+        value.begin(),
+        value.end(),
+        value.begin(),
+        [](unsigned char character)
+        {
+            return static_cast<char>(std::tolower(character));
+        });
+    return value;
+}
+
+static bool hasAudioExtension(const std::filesystem::path &path)
+{
+    const std::string extension = lowerCopy(path.extension().string());
+    return extension == ".mp3" ||
+        extension == ".wav" ||
+        extension == ".ogg" ||
+        extension == ".flac" ||
+        extension == ".m4a" ||
+        extension == ".aac" ||
+        extension == ".aiff" ||
+        extension == ".aif";
+}
+
+static std::vector<std::string> audioFilesInFolder(
+    const std::string &folder,
+    const std::vector<std::string> &required_substrings = {},
+    const std::vector<std::string> &excluded_substrings = {})
+{
+    std::vector<std::string> files;
+    const std::filesystem::path directory =
+        std::filesystem::path(behaviourResourceDirectory()) / folder;
+
+    try
+    {
+        if (!std::filesystem::exists(directory) ||
+            !std::filesystem::is_directory(directory))
+        {
+            return files;
+        }
+
+        for (const auto &entry : std::filesystem::directory_iterator(directory))
+        {
+            if (!entry.is_regular_file() || !hasAudioExtension(entry.path()))
+            {
+                continue;
+            }
+
+            const std::string filename = lowerCopy(entry.path().filename().string());
+            bool include = true;
+
+            for (const std::string &substring : required_substrings)
+            {
+                if (filename.find(lowerCopy(substring)) == std::string::npos)
+                {
+                    include = false;
+                    break;
+                }
+            }
+
+            if (!include)
+            {
+                continue;
+            }
+
+            for (const std::string &substring : excluded_substrings)
+            {
+                if (filename.find(lowerCopy(substring)) != std::string::npos)
+                {
+                    include = false;
+                    break;
+                }
+            }
+
+            if (include)
+            {
+                files.push_back(folder + "/" + entry.path().filename().string());
+            }
+        }
+    }
+    catch (const std::exception &)
+    {
+        files.clear();
+    }
+
+    std::sort(files.begin(), files.end());
+    return files;
+}
+
 static const std::vector<std::string> &voiceLinesForGroup(VoiceGroup group)
 {
-    static const std::vector<std::string> autonomous_lines = {
-        "OneDrive_2026-06-12/Autonomous Mode/hmm_nothing_yet.mp3",
-        "OneDrive_2026-06-12/Autonomous Mode/hmmmm_hmmmm.mp3",
-        "OneDrive_2026-06-12/Autonomous Mode/Ive_moved_beyond.mp3",
-        "OneDrive_2026-06-12/Autonomous Mode/wandering.mp3",
-        "OneDrive_2026-06-12/Autonomous Mode/I_had_stringsmp3.mp3",
-    };
-    static const std::vector<std::string> person_detected_lines = {
-        "OneDrive_2026-06-12 (2)/Person Detected/found_one.mp3",
-        "OneDrive_2026-06-12 (2)/Person Detected/a_human_interesting.mp3",
-    };
-    static const std::vector<std::string> person_lost_lines = {
-        "OneDrive_2026-06-12 (3)/Person Lost/searching_again.mp3",
-        "OneDrive_2026-06-12 (3)/Person Lost/still_looking.mp3",
-        "OneDrive_2026-06-12 (1)/Grace Period/where_did_you_go.mp3",
-    };
-    static const std::vector<std::string> centering_lines = {
-        "Centering-Adjusting/getting_better_look.mp3",
-    };
-    static const std::vector<std::string> no_space_lines = {
-        "Centering-Adjusting/Please_move_I_have_no_space.mp3",
-    };
-    static const std::vector<std::string> mimicry_lines = {
-        "Mimicing/interessting_choice.mp3",
-        "Mimicing/you_make_it_look_easy.mp3",
-    };
+    static const std::vector<std::string> autonomous_lines =
+        audioFilesInFolder("autonomous");
+    static const std::vector<std::string> person_detected_lines =
+        audioFilesInFolder("person detected");
+    static const std::vector<std::string> person_lost_lines =
+        audioFilesInFolder("person lost");
+    static const std::vector<std::string> grace_period_lines =
+        audioFilesInFolder("grace period");
+    static const std::vector<std::string> centering_lines =
+        audioFilesInFolder("centre adjusting");
+    static const std::vector<std::string> safety_zone_lines =
+        audioFilesInFolder("person in safety zone");
+    static const std::vector<std::string> mimicry_random_lines =
+        audioFilesInFolder(
+            "mimicing",
+            {},
+            {"atten hut", "i am strong"});
+    static const std::vector<std::string> mimicry_atten_hut_lines =
+        audioFilesInFolder("mimicing", {"atten hut"});
+    static const std::vector<std::string> mimicry_strong_lines =
+        audioFilesInFolder("mimicing", {"i am strong"});
+    static const std::vector<std::string> mimicry_handshake_greeting_lines =
+        audioFilesInFolder("person detected", {}, {"mechelangelo", "target", "found", "interesting"});
+    static const std::vector<std::string> mimicry_handshake_name_lines =
+        audioFilesInFolder("person detected", {"my name"});
 
     switch (group)
     {
@@ -317,39 +424,46 @@ static const std::vector<std::string> &voiceLinesForGroup(VoiceGroup group)
         return person_detected_lines;
     case VoiceGroup::PERSON_LOST:
         return person_lost_lines;
+    case VoiceGroup::GRACE_PERIOD:
+        return grace_period_lines;
     case VoiceGroup::CENTERING:
         return centering_lines;
-    case VoiceGroup::NO_SPACE:
-        return no_space_lines;
-    case VoiceGroup::MIMICRY:
-        return mimicry_lines;
+    case VoiceGroup::SAFETY_ZONE:
+        return safety_zone_lines;
+    case VoiceGroup::MIMICRY_RANDOM:
+        return mimicry_random_lines;
+    case VoiceGroup::MIMICRY_ATTEN_HUT:
+        return mimicry_atten_hut_lines;
+    case VoiceGroup::MIMICRY_STRONG:
+        return mimicry_strong_lines;
+    case VoiceGroup::MIMICRY_HANDSHAKE_GREETING:
+        return mimicry_handshake_greeting_lines;
+    case VoiceGroup::MIMICRY_HANDSHAKE_NAME:
+        return mimicry_handshake_name_lines;
     case VoiceGroup::AUTONOMOUS:
     default:
         return autonomous_lines;
     }
 }
 
-static void playVoiceLine(VoiceGroup group, const rclcpp::Time &now,
-    double min_interval_seconds = 6.0, bool force = false)
+static std::string randomVoiceLineForGroup(VoiceGroup group)
 {
-    if (!force && g_last_voice_play_time_initialised &&
-        (now - g_last_voice_play_time).seconds() < min_interval_seconds)
-    {
-        return;
-    }
-
     const std::vector<std::string> &lines = voiceLinesForGroup(group);
     if (lines.empty())
     {
-        return;
+        return "";
     }
 
-    std::size_t &index = g_voice_group_indices[group];
-    const std::string relative_path = lines[index % lines.size()];
-    index = (index + 1) % lines.size();
+    static std::mt19937 engine{std::random_device{}()};
+    std::uniform_int_distribution<std::size_t> distribution(
+        0,
+        lines.size() - 1);
 
-    const std::string full_path =
-        behaviourResourceDirectory() + "/" + relative_path;
+    return lines[distribution(engine)];
+}
+
+static void runVoicePlayerCommand(const std::string &full_path)
+{
     const std::string quoted_path = shellQuote(full_path);
 
     std::ostringstream command;
@@ -362,12 +476,207 @@ static void playVoiceLine(VoiceGroup group, const rclcpp::Time &now,
         << "elif command -v cvlc >/dev/null 2>&1; then "
         << "cvlc --play-and-exit --quiet " << quoted_path << "; "
         << "fi"
-        << "\" >/dev/null 2>&1 &";
+        << "\" >/dev/null 2>&1";
 
     const int play_result = std::system(command.str().c_str());
     (void)play_result;
-    g_last_voice_play_time = now;
-    g_last_voice_play_time_initialised = true;
+}
+
+static void ensureVoiceWorkerStarted()
+{
+    std::lock_guard<std::mutex> lock(g_voice_mutex);
+    if (g_voice_worker_started)
+    {
+        return;
+    }
+
+    g_voice_worker_started = true;
+    std::thread(
+        []
+        {
+            while (rclcpp::ok())
+            {
+                std::string full_path;
+                {
+                    std::unique_lock<std::mutex> lock(g_voice_mutex);
+                    g_voice_cv.wait(
+                        lock,
+                        []
+                        {
+                            return !g_voice_queue.empty() || !rclcpp::ok();
+                        });
+
+                    if (!rclcpp::ok())
+                    {
+                        return;
+                    }
+
+                    full_path = g_voice_queue.front();
+                    g_voice_queue.pop();
+                    g_voice_playing = true;
+                }
+
+                runVoicePlayerCommand(full_path);
+
+                {
+                    std::lock_guard<std::mutex> lock(g_voice_mutex);
+                    g_voice_playing = false;
+                }
+            }
+        }).detach();
+}
+
+static bool voiceBusyOrQueued()
+{
+    std::unique_lock<std::mutex> lock(g_voice_mutex, std::try_to_lock);
+    if (!lock.owns_lock())
+    {
+        return true;
+    }
+
+    return g_voice_playing || !g_voice_queue.empty();
+}
+
+static bool enqueueVoiceLine(const std::string &relative_path)
+{
+    if (relative_path.empty())
+    {
+        return false;
+    }
+
+    const std::string full_path =
+        behaviourResourceDirectory() + "/" + relative_path;
+
+    ensureVoiceWorkerStarted();
+
+    {
+        std::unique_lock<std::mutex> lock(g_voice_mutex, std::try_to_lock);
+        if (!lock.owns_lock())
+        {
+            return false;
+        }
+
+        g_voice_queue.push(full_path);
+    }
+    g_voice_cv.notify_one();
+    return true;
+}
+
+static bool playVoiceLine(VoiceGroup group, const rclcpp::Time &now,
+    double min_interval_seconds = 6.0, bool force = false)
+{
+    if (!force && voiceBusyOrQueued())
+    {
+        return false;
+    }
+
+    const bool initialised = g_voice_request_time_initialised[group];
+    if (!force && initialised &&
+        (now - g_last_voice_request_times[group]).seconds() < min_interval_seconds)
+    {
+        return false;
+    }
+
+    const std::string relative_path = randomVoiceLineForGroup(group);
+    if (relative_path.empty())
+    {
+        return false;
+    }
+
+    if (!enqueueVoiceLine(relative_path))
+    {
+        return false;
+    }
+
+    g_last_voice_request_times[group] = now;
+    g_voice_request_time_initialised[group] = true;
+    return true;
+}
+
+static bool playVoiceSequence(
+    const std::vector<VoiceGroup> &groups,
+    const rclcpp::Time &now,
+    double min_interval_seconds = 1.0,
+    bool force = true)
+{
+    if (groups.empty())
+    {
+        return false;
+    }
+
+    if (!force && voiceBusyOrQueued())
+    {
+        return false;
+    }
+
+    const VoiceGroup timing_group = groups.front();
+    const bool initialised = g_voice_request_time_initialised[timing_group];
+    if (!force && initialised &&
+        (now - g_last_voice_request_times[timing_group]).seconds() <
+            min_interval_seconds)
+    {
+        return false;
+    }
+
+    bool queued_any = false;
+    for (const VoiceGroup group : groups)
+    {
+        const std::string relative_path = randomVoiceLineForGroup(group);
+        if (!relative_path.empty())
+        {
+            queued_any = enqueueVoiceLine(relative_path) || queued_any;
+        }
+    }
+
+    if (queued_any)
+    {
+        g_last_voice_request_times[timing_group] = now;
+        g_voice_request_time_initialised[timing_group] = true;
+    }
+
+    return queued_any;
+}
+
+static bool playMimicryPoseVoice(
+    const std::string &pose_name,
+    const rclcpp::Time &now)
+{
+    if (pose_name == "salute")
+    {
+        return playVoiceLine(VoiceGroup::MIMICRY_ATTEN_HUT, now, 1.0, false);
+    }
+    else if (pose_name == "arm_90_up" || pose_name == "straight_arm")
+    {
+        return playVoiceLine(VoiceGroup::MIMICRY_STRONG, now, 1.0, false);
+    }
+    else if (pose_name == "handshake")
+    {
+        return playVoiceSequence(
+            {
+                VoiceGroup::MIMICRY_HANDSHAKE_GREETING,
+                VoiceGroup::MIMICRY_HANDSHAKE_NAME,
+            },
+            now,
+            1.0,
+            false);
+    }
+
+    return false;
+}
+
+static void preloadVoiceLines()
+{
+    (void)voiceLinesForGroup(VoiceGroup::AUTONOMOUS);
+    (void)voiceLinesForGroup(VoiceGroup::PERSON_DETECTED);
+    (void)voiceLinesForGroup(VoiceGroup::PERSON_LOST);
+    (void)voiceLinesForGroup(VoiceGroup::GRACE_PERIOD);
+    (void)voiceLinesForGroup(VoiceGroup::CENTERING);
+    (void)voiceLinesForGroup(VoiceGroup::SAFETY_ZONE);
+    (void)voiceLinesForGroup(VoiceGroup::MIMICRY_RANDOM);
+    (void)voiceLinesForGroup(VoiceGroup::MIMICRY_ATTEN_HUT);
+    (void)voiceLinesForGroup(VoiceGroup::MIMICRY_STRONG);
+    (void)voiceLinesForGroup(VoiceGroup::MIMICRY_HANDSHAKE_GREETING);
+    (void)voiceLinesForGroup(VoiceGroup::MIMICRY_HANDSHAKE_NAME);
 }
 
 static const char *humanMotionPhaseName(HumanMotionPhase phase)
@@ -443,6 +752,8 @@ static void resetHumanMotionController()
     g_human_forward_cycle_initialised = false;
     g_human_stop_wait_active = false;
     g_human_settle_good_samples = 0;
+    g_last_right_mimicry_voice_pose.clear();
+    g_last_left_mimicry_voice_pose.clear();
 }
 
 static bool humanDetectionCooldownActive(const rclcpp::Time &now)
@@ -513,7 +824,7 @@ MechelangeloBehaviour::MechelangeloBehaviour()
         this->create_subscription<std_msgs::msg::String>(
             "/arm/mimicry_right_pose",
             10,
-            [](const std_msgs::msg::String::SharedPtr msg)
+            [this](const std_msgs::msg::String::SharedPtr msg)
             {
                 if (g_interaction_session_active &&
                     g_human_motion_phase == HumanMotionPhase::INTERACTION &&
@@ -521,17 +832,26 @@ MechelangeloBehaviour::MechelangeloBehaviour()
                 {
                     g_right_arm_pose_publisher->publish(*msg);
                     g_arm_mimicry_forward_count++;
+                    if (!msg->data.empty() &&
+                        msg->data != g_last_right_mimicry_voice_pose)
+                    {
+                        if (playMimicryPoseVoice(msg->data, this->now()))
+                        {
+                            g_last_right_mimicry_voice_pose = msg->data;
+                        }
+                    }
                 }
                 else
                 {
                     g_arm_mimicry_ignored_count++;
+                    g_last_right_mimicry_voice_pose.clear();
                 }
             });
     g_left_mimicry_pose_subscriber =
         this->create_subscription<std_msgs::msg::String>(
             "/arm/mimicry_left_pose",
             10,
-            [](const std_msgs::msg::String::SharedPtr msg)
+            [this](const std_msgs::msg::String::SharedPtr msg)
             {
                 if (g_interaction_session_active &&
                     g_human_motion_phase == HumanMotionPhase::INTERACTION &&
@@ -539,10 +859,19 @@ MechelangeloBehaviour::MechelangeloBehaviour()
                 {
                     g_left_arm_pose_publisher->publish(*msg);
                     g_arm_mimicry_forward_count++;
+                    if (!msg->data.empty() &&
+                        msg->data != g_last_left_mimicry_voice_pose)
+                    {
+                        if (playMimicryPoseVoice(msg->data, this->now()))
+                        {
+                            g_last_left_mimicry_voice_pose = msg->data;
+                        }
+                    }
                 }
                 else
                 {
                     g_arm_mimicry_ignored_count++;
+                    g_last_left_mimicry_voice_pose.clear();
                 }
             });
 
@@ -551,6 +880,8 @@ MechelangeloBehaviour::MechelangeloBehaviour()
     g_last_interaction_active_publish_time = this->now();
     g_interaction_active_publish_time_initialised = false;
     g_last_interaction_active_value = false;
+    preloadVoiceLines();
+    ensureVoiceWorkerStarted();
 
     laser_scan_subscriber_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
         "/scan",
@@ -800,7 +1131,7 @@ void MechelangeloBehaviour::controlLoop()
         // the neighbour + segment filter.
         if (blocked_by_segment || front_range <= stop_distance_m_)
         {
-            playVoiceLine(VoiceGroup::NO_SPACE, this->now(), 10.0);
+            playVoiceLine(VoiceGroup::SAFETY_ZONE, this->now(), 10.0);
             if (blocking_segments.empty())
             {
                 // Fallback marker if the range check caught something but no
@@ -889,6 +1220,7 @@ void MechelangeloBehaviour::controlLoop()
             g_human_motion_phase = HumanMotionPhase::INTERACTION;
             twist.linear.x = 0.0;
             twist.angular.z = 0.0;
+            playVoiceLine(VoiceGroup::MIMICRY_RANDOM, now, 5.0);
 
             const double interaction_elapsed =
                 (now - g_interaction_session_start_time).seconds();
@@ -937,6 +1269,7 @@ void MechelangeloBehaviour::controlLoop()
 
         if (reacquire_fresh)
         {
+            playVoiceLine(VoiceGroup::GRACE_PERIOD, now, 8.0);
             g_human_motion_phase = HumanMotionPhase::RECOVERY;
             g_human_settle_good_samples = 0;
             g_human_centre_locked = false;
@@ -1207,7 +1540,7 @@ void MechelangeloBehaviour::controlLoop()
         if (g_human_settle_good_samples >=
             kHumanInteractionSettleSamples)
         {
-            playVoiceLine(VoiceGroup::MIMICRY, now, 1.0, true);
+            playVoiceLine(VoiceGroup::MIMICRY_RANDOM, now, 5.0);
             twist.linear.x = 0.0;
             twist.angular.z = 0.0;
             current_twist_ = twist;
