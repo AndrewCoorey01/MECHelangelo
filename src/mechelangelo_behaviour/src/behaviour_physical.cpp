@@ -253,6 +253,7 @@ enum class VoiceGroup
 
 static std::unordered_map<VoiceGroup, rclcpp::Time> g_last_voice_request_times;
 static std::unordered_map<VoiceGroup, bool> g_voice_request_time_initialised;
+static std::unordered_map<VoiceGroup, std::size_t> g_voice_phrase_group_indices;
 static std::queue<std::string> g_voice_queue;
 static std::mutex g_voice_mutex;
 static std::condition_variable g_voice_cv;
@@ -310,6 +311,28 @@ static std::string lowerCopy(std::string value)
             return static_cast<char>(std::tolower(character));
         });
     return value;
+}
+
+static std::string phraseKeyForVoiceLine(const std::string &relative_path)
+{
+    std::string key =
+        lowerCopy(std::filesystem::path(relative_path).stem().string());
+
+    while (!key.empty() &&
+        std::isdigit(static_cast<unsigned char>(key.back())))
+    {
+        key.pop_back();
+    }
+
+    while (!key.empty() &&
+        (std::isspace(static_cast<unsigned char>(key.back())) ||
+         key.back() == '_' ||
+         key.back() == '-'))
+    {
+        key.pop_back();
+    }
+
+    return key;
 }
 
 static bool hasAudioExtension(const std::filesystem::path &path)
@@ -446,10 +469,105 @@ static const std::vector<std::string> &voiceLinesForGroup(VoiceGroup group)
     }
 }
 
-static std::string randomVoiceLineForGroup(VoiceGroup group)
+static std::vector<std::vector<std::string>> buildPhraseGroups(
+    const std::vector<std::string> &lines)
 {
-    const std::vector<std::string> &lines = voiceLinesForGroup(group);
-    if (lines.empty())
+    std::unordered_map<std::string, std::vector<std::string>> grouped_lines;
+    std::vector<std::string> phrase_keys;
+
+    for (const std::string &line : lines)
+    {
+        const std::string key = phraseKeyForVoiceLine(line);
+        if (grouped_lines.find(key) == grouped_lines.end())
+        {
+            phrase_keys.push_back(key);
+        }
+        grouped_lines[key].push_back(line);
+    }
+
+    std::sort(phrase_keys.begin(), phrase_keys.end());
+
+    std::vector<std::vector<std::string>> phrase_groups;
+    phrase_groups.reserve(phrase_keys.size());
+    for (const std::string &key : phrase_keys)
+    {
+        std::vector<std::string> &group = grouped_lines[key];
+        std::sort(group.begin(), group.end());
+        phrase_groups.push_back(group);
+    }
+
+    return phrase_groups;
+}
+
+static const std::vector<std::vector<std::string>> &voicePhraseGroupsForGroup(
+    VoiceGroup group)
+{
+    static const std::vector<std::vector<std::string>> autonomous_groups =
+        buildPhraseGroups(voiceLinesForGroup(VoiceGroup::AUTONOMOUS));
+    static const std::vector<std::vector<std::string>> person_detected_groups =
+        buildPhraseGroups(voiceLinesForGroup(VoiceGroup::PERSON_DETECTED));
+    static const std::vector<std::vector<std::string>> person_lost_groups =
+        buildPhraseGroups(voiceLinesForGroup(VoiceGroup::PERSON_LOST));
+    static const std::vector<std::vector<std::string>> grace_period_groups =
+        buildPhraseGroups(voiceLinesForGroup(VoiceGroup::GRACE_PERIOD));
+    static const std::vector<std::vector<std::string>> centering_groups =
+        buildPhraseGroups(voiceLinesForGroup(VoiceGroup::CENTERING));
+    static const std::vector<std::vector<std::string>> safety_zone_groups =
+        buildPhraseGroups(voiceLinesForGroup(VoiceGroup::SAFETY_ZONE));
+    static const std::vector<std::vector<std::string>> mimicry_random_groups =
+        buildPhraseGroups(voiceLinesForGroup(VoiceGroup::MIMICRY_RANDOM));
+    static const std::vector<std::vector<std::string>> mimicry_atten_hut_groups =
+        buildPhraseGroups(voiceLinesForGroup(VoiceGroup::MIMICRY_ATTEN_HUT));
+    static const std::vector<std::vector<std::string>> mimicry_strong_groups =
+        buildPhraseGroups(voiceLinesForGroup(VoiceGroup::MIMICRY_STRONG));
+    static const std::vector<std::vector<std::string>> mimicry_handshake_greeting_groups =
+        buildPhraseGroups(voiceLinesForGroup(VoiceGroup::MIMICRY_HANDSHAKE_GREETING));
+    static const std::vector<std::vector<std::string>> mimicry_handshake_name_groups =
+        buildPhraseGroups(voiceLinesForGroup(VoiceGroup::MIMICRY_HANDSHAKE_NAME));
+
+    switch (group)
+    {
+    case VoiceGroup::PERSON_DETECTED:
+        return person_detected_groups;
+    case VoiceGroup::PERSON_LOST:
+        return person_lost_groups;
+    case VoiceGroup::GRACE_PERIOD:
+        return grace_period_groups;
+    case VoiceGroup::CENTERING:
+        return centering_groups;
+    case VoiceGroup::SAFETY_ZONE:
+        return safety_zone_groups;
+    case VoiceGroup::MIMICRY_RANDOM:
+        return mimicry_random_groups;
+    case VoiceGroup::MIMICRY_ATTEN_HUT:
+        return mimicry_atten_hut_groups;
+    case VoiceGroup::MIMICRY_STRONG:
+        return mimicry_strong_groups;
+    case VoiceGroup::MIMICRY_HANDSHAKE_GREETING:
+        return mimicry_handshake_greeting_groups;
+    case VoiceGroup::MIMICRY_HANDSHAKE_NAME:
+        return mimicry_handshake_name_groups;
+    case VoiceGroup::AUTONOMOUS:
+    default:
+        return autonomous_groups;
+    }
+}
+
+static std::string voiceLineForNextPhraseCycle(VoiceGroup group)
+{
+    const std::vector<std::vector<std::string>> &phrase_groups =
+        voicePhraseGroupsForGroup(group);
+    if (phrase_groups.empty())
+    {
+        return "";
+    }
+
+    std::size_t &phrase_index = g_voice_phrase_group_indices[group];
+    const std::vector<std::string> &versions =
+        phrase_groups[phrase_index % phrase_groups.size()];
+    phrase_index = (phrase_index + 1) % phrase_groups.size();
+
+    if (versions.empty())
     {
         return "";
     }
@@ -457,9 +575,9 @@ static std::string randomVoiceLineForGroup(VoiceGroup group)
     static std::mt19937 engine{std::random_device{}()};
     std::uniform_int_distribution<std::size_t> distribution(
         0,
-        lines.size() - 1);
+        versions.size() - 1);
 
-    return lines[distribution(engine)];
+    return versions[distribution(engine)];
 }
 
 static void runVoicePlayerCommand(const std::string &full_path)
@@ -577,7 +695,7 @@ static bool playVoiceLine(VoiceGroup group, const rclcpp::Time &now,
         return false;
     }
 
-    const std::string relative_path = randomVoiceLineForGroup(group);
+    const std::string relative_path = voiceLineForNextPhraseCycle(group);
     if (relative_path.empty())
     {
         return false;
@@ -621,7 +739,7 @@ static bool playVoiceSequence(
     bool queued_any = false;
     for (const VoiceGroup group : groups)
     {
-        const std::string relative_path = randomVoiceLineForGroup(group);
+        const std::string relative_path = voiceLineForNextPhraseCycle(group);
         if (!relative_path.empty())
         {
             queued_any = enqueueVoiceLine(relative_path) || queued_any;
@@ -666,17 +784,17 @@ static bool playMimicryPoseVoice(
 
 static void preloadVoiceLines()
 {
-    (void)voiceLinesForGroup(VoiceGroup::AUTONOMOUS);
-    (void)voiceLinesForGroup(VoiceGroup::PERSON_DETECTED);
-    (void)voiceLinesForGroup(VoiceGroup::PERSON_LOST);
-    (void)voiceLinesForGroup(VoiceGroup::GRACE_PERIOD);
-    (void)voiceLinesForGroup(VoiceGroup::CENTERING);
-    (void)voiceLinesForGroup(VoiceGroup::SAFETY_ZONE);
-    (void)voiceLinesForGroup(VoiceGroup::MIMICRY_RANDOM);
-    (void)voiceLinesForGroup(VoiceGroup::MIMICRY_ATTEN_HUT);
-    (void)voiceLinesForGroup(VoiceGroup::MIMICRY_STRONG);
-    (void)voiceLinesForGroup(VoiceGroup::MIMICRY_HANDSHAKE_GREETING);
-    (void)voiceLinesForGroup(VoiceGroup::MIMICRY_HANDSHAKE_NAME);
+    (void)voicePhraseGroupsForGroup(VoiceGroup::AUTONOMOUS);
+    (void)voicePhraseGroupsForGroup(VoiceGroup::PERSON_DETECTED);
+    (void)voicePhraseGroupsForGroup(VoiceGroup::PERSON_LOST);
+    (void)voicePhraseGroupsForGroup(VoiceGroup::GRACE_PERIOD);
+    (void)voicePhraseGroupsForGroup(VoiceGroup::CENTERING);
+    (void)voicePhraseGroupsForGroup(VoiceGroup::SAFETY_ZONE);
+    (void)voicePhraseGroupsForGroup(VoiceGroup::MIMICRY_RANDOM);
+    (void)voicePhraseGroupsForGroup(VoiceGroup::MIMICRY_ATTEN_HUT);
+    (void)voicePhraseGroupsForGroup(VoiceGroup::MIMICRY_STRONG);
+    (void)voicePhraseGroupsForGroup(VoiceGroup::MIMICRY_HANDSHAKE_GREETING);
+    (void)voicePhraseGroupsForGroup(VoiceGroup::MIMICRY_HANDSHAKE_NAME);
 }
 
 static const char *humanMotionPhaseName(HumanMotionPhase phase)

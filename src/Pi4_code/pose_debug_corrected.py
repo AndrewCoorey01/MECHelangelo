@@ -162,7 +162,7 @@ RIGHT_POSE_MAP = {
     'straight_arm':{'servo_angles': {1: 121.4, 2: 115.0, 3: 129.4, 4: 118.6}, 'time_ms': 2500},
     'arm_90_up':   {'servo_angles': {1: 30.5,  2: 115.0, 3: 127.4, 4: 118.3}, 'time_ms': 2500},
     'arm_90_out':  {'servo_angles': {1: 30.5,  2: 115.0, 3: 35.8,  4: 117.8}, 'time_ms': 2500},
-    'salute':      {'servo_angles': {1: 73.0,  2: 0.0,   3: 202.5, 4: 150.0}, 'time_ms': 2500},
+    'salute':      {'servo_angles': {1: 84.0,  2: 0.0,   3: 191.5, 4: 160.5}, 'time_ms': 2500},
     'handshake':   {'servo_angles': {1: 124.3, 2: 18.5,  3: 38.9,  4: 115.9}, 'time_ms': 2500},
     'arm_crossed': {'servo_angles': {1: 178.0, 2: 42.0,  3: 41.0,  4: 148.0}, 'time_ms': 2500},
 }
@@ -174,10 +174,15 @@ LEFT_POSE_MAP = {
     'straight_arm':{'servo_angles': {5: 120.0, 6: 120.0, 7: 135.0, 8: 110.0}, 'time_ms': 2500},
     'arm_90_up':   {'servo_angles': {5: 215.0, 6: 117.5, 7: 130.0, 8: 110.0}, 'time_ms': 2500},
     'arm_90_out':  {'servo_angles': {5: 215.0, 6: 117.5, 7: 40.0,  8: 110.0}, 'time_ms': 2500},
-    'salute':      {'servo_angles': {5: 175.0, 6: 0.0,   7: 205.0, 8: 74.0},  'time_ms': 2500},
+    'salute':      {'servo_angles': {5: 172.0, 6: 0.0,   7: 190.0, 8: 76.5},  'time_ms': 2500},
     'handshake':   {'servo_angles': {5: 120.0, 6: 30.0,  7: 40.0,  8: 110.0}, 'time_ms': 2500},
     'arm_crossed': {'servo_angles': {5: 80.0,  6: 14.0,  7: 52.5,  8: 63.0},  'time_ms': 2500},
 }
+
+# Park both arms at rest on startup
+move_right_servos(RIGHT_POSE_MAP['arm_down']['servo_angles'], RIGHT_POSE_MAP['arm_down']['time_ms'])
+move_left_servos(LEFT_POSE_MAP['arm_down']['servo_angles'], LEFT_POSE_MAP['arm_down']['time_ms'])
+print("[SERVO] Startup — arms → arm_down")
 
 # ── Normalisation ─────────────────────────────────────────────────
 ANGLE_SCALE         = 90.0
@@ -510,6 +515,7 @@ class LockState:
         return min(1.0,(time.monotonic()-self.lost_since)/GRACE_PERIOD_SEC)
 
 lock_state = LockState()
+_in_interaction = False
 
 
 def calc_angle_3d(a,b,c):
@@ -627,6 +633,7 @@ def draw_info_bar(frame,angles,z_deltas,wrist,extra):
 def process_frames():
     global output_frame,last_angles,last_z_deltas,last_wrist,last_extra
     global last_right_pose,last_right_time,last_left_pose,last_left_time
+    global _in_interaction
 
     pose=mp_pose.Pose(
         static_image_mode=False,
@@ -870,6 +877,19 @@ def process_frames():
                 cv2.putText(frame,"Searching..." if ig else "No person detected",
                             (20,30),FONT,0.6 if ig else 0.7,
                             COL_GRACE if ig else COL_RED,1 if ig else 2)
+
+            now_interaction = lock_state.locked
+            if _in_interaction and not now_interaction:
+                print("[INTERACTION] Exited — returning arms to arm_down")
+                move_right_servos(RIGHT_POSE_MAP['arm_down']['servo_angles'],
+                                  RIGHT_POSE_MAP['arm_down']['time_ms'])
+                move_left_servos(LEFT_POSE_MAP['arm_down']['servo_angles'],
+                                 LEFT_POSE_MAP['arm_down']['time_ms'])
+                last_right_pose = None; last_left_pose = None
+                right_vote_buf.clear(); left_vote_buf.clear()
+            elif not _in_interaction and now_interaction:
+                print("[INTERACTION] Entered — arms active")
+            _in_interaction = now_interaction
 
             last_angles=angles; last_z_deltas=z_deltas; last_wrist=wrist; last_extra=extra
 
