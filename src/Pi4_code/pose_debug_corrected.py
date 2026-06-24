@@ -849,10 +849,13 @@ def process_frames():
 
                     # ── KNN voting — both arms ─────────────────────
                     now=time.monotonic()
+                    in_interaction = (robot_cmd.distance is not None and
+                                      DIST_IDEAL_NEAR <= robot_cmd.distance <= DIST_IDEAL_FAR)
 
                     vr=right_knn.push_vote(angles,z_deltas,wrist,extra)
                     right_vote_buf.append(vr)
-                    if (len(right_vote_buf)==STABILITY_N and len(set(right_vote_buf))==1
+                    if (in_interaction and len(right_vote_buf)==STABILITY_N
+                            and len(set(right_vote_buf))==1
                             and vr and vr!=last_right_pose and (now-last_right_time)>=POSE_COOLDOWN_SEC):
                         print(f"[POSE] Right stable: {vr}")
                         last_right_pose=vr; last_right_time=now
@@ -863,7 +866,8 @@ def process_frames():
 
                     vl=left_knn.push_vote(angles,z_deltas,wrist,extra)
                     left_vote_buf.append(vl)
-                    if (len(left_vote_buf)==STABILITY_N and len(set(left_vote_buf))==1
+                    if (in_interaction and len(left_vote_buf)==STABILITY_N
+                            and len(set(left_vote_buf))==1
                             and vl and vl!=last_left_pose and (now-last_left_time)>=POSE_COOLDOWN_SEC):
                         print(f"[POSE] Left stable: {vl}")
                         last_left_pose=vl; last_left_time=now
@@ -878,7 +882,9 @@ def process_frames():
                             (20,30),FONT,0.6 if ig else 0.7,
                             COL_GRACE if ig else COL_RED,1 if ig else 2)
 
-            now_interaction = lock_state.locked
+            now_interaction = (lock_state.locked and
+                               robot_cmd.distance is not None and
+                               DIST_IDEAL_NEAR <= robot_cmd.distance <= DIST_IDEAL_FAR)
             if _in_interaction and not now_interaction:
                 print("[INTERACTION] Exited — returning arms to arm_down")
                 move_right_servos(RIGHT_POSE_MAP['arm_down']['servo_angles'],
@@ -889,6 +895,7 @@ def process_frames():
                 right_vote_buf.clear(); left_vote_buf.clear()
             elif not _in_interaction and now_interaction:
                 print("[INTERACTION] Entered — arms active")
+                right_vote_buf.clear(); left_vote_buf.clear()
             _in_interaction = now_interaction
 
             last_angles=angles; last_z_deltas=z_deltas; last_wrist=wrist; last_extra=extra

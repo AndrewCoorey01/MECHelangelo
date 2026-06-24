@@ -254,7 +254,7 @@ enum class VoiceGroup
 static std::unordered_map<VoiceGroup, rclcpp::Time> g_last_voice_request_times;
 static std::unordered_map<VoiceGroup, bool> g_voice_request_time_initialised;
 static std::unordered_map<VoiceGroup, std::size_t> g_voice_phrase_group_indices;
-static std::queue<std::string> g_voice_queue;
+static std::deque<std::string> g_voice_queue;
 static std::mutex g_voice_mutex;
 static std::condition_variable g_voice_cv;
 static bool g_voice_worker_started = false;
@@ -630,7 +630,7 @@ static void ensureVoiceWorkerStarted()
                     }
 
                     full_path = g_voice_queue.front();
-                    g_voice_queue.pop();
+                    g_voice_queue.pop_front();
                     g_voice_playing = true;
                 }
 
@@ -655,35 +655,85 @@ static bool voiceBusyOrQueued()
     return g_voice_playing || !g_voice_queue.empty();
 }
 
-static bool enqueueVoiceLine(const std::string &relative_path)
+static std::string fullVoicePath(const std::string &relative_path)
+{
+    return behaviourResourceDirectory() + "/" + relative_path;
+}
+
+static bool enqueueVoiceLine(
+    const std::string &relative_path,
+    bool priority = false)
 {
     if (relative_path.empty())
     {
         return false;
     }
 
-    const std::string full_path =
-        behaviourResourceDirectory() + "/" + relative_path;
+    const std::string full_path = fullVoicePath(relative_path);
 
     ensureVoiceWorkerStarted();
 
     {
-        std::unique_lock<std::mutex> lock(g_voice_mutex, std::try_to_lock);
-        if (!lock.owns_lock())
+        std::lock_guard<std::mutex> lock(g_voice_mutex);
+        if (priority)
         {
-            return false;
+            g_voice_queue.push_front(full_path);
         }
+        else
+        {
+            g_voice_queue.push_back(full_path);
+        }
+    }
+    g_voice_cv.notify_one();
+    return true;
+}
 
-        g_voice_queue.push(full_path);
+static bool enqueueVoiceSequence(
+    const std::vector<std::string> &relative_paths,
+    bool priority = false)
+{
+    std::vector<std::string> full_paths;
+    for (const std::string &relative_path : relative_paths)
+    {
+        if (!relative_path.empty())
+        {
+            full_paths.push_back(fullVoicePath(relative_path));
+        }
+    }
+
+    if (full_paths.empty())
+    {
+        return false;
+    }
+
+    ensureVoiceWorkerStarted();
+
+    {
+        std::lock_guard<std::mutex> lock(g_voice_mutex);
+        if (priority)
+        {
+            g_voice_queue.insert(
+                g_voice_queue.begin(),
+                full_paths.begin(),
+                full_paths.end());
+        }
+        else
+        {
+            g_voice_queue.insert(
+                g_voice_queue.end(),
+                full_paths.begin(),
+                full_paths.end());
+        }
     }
     g_voice_cv.notify_one();
     return true;
 }
 
 static bool playVoiceLine(VoiceGroup group, const rclcpp::Time &now,
-    double min_interval_seconds = 6.0, bool force = false)
+    double min_interval_seconds = 6.0, bool force = false,
+    bool queue_when_busy = false, bool priority = false)
 {
-    if (!force && voiceBusyOrQueued())
+    if (!force && !queue_when_busy && voiceBusyOrQueued())
     {
         return false;
     }
@@ -701,7 +751,7 @@ static bool playVoiceLine(VoiceGroup group, const rclcpp::Time &now,
         return false;
     }
 
-    if (!enqueueVoiceLine(relative_path))
+    if (!enqueueVoiceLine(relative_path, priority))
     {
         return false;
     }
@@ -715,14 +765,16 @@ static bool playVoiceSequence(
     const std::vector<VoiceGroup> &groups,
     const rclcpp::Time &now,
     double min_interval_seconds = 1.0,
-    bool force = true)
+    bool force = true,
+    bool queue_when_busy = false,
+    bool priority = false)
 {
     if (groups.empty())
     {
         return false;
     }
 
-    if (!force && voiceBusyOrQueued())
+    if (!force && !queue_when_busy && voiceBusyOrQueued())
     {
         return false;
     }
@@ -736,15 +788,17 @@ static bool playVoiceSequence(
         return false;
     }
 
-    bool queued_any = false;
+    std::vector<std::string> relative_paths;
     for (const VoiceGroup group : groups)
     {
         const std::string relative_path = voiceLineForNextPhraseCycle(group);
         if (!relative_path.empty())
         {
-            queued_any = enqueueVoiceLine(relative_path) || queued_any;
+            relative_paths.push_back(relative_path);
         }
     }
+
+    const bool queued_any = enqueueVoiceSequence(relative_paths, priority);
 
     if (queued_any)
     {
@@ -761,11 +815,23 @@ static bool playMimicryPoseVoice(
 {
     if (pose_name == "salute")
     {
-        return playVoiceLine(VoiceGroup::MIMICRY_ATTEN_HUT, now, 1.0, false);
+        return playVoiceLine(
+            VoiceGroup::MIMICRY_ATTEN_HUT,
+            now,
+            1.0,
+            false,
+            true,
+            true);
     }
     else if (pose_name == "arm_90_up" || pose_name == "straight_arm")
     {
-        return playVoiceLine(VoiceGroup::MIMICRY_STRONG, now, 1.0, false);
+        return playVoiceLine(
+            VoiceGroup::MIMICRY_STRONG,
+            now,
+            1.0,
+            false,
+            true,
+            true);
     }
     else if (pose_name == "handshake")
     {
@@ -776,7 +842,9 @@ static bool playMimicryPoseVoice(
             },
             now,
             1.0,
-            false);
+            false,
+            true,
+            true);
     }
 
     return false;
@@ -1133,7 +1201,7 @@ void MechelangeloBehaviour::controlLoop()
     {
     case NavigationState::SEARCHING:
     {
-        playVoiceLine(VoiceGroup::AUTONOMOUS, this->now(), 20.0);
+        playVoiceLine(VoiceGroup::AUTONOMOUS, this->now(), 30.0);
         stopRobot(twist);
         clearObstacleMarkers();
 
@@ -1249,7 +1317,7 @@ void MechelangeloBehaviour::controlLoop()
         // the neighbour + segment filter.
         if (blocked_by_segment || front_range <= stop_distance_m_)
         {
-            playVoiceLine(VoiceGroup::SAFETY_ZONE, this->now(), 10.0);
+            playVoiceLine(VoiceGroup::SAFETY_ZONE, this->now(), 15.0);
             if (blocking_segments.empty())
             {
                 // Fallback marker if the range check caught something but no
@@ -1299,7 +1367,7 @@ void MechelangeloBehaviour::controlLoop()
 
         if (std::isinf(front_range))
         {
-            playVoiceLine(VoiceGroup::AUTONOMOUS, this->now(), 22.0);
+            playVoiceLine(VoiceGroup::AUTONOMOUS, this->now(), 30.0);
             RCLCPP_INFO_THROTTLE(
                 this->get_logger(),
                 *this->get_clock(),
@@ -1308,7 +1376,7 @@ void MechelangeloBehaviour::controlLoop()
         }
         else
         {
-            playVoiceLine(VoiceGroup::AUTONOMOUS, this->now(), 22.0);
+            playVoiceLine(VoiceGroup::AUTONOMOUS, this->now(), 30.0);
             RCLCPP_INFO_THROTTLE(
                 this->get_logger(),
                 *this->get_clock(),
@@ -1338,7 +1406,7 @@ void MechelangeloBehaviour::controlLoop()
             g_human_motion_phase = HumanMotionPhase::INTERACTION;
             twist.linear.x = 0.0;
             twist.angular.z = 0.0;
-            playVoiceLine(VoiceGroup::MIMICRY_RANDOM, now, 5.0);
+            playVoiceLine(VoiceGroup::MIMICRY_RANDOM, now, 12.0);
 
             const double interaction_elapsed =
                 (now - g_interaction_session_start_time).seconds();
@@ -1387,7 +1455,7 @@ void MechelangeloBehaviour::controlLoop()
 
         if (reacquire_fresh)
         {
-            playVoiceLine(VoiceGroup::GRACE_PERIOD, now, 8.0);
+            playVoiceLine(VoiceGroup::GRACE_PERIOD, now, 12.0);
             g_human_motion_phase = HumanMotionPhase::RECOVERY;
             g_human_settle_good_samples = 0;
             g_human_centre_locked = false;
@@ -1460,7 +1528,7 @@ void MechelangeloBehaviour::controlLoop()
 
         if (!g_human_centre_locked)
         {
-            playVoiceLine(VoiceGroup::CENTERING, now, 8.0);
+            playVoiceLine(VoiceGroup::CENTERING, now, 12.0);
             const double pulse_period =
                 kHumanTurnPulseOnSeconds +
                 kHumanTurnPulseOffSeconds;
@@ -1658,7 +1726,7 @@ void MechelangeloBehaviour::controlLoop()
         if (g_human_settle_good_samples >=
             kHumanInteractionSettleSamples)
         {
-            playVoiceLine(VoiceGroup::MIMICRY_RANDOM, now, 5.0);
+            playVoiceLine(VoiceGroup::MIMICRY_RANDOM, now, 12.0);
             twist.linear.x = 0.0;
             twist.angular.z = 0.0;
             current_twist_ = twist;
