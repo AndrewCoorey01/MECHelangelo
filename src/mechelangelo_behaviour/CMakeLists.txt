@@ -82,6 +82,10 @@ add_executable(mechelangelo_behaviour_physical
   src/behaviour_physical.cpp
 )
 
+add_executable(mechelangelo_demo_behaviour
+  src/demo_arm_behaviour.cpp
+)
+
 ament_target_dependencies(mechelangelo_behaviour
   rclcpp
   sensor_msgs
@@ -106,9 +110,17 @@ ament_target_dependencies(mechelangelo_behaviour_physical
   ament_index_cpp
 )
 
+ament_target_dependencies(mechelangelo_demo_behaviour
+  rclcpp
+  geometry_msgs
+  std_msgs
+  ament_index_cpp
+)
+
 install(TARGETS
   mechelangelo_behaviour
   mechelangelo_behaviour_physical
+  mechelangelo_demo_behaviour
   DESTINATION lib/${PROJECT_NAME}
 )
 
