@@ -1,7 +1,99 @@
-/////////////////////////////////////////////////////////////////////////
-/// Demo arm behaviour — stationary robot, arm mimicry and voice only.
-/// No navigation, LiDAR, IMU, or wheel movement.
-/// Voice lines are driven by human detection state from the Pi 4 camera.
+/**
+ * @file demo_arm_behaviour.cpp
+ * @brief Stationary demo behaviour: arm mimicry and voice, no base movement.
+ *
+ * @details
+ * This file implements `MechelangeloDemoBehaviour`, a separate ROS 2 node used
+ * when MECHelangelo should stay still but still interact with visitors. It is
+ * useful for exhibitions, bench testing, and arm/voice demonstrations where
+ * driving the base is unnecessary or unsafe.
+ *
+ * This file does **not** use `MechelangeloBehaviour` from `behaviour.hpp`.
+ * It defines its own simpler `rclcpp::Node` subclass with only two states.
+ *
+ * ### What demo mode does
+ *
+ * | Behaviour | Implementation |
+ * |---|---|
+ * | Keep the base still | Publishes zero `/cmd_vel` every control tick. |
+ * | Wait for a person | Subscribes to `/human_detected` and `/human_tracking`. |
+ * | Start interaction | Publishes `/interaction_active = true` when detection is accepted. |
+ * | Move arms | Forwards `/arm/mimicry_right_pose` and `/arm/mimicry_left_pose` to `/arm/right_pose` and `/arm/left_pose`. |
+ * | Speak | Uses the same background voice queue pattern as the physical behaviour file. |
+ * | End interaction | Stops after `kInteractionDurationSeconds` or if the person is lost beyond timeout. |
+ * | Avoid immediate retrigger | Uses `kDetectionCooldownSeconds` before accepting a new person. |
+ *
+ * ### File structure
+ *
+ * | Section | What it contains |
+ * |---|---|
+ * | Constants | Control period, voice intervals, arm keepalive, tracking timeout, session/cooldown times. |
+ * | `VoiceGroup` | Audio categories used by the demo. |
+ * | `DemoState` | Two-state FSM: `SEARCHING` and `INTERACTION`. |
+ * | File-scope publishers/subscribers | Arm pose publishers, interaction publisher, mimicry subscribers. |
+ * | Voice helpers | Audio discovery, grouping, queueing, background playback, mimicry pose voice triggers. |
+ * | Arm/interact helpers | `publishArmsDown()` and `publishInteractionActive()`. |
+ * | `MechelangeloDemoBehaviour` | The stationary demo node class, callbacks, control loop, and state transitions. |
+ *
+ * ### Full control flow
+ *
+ * @code
+ * demo_launch.py
+ *   -> starts mechelangelo_demo_behaviour
+ *
+ * MechelangeloDemoBehaviour()
+ *   -> creates arm publishers
+ *   -> creates /interaction_active publisher
+ *   -> subscribes to human and mimicry topics
+ *   -> starts the 100 ms timer
+ *
+ * controlLoop()
+ *   -> always publishes zero /cmd_vel
+ *   -> if SEARCHING: republish arm_down and occasionally play ambient voice
+ *   -> if INTERACTION: keep mimicry active, forward arm poses, play voice
+ *   -> if timeout/lost: return to SEARCHING with cooldown
+ * @endcode
+ *
+ * ### Main functions and how they interact
+ *
+ * | Function/helper | What it does | Key variables changed |
+ * |---|---|---|
+ * | `MechelangeloDemoBehaviour()` | Builds the demo node and ROS interfaces. | Publishers, subscribers, timer, voice worker, initial arms-down state. |
+ * | `controlLoop()` | Runs the two-state demo FSM every 100 ms. | `state_`, interaction timing, zero `/cmd_vel`, arm-down keepalive. |
+ * | `humanDetectedCallback()` | Handles detection edge events from the camera bridge. | Starts interaction if cooldown allows. |
+ * | `humanTrackingCallback()` | Stores continuous tracking/grace state. | `human_locked_`, `human_tracking_valid_`, `human_tracking_grace_active_`, `last_human_tracking_time_`. |
+ * | `startInteraction()` | Transitions from waiting to interaction. | `state_`, `interaction_start_time_`, `/interaction_active`. |
+ * | `returnToSearching()` | Ends interaction and optionally starts cooldown. | `state_`, cooldown timing, arm-down pose, `/interaction_active`. |
+ * | `publishArmsDown()` | Keeps both arms in the safe rest pose while waiting. | `/arm/right_pose`, `/arm/left_pose`. |
+ * | `publishInteractionActive()` | Opens/closes mimicry for the Pi 4/sim camera. | `/interaction_active`. |
+ * | `playVoiceLine()` and helpers | Queue voice audio without blocking control. | `g_voice_queue`, rate-limit maps, phrase group indices. |
+ * | `playMimicryPoseVoice()` | Plays special lines for salute, strong-arm, and handshake poses. | Last pose voice state and voice queue. |
+ *
+ * ### Important variables
+ *
+ * | Variable | Meaning |
+ * |---|---|
+ * | `state_` | Current demo FSM state: waiting or interacting. |
+ * | `human_locked_` | Whether the camera bridge currently has or is holding a person. |
+ * | `human_tracking_valid_` | True only when the camera currently sees the person. |
+ * | `human_tracking_grace_active_` | True while the camera is in reacquisition grace period. |
+ * | `last_human_tracking_time_` | Used to detect stale/lost camera tracking. |
+ * | `interaction_start_time_` | Start of the current timed mimicry session. |
+ * | `cooldown_active_`, `cooldown_start_time_` | Suppresses immediate re-entry after a session. |
+ * | `g_right_arm_pose_publisher`, `g_left_arm_pose_publisher` | File-scope publishers used by mimicry and arm-down helpers. |
+ * | `g_interaction_active_publisher` | File-scope publisher for the mimicry gate. |
+ * | `g_voice_queue`, `g_voice_playing` | Background voice playback state. |
+ *
+ * ### How this differs from the physical behaviour file
+ *
+ * - No LiDAR, IMU, or safety-zone logic.
+ * - No `NavigationState`; demo mode uses its own `DemoState`.
+ * - `/cmd_vel` is always zero.
+ * - Arm mimicry begins as soon as detection is accepted, instead of after an
+ *   approach and settle sequence.
+ *
+ * Launch it with `demo_launch.py` from `mechelangelo_bringup`.
+ */
 
 #include <algorithm>
 #include <chrono>
@@ -54,28 +146,63 @@ static constexpr double kInteractionDurationSeconds = 30.0;
 // Cooldown after an interaction ends before a new one can start.
 static constexpr double kDetectionCooldownSeconds = 10.0;
 
-// ------------------------------------------------------
-// Voice groups
-// ------------------------------------------------------
+/**
+ * @brief Voice categories for the demo behaviour node.
+ *
+ * Each value maps to a sub-folder (or combined pool) inside the
+ * `resources/` package directory.  The `DEMO_SEARCHING` group pools lines
+ * from four folders (`autonomous/`, `centre adjusting/`, `grace period/`,
+ * `person in safety zone/`) so the robot has plenty of ambient phrases
+ * to cycle through while waiting for a visitor.
+ *
+ * Audio files can be added to the matching sub-folder without changing
+ * any code — they will be discovered at startup.
+ */
 enum class VoiceGroup
 {
-    DEMO_SEARCHING,         // combined: autonomous + centre adjusting + grace period + safety zone
+    /** @brief Combined ambient pool played while waiting for a person (every 12 s). */
+    DEMO_SEARCHING,
+
+    /** @brief Played once when the camera first detects a person. */
     PERSON_DETECTED,
+
+    /** @brief Played once when the camera loses a person. */
     PERSON_LOST,
+
+    /** @brief Played while the camera is reacquiring (grace period). */
     GRACE_PERIOD,
+
+    /** @brief Random mimicry line played during the interaction session. */
     MIMICRY_RANDOM,
+
+    /** @brief Triggered when an arm classifies a "salute" pose. */
     MIMICRY_ATTEN_HUT,
+
+    /** @brief Triggered when an arm classifies an "arm_90_up" or "straight_arm" pose. */
     MIMICRY_STRONG,
+
+    /** @brief First part of the handshake greeting sequence. */
     MIMICRY_HANDSHAKE_GREETING,
+
+    /** @brief Second part of the handshake greeting (robot introduces itself). */
     MIMICRY_HANDSHAKE_NAME
 };
 
-// ------------------------------------------------------
-// Demo state machine
-// ------------------------------------------------------
+/**
+ * @brief Top-level states for the demo behaviour state machine.
+ *
+ * Unlike the full behaviour node, there are only two states because the
+ * robot never moves — the approach phase is skipped entirely.
+ */
 enum class DemoState
 {
+    /** @brief Waiting for a person.  Ambient voice lines play every 12 s.
+     *         Arms are held in the rest pose. */
     SEARCHING,
+
+    /** @brief Person detected and interaction is active.  Arm mimicry
+     *         commands are forwarded from the camera.  Times out after
+     *         `kInteractionDurationSeconds` (30 s). */
     INTERACTION
 };
 
@@ -744,33 +871,124 @@ static void publishInteractionActive(
     g_last_interaction_active_value = active;
 }
 
-// ------------------------------------------------------
-// Demo behaviour node
-// ------------------------------------------------------
+/**
+ * @brief ROS 2 node implementing the MECHelangelo demo-mode behaviour.
+ *
+ * @details
+ * Runs at **10 Hz** (100 ms wall-clock timer).  The robot base never moves;
+ * this node only controls `/interaction_active`, `/arm/right_pose`,
+ * `/arm/left_pose`, and voice playback.
+ *
+ * Typical use: launch with `demo_launch.py` when the robot is displayed
+ * on a stand.  The Pi 4 bridge still needs to be running so that
+ * `/human_detected` and `/human_tracking` are published.
+ *
+ * Subscribed topics:
+ * | Topic | Type | Description |
+ * |-------|------|-------------|
+ * | `/human_detected` | `std_msgs/Bool` | Edge-trigger from Pi 4 bridge |
+ * | `/human_tracking` | `std_msgs/Float32MultiArray` | Continuous camera state |
+ * | `/arm/mimicry_right_pose` | `std_msgs/String` | Classified right-arm pose |
+ * | `/arm/mimicry_left_pose` | `std_msgs/String` | Classified left-arm pose |
+ *
+ * Published topics:
+ * | Topic | Type | Description |
+ * |-------|------|-------------|
+ * | `/cmd_vel` | `geometry_msgs/Twist` | Always zero (robot does not move) |
+ * | `/arm/right_pose` | `std_msgs/String` | Named rest pose or forwarded mimicry pose |
+ * | `/arm/left_pose` | `std_msgs/String` | Named rest pose or forwarded mimicry pose |
+ * | `/interaction_active` | `std_msgs/Bool` | `true` while mimicry session is active |
+ */
 class MechelangeloDemoBehaviour : public rclcpp::Node
 {
 public:
+    /** @brief Construct the node, create publishers/subscribers, start the 100 ms timer. */
     MechelangeloDemoBehaviour();
+
+    /** @brief Stop the node cleanly and log shutdown. */
     ~MechelangeloDemoBehaviour();
 
 private:
+    /** @brief 10 Hz control loop — manages session timing, voice, and arm keepalive. */
     void controlLoop();
+
+    /**
+     * @brief Edge-trigger callback for human lock acquire events.
+     *
+     * @param msg  `true` = camera acquired a person; `false` = ignored (loss
+     *             is handled in `controlLoop()` via the tracking timeout).
+     *
+     * Transitions from SEARCHING to INTERACTION if not in cooldown.
+     */
     void humanDetectedCallback(const std_msgs::msg::Bool::SharedPtr msg);
+
+    /**
+     * @brief Continuous tracking heartbeat from the Pi 4 bridge.
+     *
+     * @param msg  `[detected, centre_offset, dist_m, tracking_valid, grace_active]`.
+     *             Updates `human_locked_`, `human_tracking_valid_`, and
+     *             `human_tracking_grace_active_`.
+     *
+     * Also transitions from SEARCHING to INTERACTION on a rising edge, so that
+     * the `/human_tracking` path alone (without `/human_detected`) is sufficient
+     * to start an interaction.
+     */
     void humanTrackingCallback(const std_msgs::msg::Float32MultiArray::SharedPtr msg);
 
+    /**
+     * @brief Transition into INTERACTION state.
+     * @param now  Current ROS time.
+     *
+     * Publishes `interaction_active = true`, plays a greeting voice line,
+     * and sets `demo_state_` to `DemoState::INTERACTION`.
+     */
     void startInteraction(const rclcpp::Time &now);
+
+    /**
+     * @brief Return to SEARCHING from INTERACTION.
+     * @param now           Current ROS time.
+     * @param with_cooldown If `true`, starts a 10-second detection cooldown
+     *                      so the robot does not immediately re-enter INTERACTION.
+     *
+     * Publishes `interaction_active = false`, holds arms in rest pose, and
+     * resets all session state.
+     */
     void endInteraction(const rclcpp::Time &now, bool with_cooldown);
 
+    /** @brief Publisher for `/cmd_vel` — always publishes zero in demo mode. */
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_publisher_;
+
+    /** @brief Subscriber for the human lock edge-trigger on `/human_detected`. */
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr human_detected_subscriber_;
+
+    /** @brief Subscriber for the continuous tracking heartbeat on `/human_tracking`. */
     rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr human_tracking_subscriber_;
+
+    /** @brief 100 ms wall-clock timer driving `controlLoop()`. */
     rclcpp::TimerBase::SharedPtr control_timer_;
 
+    /** @brief Current demo FSM state (SEARCHING or INTERACTION). */
     DemoState demo_state_;
+
+    /** @brief `true` while the camera reports a detected / locked human. */
     bool human_locked_;
+
+    /** @brief `true` only when the camera has live visual tracking data
+     *         (i.e. the skeleton is visible in the current frame). */
     bool human_tracking_valid_;
+
+    /** @brief `true` while the camera is in grace-period reacquisition
+     *         (the person was briefly lost but the lock is still held). */
     bool human_tracking_grace_active_;
+
+    /** @brief Normalised horizontal image offset of the detected human.
+     *         −0.5 = left edge, 0 = centred, +0.5 = right edge.
+     *         Not used for steering in demo mode, but kept for consistency
+     *         with the full behaviour node interface. */
     double human_centre_offset_;
+
+    /** @brief ROS time of the most recent `/human_tracking` message.
+     *         Used to detect tracking timeout in the INTERACTION state. */
     rclcpp::Time last_human_tracking_time_;
 };
 

@@ -10,3 +10,13 @@ log/
 CMakeCache.txt
 CMakeFiles/
 compile_commands.json
+
+# Doxygen generated output
+docs/doxygen/
+
+# Large handover media/assets stored outside Git
+Videos (demo, startup, linkedIN submission)/
+CAD/CAD FINAL.zip
+*.mp4
+*.mov
+*.zip

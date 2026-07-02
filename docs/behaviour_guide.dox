@@ -1,0 +1,278 @@
+/**
+ * @page behaviour_code_guide Behaviour Code Guide
+ *
+ * @tableofcontents
+ *
+ * @section behaviour_purpose What This Package Does
+ *
+ * `mechelangelo_behaviour` is the decision-making package for MECHelangelo.
+ * It does not talk directly to the motors, camera, or arms. Instead it sits in
+ * the middle of the ROS graph:
+ *
+ * - Reads sensor topics: `/scan`, `/imu`, `/human_detected`, `/human_tracking`,
+ *   and mimicry arm-pose topics.
+ * - Chooses what the robot should do next.
+ * - Publishes base velocity on `/cmd_vel`.
+ * - Publishes named arm poses on `/arm/right_pose` and `/arm/left_pose`.
+ * - Publishes `/interaction_active` to tell the Pi 4 or simulation camera when
+ *   mimicry should be active.
+ *
+ * Think of the package as the robot's supervisor. Lower-level drivers handle
+ * hardware details; this package decides the behaviour.
+ *
+ * @section behaviour_files Which File Should I Read?
+ *
+ * | File | Read when... | What to look for |
+ * |---|---|---|
+ * | `src/behaviour.hpp` | You want the clean overview. | State enum, class interface, topic members, cached state variables. |
+ * | `src/behaviour_physical.cpp` | You are working on the real robot. | Physical speeds, pulsed turning, LiDAR temporal filtering, voice and arm session logic. |
+ * | `src/behaviour.cpp` | You are working on simulation or experimental planning. | More complex fused human tracker, arc planner, escape/waypoint recovery. |
+ * | `src/demo_arm_behaviour.cpp` | You want a stationary demo. | Human-triggered arm mimicry and voice without base movement. |
+ * | `resources/` | You are changing audio. | MP3/WAV files grouped by behaviour event. |
+ *
+ * For most handover work, start with `behaviour.hpp`, then read
+ * `behaviour_physical.cpp` from the top down until the end of `controlLoop()`.
+ *
+ * @section behaviour_big_picture Big Picture Flow
+ *
+ * Every behaviour executable follows the same pattern:
+ *
+ * @code
+ * main()
+ *   -> rclcpp::init()
+ *   -> create MechelangeloBehaviour
+ *   -> node.run(...)
+ *   -> blindAutonomous()
+ *   -> rclcpp::spin()
+ *
+ * ROS callbacks update cached sensor state:
+ *   laserScanCallback()     -> latest_scan_, latest_segments_
+ *   imuCallback()           -> latest_imu_, imu_available_
+ *   humanDetectedCallback() -> high-level human lock edge
+ *   humanTrackingCallback() -> continuous camera tracking data
+ *
+ * controlLoop() runs every 100 ms:
+ *   read cached state
+ *   run the current NavigationState branch
+ *   publish /cmd_vel
+ *   publish arm and interaction topics when needed
+ * @endcode
+ *
+ * The important idea is that callbacks do not directly drive the robot. They
+ * update variables. `controlLoop()` is the single place that turns those
+ * variables into motion.
+ *
+ * @section navigation_states Navigation States
+ *
+ * The top-level state machine is `NavigationState`.
+ *
+ * | State | Plain-English meaning | Main inputs | Main outputs |
+ * |---|---|---|---|
+ * | `SEARCHING` | Robot is stopped and choosing the next safe heading. | Filtered LiDAR scan. | Sets `target_angle_`, then enters `ALIGNING`. |
+ * | `ALIGNING` | Robot rotates until the front arc is clear. | LiDAR front cone, IMU yaw when available. | `/cmd_vel.angular.z`. |
+ * | `MOVING` | Robot drives forward through the gallery. | LiDAR front cone. | `/cmd_vel.linear.x`. |
+ * | `STOPPED` | Robot pauses after reaching a wall/obstacle threshold. | Loop counter. | Zero `/cmd_vel`, then returns to `SEARCHING`. |
+ * | `HUMAN_DETECTED` | Robot is handling a visitor. | Camera tracking, LiDAR range, interaction timers. | Approach motion, arm poses, `/interaction_active`. |
+ *
+ * @section physical_behaviour Physical Robot Behaviour
+ *
+ * The physical robot implementation is `behaviour_physical.cpp`. It is the
+ * version launched by:
+ *
+ * @code
+ * ros2 launch mechelangelo_bringup physical_autonomous.launch.py
+ * @endcode
+ *
+ * @subsection physical_explore Exploration
+ *
+ * In normal exploration, the robot:
+ *
+ * 1. Filters the LiDAR scan to remove isolated points.
+ * 2. Builds `LaserSegment` objects from the remaining scan points.
+ * 3. Checks the forward cone, roughly +/- 30 degrees.
+ * 4. Drives forward at `kForwardSpeed` while the front is clear.
+ * 5. Stops when a segment is closer than `stop_distance_m_`.
+ * 6. Rotates until the front is clear again.
+ *
+ * This is intentionally simple. It is not SLAM or path planning; it is a robust
+ * gallery-roaming behaviour that avoids walls and keeps moving.
+ *
+ * @subsection physical_human Human Interaction
+ *
+ * Once the Pi 4 reports a person, the physical robot enters `HUMAN_DETECTED`.
+ * Inside that state there is a smaller file-scope state machine,
+ * `HumanMotionPhase`:
+ *
+ * | Phase | Meaning |
+ * |---|---|
+ * | `APPROACH` | Turn in short pulses until centred, then move toward the person. |
+ * | `SETTLE` | Confirm the robot is stopped, centred, and at interaction distance. |
+ * | `INTERACTION` | Publish `/interaction_active = true` and forward mimicry arm poses. |
+ * | `RECOVERY` | Hold still while the camera tries to reacquire a briefly lost person. |
+ *
+ * The real motors have a minimum reliable turn speed, so the physical approach
+ * uses pulses instead of tiny continuous turns:
+ *
+ * - turn pulse on: `kHumanTurnPulseOnSeconds`
+ * - turn pulse off: `kHumanTurnPulseOffSeconds`
+ * - turn speed: `kHumanApproachMaxTurnSpeed`
+ *
+ * This is why the robot may appear to "nudge" its heading toward the visitor
+ * rather than smoothly servoing to centre.
+ *
+ * @section simulation_behaviour Simulation Behaviour
+ *
+ * `behaviour.cpp` has the same public class but a more experimental human
+ * planner. It includes:
+ *
+ * - fused camera/LiDAR target tracking,
+ * - interaction bubble checking,
+ * - sampled arc candidates,
+ * - escape behaviour when the robot is too close or trapped,
+ * - waypoint/S-curve recovery for difficult gallery geometry.
+ *
+ * Treat this file as useful simulation and planning reference. For day-to-day
+ * physical robot handover, `behaviour_physical.cpp` is the more direct source.
+ *
+ * @section key_functions Function Guide
+ *
+ * @subsection lifecycle_functions Lifecycle Functions
+ *
+ * | Function | What it does |
+ * |---|---|
+ * | `MechelangeloBehaviour()` | Creates publishers, subscribers, parameters, timers, arm publishers, and initial state. |
+ * | `run(sim_mode)` | Starts the behaviour by calling `blindAutonomous()` and spinning the ROS node. |
+ * | `blindAutonomous()` | Resets the robot into autonomous exploration mode. |
+ * | `mappedAutonomous()` | Placeholder for a future map-based mode. |
+ *
+ * @subsection callback_functions ROS Callback Functions
+ *
+ * | Function | What it stores | Why it matters |
+ * |---|---|---|
+ * | `laserScanCallback()` | `latest_scan_`, `latest_segments_`, `scan_history_`. | All obstacle, wall, and human-distance decisions depend on this. |
+ * | `imuCallback()` | `latest_imu_`, `imu_available_`. | Used for yaw-aware alignment when IMU data exists. |
+ * | `humanDetectedCallback()` | Human lock edge events. | Starts human interaction logic on acquire and lets recovery handle loss. |
+ * | `humanTrackingCallback()` | `human_locked_`, `human_centre_offset_`, validity/grace flags, timestamp. | Provides camera bearing and target freshness. |
+ *
+ * @subsection control_functions Control Functions
+ *
+ * | Function | What it decides |
+ * |---|---|
+ * | `controlLoop()` | The main 10 Hz state machine. Read this when changing robot behaviour. |
+ * | `stopRobot()` | Smoothly ramps velocity commands toward zero. |
+ * | `publishArmsDown()` | Keeps both arms in the safe rest pose outside mimicry sessions. |
+ * | `publishInteractionActive()` | Opens/closes the mimicry gate. |
+ * | `resetHumanMotionController()` | Clears human-approach file-scope state before a new approach. |
+ *
+ * `publishArmsDown()`, `publishInteractionActive()`, and
+ * `resetHumanMotionController()` are file-scope helpers in the `.cpp` files,
+ * not class methods. They exist because they were added without expanding the
+ * public header interface.
+ *
+ * @subsection lidar_functions LiDAR Helper Functions
+ *
+ * | Function | What it does |
+ * |---|---|
+ * | `filterLaserScan()` | Removes isolated/noisy LiDAR points before behaviour uses the scan. |
+ * | `buildLaserSegments()` | Groups neighbouring valid points into object/wall segments. |
+ * | `getFrontRange()` | Finds the closest valid obstacle in the forward cone. |
+ * | `getMinimumRange(start, end)` | Finds the closest valid return in an angular window. |
+ * | `getLongestRange(out_angle, out_range)` | Chooses a safe DVD-bounce heading from open LiDAR sectors. |
+ * | `getHumanLidarRange(centre_offset)` | Looks for the closest LiDAR return near the camera-estimated human bearing. |
+ * | `getHumanLidarMinRecentRange(centre_offset)` | Uses recent scans to catch close human returns for stopping/slowdown. |
+ * | `angleToIndex()` | Converts a bearing angle to a LiDAR array index. |
+ * | `normaliseAngle()` | Wraps angles into the normal robot-frame range. |
+ * | `angleInsideWindow()` | Handles angular-window tests, including wraparound at +/- pi. |
+ * | `findBlockingObstaclesInFront()` | Returns the segments currently blocking forward motion. |
+ * | `segmentOverlapsAngleWindow()` | Checks whether a wall/object segment crosses a given cone. |
+ *
+ * @subsection debug_functions Debug And Visualisation Functions
+ *
+ * | Function | What it is for |
+ * |---|---|
+ * | `publishObstacleMarkers()` | Shows blocking LiDAR segments in RViz. |
+ * | `clearObstacleMarkers()` | Clears old RViz markers. |
+ * | `longestLaserScan()` | Writes debug information for the clear-heading calculation. |
+ * | `writeHumanInteractionStatsLog()` | Simulation planner stats log in `behaviour.cpp`. |
+ * | `writeHumanPlannerDebugLog()` | Detailed simulation planner debug log in `behaviour.cpp`. |
+ *
+ * @section key_variables Variable Guide
+ *
+ * @subsection class_variables Class Member Variables
+ *
+ * These variables live in `MechelangeloBehaviour` and are declared in
+ * `behaviour.hpp`.
+ *
+ * | Variable group | Variables | Meaning |
+ * |---|---|---|
+ * | ROS interfaces | `laser_scan_subscriber_`, `imu_subscriber_`, `cmd_vel_publisher_`, `filtered_scan_publisher_`, `obstacle_marker_publisher_`, `human_detected_subscriber_`, `human_tracking_subscriber_`, `control_timer_` | ROS connections owned by the node. |
+ * | Cached sensors | `latest_scan_`, `latest_segments_`, `scan_history_`, `latest_imu_`, `current_twist_` | Most recent sensor/control data used by the next `controlLoop()` tick. |
+ * | Human tracking | `human_locked_`, `human_tracking_valid_`, `human_tracking_grace_active_`, `human_centre_offset_`, `human_distance_m_`, `last_human_tracking_time_` | Camera-derived person state. LiDAR is still used for distance. |
+ * | Behaviour state | `blind_autonomous_active_`, `current_state_`, `target_angle_`, `target_range_`, `stop_distance_m_`, `stop_counter_` | The main autonomous exploration state. |
+ * | Safety state | `safety_zone_violated_`, `safety_zone_baseline_scan_`, `safety_zone_baseline_captured_` | Used to compare the live scan against the environment at interaction entry. |
+ * | IMU alignment | `imu_available_`, `align_start_yaw_`, `align_yaw_initialised_` | Used by `ALIGNING` to confirm turns when IMU data is available. |
+ * | Random heading tools | `random_engine_`, `turn_dist_` | Used when choosing among safe DVD-bounce headings. |
+ *
+ * @subsection physical_file_variables Physical File-Scope Variables
+ *
+ * These variables live in `behaviour_physical.cpp`. They are `static`, so they
+ * belong only to that file. The most important ones are:
+ *
+ * | Variable | Meaning |
+ * |---|---|
+ * | `g_human_motion_phase` | Current phase inside `HUMAN_DETECTED`. |
+ * | `g_interaction_session_active` | True while the timed mimicry session is active. |
+ * | `g_human_detection_cooldown_active` | Prevents immediate re-triggering after a session ends. |
+ * | `g_last_visible_human_*` | Last camera observation used during recovery. |
+ * | `g_human_centre_locked` | True when the person is centred enough to drive forward. |
+ * | `g_human_turn_cycle_*` | Timing state for physical turn pulses. |
+ * | `g_human_forward_cycle_*` | Timing state for pulsed slow approach near the stop distance. |
+ * | `g_right_arm_pose_publisher`, `g_left_arm_pose_publisher` | File-scope arm pose publishers used by helper functions. |
+ * | `g_interaction_active_publisher` | Publisher for the mimicry gate. |
+ * | `g_voice_*` | Voice-line queue, rate-limit, and playback state. |
+ *
+ * @subsection tuning_constants Tuning Constants
+ *
+ * Tuning constants are `static constexpr` values near the top of each `.cpp`
+ * file. Read them before changing behaviour. Important groups:
+ *
+ * | Group | Examples | What they affect |
+ * |---|---|---|
+ * | Control period | `kControlPeriodSeconds` | How often `controlLoop()` runs. |
+ * | Base movement | `kForwardSpeed`, `kTurnSpeed`, `kStopLinearDecel`, `kStopAngularDecel` | Exploration speed and stopping feel. |
+ * | DVD bounce | `kDvdOpenClearanceDistance`, `kDvdMinSectorWidth`, `kDvdPreferredMinTurnAngle`, `kDvdPreferredMaxTurnAngle` | How the robot chooses new headings after a wall. |
+ * | LiDAR filtering | `kNoiseNeighbourWindow`, `kNoiseMinNeighbourCount`, `kSegmentJoinDistance`, `kTemporalBufferSize` | Which scan points are trusted. |
+ * | Human approach | `kHumanApproachSpeed`, `kHumanApproachMaxTurnSpeed`, `kHumanLidarStopDistance`, `kHumanLidarSlowdownMargin` | How the physical robot approaches visitors. |
+ * | Interaction timing | `kHumanInteractionDurationSeconds`, `kHumanDetectionCooldownSeconds`, `kArmDownRepublishPeriod` | Mimicry session timing and arm keepalive. |
+ * | Voice | voice interval/rate-limit constants and `VoiceGroup` | When audio lines play. |
+ *
+ * @section safe_editing How To Change Behaviour Safely
+ *
+ * 1. Change one behaviour at a time: exploration, approach, mimicry, or voice.
+ * 2. Start with constants before rewriting control logic.
+ * 3. Run in simulation if the change affects state transitions or LiDAR logic.
+ * 4. For physical tests, lift the wheels first and keep the emergency stop
+ *    reachable.
+ * 5. Watch `/cmd_vel`, `/human_tracking`, `/scan_filtered`, and
+ *    `/interaction_active` while testing.
+ *
+ * Useful commands:
+ *
+ * @code
+ * ros2 topic echo /cmd_vel
+ * ros2 topic echo /human_tracking
+ * ros2 topic echo /interaction_active
+ * ros2 topic hz /scan
+ * @endcode
+ *
+ * @section common_confusions Common Confusions
+ *
+ * - `human_distance_m_` is not trusted on the physical robot. The Pi 4 camera
+ *   has no depth sensor, so LiDAR controls stopping distance.
+ * - `HUMAN_DETECTED` is a top-level state, but the physical file also has
+ *   `HumanMotionPhase` inside it.
+ * - The arms should stay down unless `g_interaction_session_active` is true
+ *   and `/interaction_active` has been published true.
+ * - `scratch/` contains older behaviour versions. Do not copy from it unless
+ *   you understand why the current version replaced it.
+ */

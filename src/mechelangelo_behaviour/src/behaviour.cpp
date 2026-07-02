@@ -1,52 +1,92 @@
 /**
  * @file behaviour.cpp
- * @brief Implementation of MechelangeloBehaviour — DVD-bounce exploration and
- *        fused-sensor human interaction for the MECHelangelo gallery robot.
+ * @brief Simulation/default implementation of `MechelangeloBehaviour`.
  *
  * @details
- * This file contains the complete implementation of the behaviour node.
- * All tuning constants, file-scope FSM state, auxiliary enums, and helper
- * functions are kept here so that `behaviour.hpp` remains a clean interface
- * boundary.
+ * This file is the more experimental behaviour implementation. It contains the
+ * same top-level `MechelangeloBehaviour` class declared in `behaviour.hpp`, but
+ * its human-interaction logic is more advanced than the physical robot file:
+ * it fuses camera and LiDAR data, predicts short motion arcs, scores candidate
+ * paths, and tries escape/waypoint manoeuvres when the interaction bubble is
+ * blocked.
  *
- * ### Key sections (in file order)
+ * Use this file when you are working in Gazebo, tuning the planner, or trying
+ * to understand the most complete version of the navigation logic. For the
+ * physical robot's day-to-day behaviour, read `behaviour_physical.cpp`.
  *
- * 1. **Behaviour constants** — `kControlPeriodSeconds`, `kForwardSpeed`,
- *    `kDvdOpenClearanceDistance`, `kHumanTargetDistance`, etc.
- * 2. **File-scope FSM state** — `g_human_motion_phase`,
- *    `g_human_target_confidence`, `g_fused_human_*`, planner / escape /
- *    waypoint sub-state, and per-run diagnostic counters.
- * 3. **Auxiliary enums** — `HumanMotionPhase`, `HumanTargetConfidence`,
- *    `ProactiveAvoidanceStage`, `DeterministicEscapeStage`.
- * 4. **Static helper functions** — debug log writers, state-name printers,
- *    arm-down / interaction-active publishers, `resetHumanMotionController()`,
- *    cooldown utilities.
- * 5. **MechelangeloBehaviour class methods** — constructor, `run()`,
- *    `blindAutonomous()`, `controlLoop()`, sensor callbacks, LaserScan
- *    filtering, fused human tracker, arc planner, escape / waypoint recovery.
+ * ### File structure
  *
- * ### DVD-bounce exploration
+ * | Section | What it contains | Why it matters |
+ * |---|---|---|
+ * | Constants | `kControlPeriodSeconds`, DVD-bounce tuning, LiDAR filter tuning, human planner limits, interaction timing. | These values are the safest first place to tune behaviour. |
+ * | File-scope variables | `g_human_motion_phase`, `g_fused_human_*`, planner score/state variables, waypoint/escape state, debug counters. | These variables remember planner state between 100 ms control ticks. |
+ * | Helper enums | `HumanMotionPhase`, `HumanTargetConfidence`, `ProactiveAvoidanceStage`, `DeterministicEscapeStage`. | These make the nested human-planning state machines readable. |
+ * | Static helpers | Debug log paths, state-name functions, arm keepalive, interaction gate publishing, cooldown checks, planner logging. | Support code used by `controlLoop()` without expanding the class header. |
+ * | Class methods | Constructor, `run()`, `blindAutonomous()`, `controlLoop()`, callbacks, LiDAR helpers, marker helpers. | The actual ROS node implementation. |
  *
- * The robot treats the gallery like a DVD screensaver: drive straight until a
- * blocking segment enters `stop_distance_m_`, stop for ~3 s, then re-scan for
- * arcs wider than `kDvdMinSectorWidth` where every beam exceeds
- * `kDvdOpenClearanceDistance` (4.5 m) or is infinite.  A random heading is
- * selected from the preferred 55°–150° side-bounce band (falling back to
- * 35°–165° when no preferred candidate exists), then the robot aligns
- * (IMU-confirmed when available) and drives forward.
+ * ### How the code runs
  *
- * ### Human approach / interaction
+ * @code
+ * Constructor
+ *   -> declares parameters
+ *   -> creates publishers/subscribers
+ *   -> creates a 100 ms timer for controlLoop()
  *
- * On a `/human_tracking` rising edge:
- * 1. **APPROACH** — Persistent target lock (camera bearing + LiDAR cluster)
- *    is propagated each tick via commanded velocity and IMU yaw delta.
- *    A dynamic-window arc planner samples 0.35 s commands and picks the best.
- * 2. **REPOSITION / ESCAPE / waypoint** — When the 1.5 m arm-clearance bubble
- *    is blocked, lateral repositioning is attempted.  Stagnation triggers a
- *    forced escape arc; persistent blockage triggers an adaptive S-curve
- *    waypoint manoeuvre.
- * 3. **SETTLE** — 5 consecutive scans confirming clear bubble + centring.
- * 4. **INTERACTION** — 30 s mimicry session, then cooldown before next detection.
+ * run()
+ *   -> calls blindAutonomous()
+ *   -> spins the node
+ *
+ * callbacks
+ *   -> update cached scan, IMU and human-tracking data
+ *
+ * controlLoop()
+ *   -> if SEARCHING: choose a clear DVD-bounce heading
+ *   -> if ALIGNING: turn toward/through that heading
+ *   -> if MOVING: drive until the front cone is blocked
+ *   -> if STOPPED: wait briefly, then search again
+ *   -> if HUMAN_DETECTED: run fused camera/LiDAR approach and interaction
+ * @endcode
+ *
+ * ### Main functions and how they interact
+ *
+ * | Function | Role | Reads | Writes/publishes |
+ * |---|---|---|---|
+ * | `MechelangeloBehaviour()` | Wires the ROS graph together. | ROS parameters. | Publishers, subscribers, timer, initial arm/interact state. |
+ * | `run()` | Starts autonomous behaviour. | `sim_mode`. | Calls `blindAutonomous()`, then `rclcpp::spin()`. |
+ * | `blindAutonomous()` | Resets exploration state. | Current scan/state. | `current_state_`, safety baseline flags, markers. |
+ * | `controlLoop()` | Main state machine. | All cached sensor and planner variables. | `/cmd_vel`, arm pose topics, `/interaction_active`, debug logs. |
+ * | `laserScanCallback()` | Cleans each scan. | Raw `/scan`. | `latest_scan_`, `latest_segments_`, `/scan_filtered`. |
+ * | `humanDetectedCallback()` | Handles camera lock edges. | `/human_detected`, cooldown state. | `current_state_`, human controller reset. |
+ * | `humanTrackingCallback()` | Stores continuous camera tracking. | `/human_tracking`. | `human_locked_`, `human_centre_offset_`, tracking freshness fields. |
+ * | `filterLaserScan()` | Removes noisy LiDAR points. | Raw scan and filter constants. | Filtered scan returned to callback. |
+ * | `getLongestRange()` | Chooses the next exploration heading. | `latest_scan_`. | `target_angle_` via caller. |
+ * | `getHumanLidarRange()` | Estimates distance near the camera bearing. | `human_centre_offset_`, `latest_scan_`. | Range returned to planner. |
+ *
+ * ### Human planner variables
+ *
+ * The simulation planner uses many file-scope variables because it was built
+ * iteratively without changing the public header every time. The key groups
+ * are:
+ *
+ * | Variable group | Examples | What changes them |
+ * |---|---|---|
+ * | Human phase | `g_human_motion_phase` | `controlLoop()` as the target is approached, recovered, settled, or interacted with. |
+ * | Fused target | `g_fused_human_*` | Camera callbacks, LiDAR association, IMU/velocity propagation. |
+ * | Planner command | `g_human_planner_linear`, `g_human_planner_angular`, `g_human_planner_score` | Candidate scoring inside the human-planning branch of `controlLoop()`. |
+ * | Escape/waypoint | `g_human_escape_*`, `g_human_waypoint_*`, deterministic escape state | Triggered when the interaction bubble is blocked or progress stalls. |
+ * | Interaction/cooldown | `g_interaction_session_active`, `g_human_detection_cooldown_active` | Starts/stops the mimicry session and suppresses immediate retriggering. |
+ * | Debug output | `g_debug_*` and log helper state | Updated while planner candidates are scored and written to debug files. |
+ *
+ * ### Tuning guidance
+ *
+ * - Change constants before rewriting logic.
+ * - Keep planner speed limits below driver limits.
+ * - If the robot approaches too aggressively, reduce human planner speed or
+ *   increase desired interaction distance.
+ * - If the robot gets stuck near walls, inspect the bubble, escape, and
+ *   waypoint constants together; they are tightly coupled.
+ *
+ * @see behaviour_code_guide for the student-facing behaviour package guide.
  */
 /////////////////////////////////////////////////////////////////////////
 /// DVD bounce + adaptive human clearance waypoint / S-curve test

@@ -1,31 +1,72 @@
 /**
  * @file behaviour.hpp
- * @brief Declaration of MechelangeloBehaviour — the navigation and
- *        human-interaction state machine for the MECHelangelo gallery robot.
+ * @brief Shared interface for the MECHelangelo behaviour node.
  *
  * @details
- * This header defines:
- * - `NavigationState` — the top-level FSM states.
- * - `LaserSegment`    — a Cartesian cluster of neighbouring LiDAR returns.
- * - `MechelangeloBehaviour` — the ROS 2 node class.
+ * This header is the best first source file to read because it shows the
+ * stable shape of the behaviour node without the thousands of lines of tuning
+ * and implementation detail in the `.cpp` files.
  *
- * The node runs at 10 Hz (100 ms wall-clock timer).  All tuning constants
- * (`kForwardSpeed`, `kDvdOpenClearanceDistance`, etc.) are defined as
- * `static constexpr` in `behaviour.cpp` to keep this header clean.
+ * ### What this file defines
  *
- * ### Operating modes
+ * | Item | Purpose |
+ * |---|---|
+ * | `NavigationState` | The top-level finite state machine: search, align, move, stop, or handle a human. |
+ * | `LaserSegment` | A cleaned-up LiDAR object/wall cluster made from neighbouring scan points. |
+ * | `MechelangeloBehaviour` | The ROS 2 node class shared by the simulation and physical implementations. |
  *
- * **DVD-bounce exploration** (`blindAutonomous()`): Cycles through
- * SEARCHING → ALIGNING → MOVING → STOPPED.  After stopping at a wall the
- * node picks a random heading from the longest clear arc that falls in the
- * preferred 55°–150° side-bounce band, avoiding the wall it just hit.
+ * ### How the node works as a whole
  *
- * **Human interaction** (`HUMAN_DETECTED`): Activated when the camera node
- * publishes a `/human_tracking` message with `detected == 1.0`.  A fused
- * camera/LiDAR tracker maintains a persistent target lock and a
- * dynamic-window arc planner navigates toward the visitor.  Once the 1.5 m
- * arm-clearance bubble is free the robot enters a 30-second mimicry session
- * then returns to DVD exploration with a 10-second detection cooldown.
+ * The behaviour node is event-driven. Sensor callbacks update cached member
+ * variables, then a 100 ms timer calls `controlLoop()` to decide what command
+ * should be published.
+ *
+ * @code
+ * /scan              -> laserScanCallback()     -> latest_scan_, latest_segments_
+ * /imu               -> imuCallback()           -> latest_imu_, imu_available_
+ * /human_detected    -> humanDetectedCallback() -> current_state_
+ * /human_tracking    -> humanTrackingCallback() -> human_locked_, human_centre_offset_
+ *
+ * controlLoop()
+ *   -> reads cached variables
+ *   -> runs the current NavigationState branch
+ *   -> publishes /cmd_vel
+ *   -> publishes arm and interaction topics through helpers in the .cpp file
+ * @endcode
+ *
+ * ### Functions in this interface
+ *
+ * | Group | Functions | What they are for |
+ * |---|---|---|
+ * | Lifecycle | `MechelangeloBehaviour()`, `~MechelangeloBehaviour()`, `run()` | Create the ROS interfaces, start autonomous mode, and spin the node. |
+ * | Mode setup | `blindAutonomous()`, `mappedAutonomous()` | Reset high-level behaviour mode. `mappedAutonomous()` is a placeholder. |
+ * | Main loop | `controlLoop()` | The central state machine. This is where motion decisions are made. |
+ * | Sensor callbacks | `laserScanCallback()`, `imuCallback()`, `humanDetectedCallback()`, `humanTrackingCallback()` | Store the newest sensor/camera data for the next control tick. |
+ * | Motion helpers | `stopRobot()` | Smooth velocity commands down to zero. |
+ * | LiDAR helpers | `filterLaserScan()`, `buildLaserSegments()`, `getFrontRange()`, `getLongestRange()`, `getHumanLidarRange()` and related angle helpers | Turn raw scan data into distances, clear headings, obstacle segments, and human range estimates. |
+ * | Safety/debug helpers | `captureSafetyZoneBaseline()`, `isSafetyZoneViolated()`, `publishObstacleMarkers()`, `clearObstacleMarkers()` | Support safe arm interaction and RViz debugging. |
+ *
+ * ### Important variables
+ *
+ * | Group | Variables | What changes them |
+ * |---|---|---|
+ * | ROS interfaces | publisher/subscriber/timer members | Constructed once in `MechelangeloBehaviour()`. |
+ * | Cached sensors | `latest_scan_`, `latest_segments_`, `scan_history_`, `latest_imu_` | Updated by LiDAR and IMU callbacks. |
+ * | Human tracking | `human_locked_`, `human_tracking_valid_`, `human_tracking_grace_active_`, `human_centre_offset_`, `last_human_tracking_time_` | Updated by camera bridge callbacks. |
+ * | Behaviour state | `current_state_`, `target_angle_`, `target_range_`, `stop_counter_`, `blind_autonomous_active_` | Changed mainly inside `controlLoop()` and mode-entry functions. |
+ * | Safety state | `safety_zone_baseline_scan_`, `safety_zone_baseline_captured_`, `safety_zone_violated_` | Captured when a human interaction starts and checked while interacting. |
+ * | IMU alignment | `imu_available_`, `align_start_yaw_`, `align_yaw_initialised_` | Used in `ALIGNING` to measure how far the robot has turned. |
+ *
+ * ### Where the rest of the behaviour lives
+ *
+ * This header deliberately does not contain tuning constants or file-specific
+ * helper state. Those live in:
+ *
+ * - `behaviour_physical.cpp` for the real robot.
+ * - `behaviour.cpp` for simulation and experimental fused planning.
+ * - `demo_arm_behaviour.cpp` for the stationary arm/voice demo.
+ *
+ * @see behaviour_code_guide
  */
 
 #ifndef BEHAVIOUR_HPP
@@ -137,8 +178,16 @@ struct LaserSegment
  * the `stop_distance_m` ROS parameter (default 1.5 m for simulation,
  * 0.75 m for the physical robot).
  *
- * Public interface is deliberately minimal — the node self-manages via
- * its timer and subscriber callbacks.
+ * Public interface is deliberately minimal: construct the node, call `run()`,
+ * and let ROS callbacks plus the 10 Hz timer do the rest.
+ *
+ * The class owns the stable state shared by both behaviour implementations:
+ * ROS publishers/subscribers, cached LiDAR/IMU/camera data, the top-level
+ * `NavigationState`, and helper functions for scan processing.  More
+ * specialised state, such as physical turn-pulse timing or simulation planner
+ * scores, lives as file-scope `static` variables inside the matching `.cpp`
+ * file.  See @ref behaviour_code_guide for a higher-level explanation before
+ * diving into the long implementation files.
  *
  * @note All heavy implementation logic, auxiliary enums
  * (`HumanMotionPhase`, `HumanTargetConfidence`, `ProactiveAvoidanceStage`,
@@ -148,6 +197,14 @@ struct LaserSegment
 class MechelangeloBehaviour : public rclcpp::Node
 {
 public:
+    /**
+     * @name Public lifecycle
+     *
+     * These are the only functions external code normally calls.  The node is
+     * otherwise event-driven by ROS subscriptions and the 100 ms control timer.
+     * @{
+     */
+
     /**
      * @brief Construct the node, declare ROS parameters, create all
      *        publishers/subscribers, and start the 100 ms control timer.
@@ -185,10 +242,16 @@ public:
      */
     void run(bool sim_mode);
 
+    /** @} */
+
 private:
-    // ------------------------------------------------------------------
-    // Behaviour modes
-    // ------------------------------------------------------------------
+    /**
+     * @name Behaviour mode entry points
+     *
+     * These functions reset high-level mode state.  They do not run a blocking
+     * loop; `controlLoop()` performs the actual work after the mode is entered.
+     * @{
+     */
 
     /**
      * @brief Initialise the DVD-bounce exploration mode.
@@ -208,9 +271,16 @@ private:
      */
     void mappedAutonomous();
 
-    // ------------------------------------------------------------------
-    // Main control loop
-    // ------------------------------------------------------------------
+    /** @} */
+
+    /**
+     * @name Main control loop
+     *
+     * `controlLoop()` is the heart of the behaviour node.  Read this method in
+     * the relevant `.cpp` file when you want to understand or change what the
+     * robot actually does.
+     * @{
+     */
 
     /**
      * @brief 10 Hz control-loop callback driven by `control_timer_`.
@@ -226,9 +296,16 @@ private:
      */
     void controlLoop();
 
-    // ------------------------------------------------------------------
-    // ROS callbacks
-    // ------------------------------------------------------------------
+    /** @} */
+
+    /**
+     * @name ROS callbacks
+     *
+     * Callbacks cache the latest sensor and camera data.  They avoid making
+     * direct movement decisions so that `controlLoop()` remains the single
+     * place where robot motion is chosen.
+     * @{
+     */
 
     /**
      * @brief Receive a raw LiDAR scan, filter it, build segments, and
@@ -290,9 +367,14 @@ private:
      */
     void humanTrackingCallback(const std_msgs::msg::Float32MultiArray::SharedPtr msg);
 
-    // ------------------------------------------------------------------
-    // Movement helpers
-    // ------------------------------------------------------------------
+    /** @} */
+
+    /**
+     * @name Movement helpers
+     *
+     * Small utilities for shaping velocity commands before they are published.
+     * @{
+     */
 
     /**
      * @brief Smoothly decelerate `twist` toward zero.
@@ -304,16 +386,23 @@ private:
      */
     void stopRobot(geometry_msgs::msg::Twist &twist);
 
-    // ------------------------------------------------------------------
-    // LaserScan filtering and helper functions
-    // ------------------------------------------------------------------
+    /** @} */
+
+    /**
+     * @name LiDAR filtering and geometry helpers
+     *
+     * These functions turn the raw `/scan` array into cleaner geometric
+     * information: filtered scan ranges, object/wall segments, front-obstacle
+     * checks, DVD-bounce headings, and human-bearing range estimates.
+     * @{
+     */
 
     /**
      * @brief Two-stage noise filter for a raw `sensor_msgs/LaserScan`.
      *
      * @param raw_scan  Unfiltered scan from the YDLIDAR X4.
      * @return          Copy of `raw_scan` with noisy/isolated returns
-     *                  replaced by `std::numeric_limits<float>::infinity()`.
+     *                  replaced by positive floating-point infinity.
      *
      * @details
      * **Stage 1 — local neighbour test:** A return is considered a noise
@@ -395,17 +484,17 @@ private:
      *
      * @param start_angle  Start of the window (radians, robot frame).
      * @param end_angle    End of the window (radians, robot frame).
-     * @return             Minimum valid range in metres, or
-     *                     `std::numeric_limits<double>::infinity()` if no
-     *                     valid return exists in the window.
+     * @return             Minimum valid range in metres, or positive
+     *                     floating-point infinity if no valid return exists
+     *                     in the window.
      */
     double getMinimumRange(double start_angle, double end_angle) const;
 
     /**
      * @brief Return the minimum range in the forward ±`kFrontCheckAngle` arc.
      *
-     * @return Minimum valid range ahead of the robot in metres, or
-     *         `std::numeric_limits<double>::infinity()` if the arc is clear.
+     * @return Minimum valid range ahead of the robot in metres, or positive
+     *         floating-point infinity if the arc is clear.
      */
     double getFrontRange() const;
 
@@ -471,7 +560,7 @@ private:
      *                       0 = centred, +0.5 = hard right.
      * @return               Nearest valid range in metres within
      *                       ±`kHumanLidarWindow` of the estimated bearing, or
-     *                       `std::numeric_limits<double>::infinity()` if none.
+     *                       positive floating-point infinity if none exists.
      */
     double getHumanLidarRange(double centre_offset) const;
 
@@ -493,9 +582,16 @@ private:
      */
     double getHumanLidarMinRecentRange(double centre_offset) const;
 
-    // ------------------------------------------------------------------
-    // Safety-zone helpers
-    // ------------------------------------------------------------------
+    /** @} */
+
+    /**
+     * @name Safety-zone helpers
+     *
+     * Used when the robot is interacting with a person.  The baseline scan is
+     * captured at interaction entry, then live scans are compared against it to
+     * detect unexpected objects inside the arm movement area.
+     * @{
+     */
 
     /**
      * @brief Snapshot the current filtered scan as the safety-zone baseline.
@@ -522,9 +618,15 @@ private:
      */
     bool isSafetyZoneViolated(double human_bearing_rad) const;
 
-    // ------------------------------------------------------------------
-    // RViz marker helpers
-    // ------------------------------------------------------------------
+    /** @} */
+
+    /**
+     * @name RViz marker helpers
+     *
+     * Debug visualisation for the LiDAR segments that caused the behaviour node
+     * to stop or avoid motion.
+     * @{
+     */
 
     /**
      * @brief Publish sphere markers in RViz for each blocking segment.
@@ -540,9 +642,15 @@ private:
      */
     void clearObstacleMarkers();
 
-    // ------------------------------------------------------------------
-    // ROS publishers / subscribers / timer
-    // ------------------------------------------------------------------
+    /** @} */
+
+    /**
+     * @name ROS interfaces
+     *
+     * Publishers, subscribers, and timers owned by the node.  These define the
+     * behaviour package's contract with the rest of the robot.
+     * @{
+     */
 
     /** @brief Subscriber for the raw YDLIDAR X4 scan on `/scan`. */
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr laser_scan_subscriber_;
@@ -584,9 +692,15 @@ private:
     /** @brief 100 ms wall-clock timer driving `controlLoop()`. */
     rclcpp::TimerBase::SharedPtr control_timer_;
 
-    // ------------------------------------------------------------------
-    // Cached sensor data
-    // ------------------------------------------------------------------
+    /** @} */
+
+    /**
+     * @name Cached sensor and command data
+     *
+     * Latest information received from callbacks.  `controlLoop()` reads these
+     * values on the next tick to make deterministic movement decisions.
+     * @{
+     */
 
     /** @brief Most recent noise-filtered `LaserScan` (populated by `laserScanCallback()`). */
     sensor_msgs::msg::LaserScan latest_scan_;
@@ -604,9 +718,16 @@ private:
      *         Used by the human-target propagator to estimate base motion. */
     geometry_msgs::msg::Twist current_twist_;
 
-    // ------------------------------------------------------------------
-    // Human tracking data
-    // ------------------------------------------------------------------
+    /** @} */
+
+    /**
+     * @name Human tracking cache
+     *
+     * Camera-derived person state from `/human_tracking`.  The physical camera
+     * does not provide depth, so range-to-human decisions must still come from
+     * LiDAR helper functions.
+     * @{
+     */
 
     /** @brief `true` while the camera reports a detected / locked human. */
     bool human_locked_;
@@ -635,9 +756,15 @@ private:
      *         Used to detect tracking timeout in HUMAN_DETECTED. */
     rclcpp::Time last_human_tracking_time_;
 
-    // ------------------------------------------------------------------
-    // Behaviour state
-    // ------------------------------------------------------------------
+    /** @} */
+
+    /**
+     * @name Top-level behaviour state
+     *
+     * Variables that describe the active navigation mode and the exploration
+     * target chosen by the DVD-bounce logic.
+     * @{
+     */
 
     /** @brief `true` after `blindAutonomous()` is called; enables `controlLoop()`. */
     bool blind_autonomous_active_;
@@ -710,9 +837,15 @@ private:
      */
     bool align_yaw_initialised_;
 
-    // ------------------------------------------------------------------
-    // Random tools
-    // ------------------------------------------------------------------
+    /** @} */
+
+    /**
+     * @name Random heading tools
+     *
+     * Used to avoid always selecting the same DVD-bounce heading when several
+     * safe candidates are available.
+     * @{
+     */
 
     /** @brief Seeded Mersenne Twister used by the DVD-bounce heading picker. */
     std::default_random_engine random_engine_;
@@ -722,6 +855,8 @@ private:
      *        Used when randomly choosing among candidate DVD-bounce headings.
      */
     std::uniform_real_distribution<double> turn_dist_;
+
+    /** @} */
 };
 
 #endif  // BEHAVIOUR_HPP

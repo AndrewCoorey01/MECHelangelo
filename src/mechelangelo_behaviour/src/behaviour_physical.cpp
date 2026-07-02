@@ -1,5 +1,120 @@
-/////////////////////////////////////////////////////////////////////////
-/// DVD bounce LiDAR exploration + camera/dual-ultrasonic human approach
+/**
+ * @file behaviour_physical.cpp
+ * @brief Physical robot implementation of `MechelangeloBehaviour`.
+ *
+ * @details
+ * This is the behaviour file used by the real robot through
+ * `mechelangelo_behaviour_physical`. It keeps the same public class as
+ * `behaviour.hpp`, but the internal logic is tuned for the actual base,
+ * sensors, Pi 4 camera bridge, arm servos, and voice playback.
+ *
+ * Read this file when changing how the real robot moves around people or
+ * walls. Read `behaviour.cpp` when working on the Gazebo/simulation planner.
+ *
+ * ### Why the physical file is different
+ *
+ * | Physical constraint | Code response |
+ * |---|---|
+ * | The base cannot reliably turn below about 0.375 rad/s. | Human centring uses short on/off turn pulses instead of tiny continuous turns. |
+ * | The camera has bearing but no trustworthy depth. | LiDAR, not camera distance, decides when to slow and stop. |
+ * | Gallery surfaces can create noisy LiDAR speckles. | `filterLaserScan()` uses local-neighbour, segment, and temporal-vote filtering. |
+ * | The robot can get stuck spinning near walls. | `kAutonomousMaximumTurnDuration` reverses timed DVD turns after too long. |
+ * | Arms should not move freely while driving. | `publishArmsDown()` keeps both arms in the rest pose until interaction starts. |
+ * | Audio playback must not block the 10 Hz control loop. | Voice files are queued and played on a background worker thread. |
+ *
+ * ### File structure
+ *
+ * | Section | What it contains |
+ * |---|---|
+ * | Constants | Physical speeds, LiDAR filter values, human approach distances, timing, voice intervals. |
+ * | File-scope state | Human approach phase, pulse timers, cooldown/session flags, arm publishers, voice queue. |
+ * | Enums | `HumanMotionPhase` for approach/interact/recovery and `VoiceGroup` for audio categories. |
+ * | Voice helpers | Audio discovery, phrase grouping, shell-safe playback command, worker thread, rate limiting. |
+ * | Arm/interact helpers | `publishArmsDown()`, `publishInteractionActive()`, mimicry pose forwarding. |
+ * | Controller helpers | `resetHumanMotionController()`, cooldown checks, phase-name helpers. |
+ * | Class methods | Constructor, `run()`, `blindAutonomous()`, `controlLoop()`, callbacks, LiDAR helpers, RViz markers. |
+ *
+ * ### Full control flow
+ *
+ * @code
+ * physical_autonomous.launch.py
+ *   -> starts lidar_driver, imu_driver, base_driver, pi4_bridge
+ *   -> starts mechelangelo_behaviour_physical
+ *
+ * MechelangeloBehaviour()
+ *   -> creates ROS interfaces
+ *   -> creates arm and interaction publishers
+ *   -> subscribes to mimicry pose topics
+ *   -> starts the 100 ms timer
+ *
+ * controlLoop()
+ *   -> SEARCHING: choose a safe DVD-bounce direction
+ *   -> ALIGNING: rotate until the front LiDAR cone is clear
+ *   -> MOVING: drive forward until an obstacle enters stop_distance_m_
+ *   -> STOPPED: hold still briefly, then search again
+ *   -> HUMAN_DETECTED: centre, approach, settle, interact, recover, or cooldown
+ * @endcode
+ *
+ * ### Main functions and how they interact
+ *
+ * | Function/helper | What it does | Key variables changed |
+ * |---|---|---|
+ * | `MechelangeloBehaviour()` | Builds the physical ROS node. | Publishers/subscribers, `stop_distance_m_`, `g_*_publisher` helpers. |
+ * | `run(false)` | Starts physical autonomous mode. | Calls `blindAutonomous()` and spins. |
+ * | `blindAutonomous()` | Returns to DVD exploration. | `current_state_`, `blind_autonomous_active_`, safety flags, arm-down state. |
+ * | `controlLoop()` | Main 10 Hz state machine. | `current_state_`, `current_twist_`, human phase/session flags. |
+ * | `laserScanCallback()` | Filters and stores LiDAR scans. | `latest_scan_`, `latest_segments_`, `scan_history_`, `/scan_filtered`. |
+ * | `humanTrackingCallback()` | Stores Pi 4 camera state. | `human_locked_`, `human_centre_offset_`, `human_tracking_valid_`, grace flags. |
+ * | `humanDetectedCallback()` | Handles human detection edge events. | Enters `HUMAN_DETECTED` if cooldown allows. |
+ * | `filterLaserScan()` | Removes isolated, tiny, and intermittent LiDAR returns. | Returns the scan used by all obstacle decisions. |
+ * | `getHumanLidarRange()` | Finds range near the camera-estimated human bearing. | Used by approach stop/slowdown logic. |
+ * | `publishArmsDown()` | Keeps arms safe outside interaction. | Publishes `/arm/right_pose` and `/arm/left_pose`. |
+ * | `publishInteractionActive()` | Opens/closes mimicry. | Publishes `/interaction_active`; updates last published value/time. |
+ * | `playVoiceLine()` and helpers | Queue audio without blocking control. | `g_voice_queue`, voice timing maps, `g_voice_playing`. |
+ *
+ * ### Human interaction phases
+ *
+ * `current_state_ == NavigationState::HUMAN_DETECTED` is the top-level state.
+ * Inside that state, `g_human_motion_phase` tracks the smaller physical
+ * approach state machine:
+ *
+ * | Phase | What the robot does | Exit condition |
+ * |---|---|---|
+ * | `APPROACH` | Uses camera offset to turn in pulses, then drives forward using LiDAR range. | Person is centred and at stop distance. |
+ * | `SETTLE` | Holds still and checks several good samples. | Enough centred/stopped samples are collected. |
+ * | `INTERACTION` | Publishes `/interaction_active = true` and forwards arm mimicry poses. | 30 second interaction timer ends. |
+ * | `RECOVERY` | Holds still while the camera reacquires a lost person. | Camera reacquires or timeout returns to exploration. |
+ *
+ * ### Important physical variables
+ *
+ * | Variable | Meaning | Usually changed by |
+ * |---|---|---|
+ * | `g_human_motion_phase` | Current phase inside human interaction. | `controlLoop()`, `resetHumanMotionController()`. |
+ * | `g_human_centre_locked` | Whether the camera offset is centred enough to drive forward. | Human approach branch in `controlLoop()`. |
+ * | `g_human_turn_cycle_start` | Start time for the current on/off turn pulse. | Human centring logic. |
+ * | `g_human_forward_cycle_start` | Start time for pulsed forward slowdown near the person. | Human approach slowdown logic. |
+ * | `g_interaction_session_active` | Whether mimicry is currently open. | SETTLE/INTERACTION branches. |
+ * | `g_human_detection_cooldown_active` | Whether new detections are temporarily ignored. | Interaction end/recovery logic. |
+ * | `g_last_visible_human_*` | Last valid camera observation used for recovery. | `humanTrackingCallback()`. |
+ * | `g_right_arm_pose_publisher`, `g_left_arm_pose_publisher` | File-scope arm publishers used by helper functions. | Constructor initialises them; helpers publish through them. |
+ * | `g_voice_queue`, `g_voice_playing`, `g_last_voice_request_times` | Voice playback state. | Voice helper functions and worker thread. |
+ *
+ * ### Tuning constants that matter most
+ *
+ * | Constant | Effect |
+ * |---|---|
+ * | `kForwardSpeed` | DVD-bounce cruise speed. |
+ * | `kTurnSpeed` | Exploration turn command. |
+ * | `kAutonomousMaximumTurnDuration` | Maximum time spent turning before reversing direction. |
+ * | `kHumanApproachSpeed` | Forward speed while approaching a person. |
+ * | `kHumanApproachMaxTurnSpeed` | Physical turn pulse speed. |
+ * | `kHumanLidarStopDistance` | LiDAR range where the robot stops approaching. |
+ * | `kHumanLidarSlowdownMargin` | Distance band before stop where forward motion becomes pulsed. |
+ * | `kHumanInteractionDurationSeconds` | Length of the mimicry session. |
+ * | `kHumanDetectionCooldownSeconds` | Time after interaction before another detection is accepted. |
+ *
+ * @see behaviour_code_guide for the package-level behaviour guide.
+ */
 
 #include "behaviour.hpp"
 
@@ -196,11 +311,33 @@ static rclcpp::Time g_interaction_session_start_time;
 static bool g_human_detection_cooldown_active = false;
 static rclcpp::Time g_human_detection_cooldown_start_time;
 
+/**
+ * @brief Sub-states used inside the `HUMAN_DETECTED` FSM state.
+ *
+ * When the camera reports a person, the node enters HUMAN_DETECTED and
+ * progresses through these phases in order.  Only INTERACTION causes
+ * `/interaction_active` to be published as `true`, which gates the mimicry
+ * arm commands from the camera.
+ */
 enum class HumanMotionPhase
 {
+    /** @brief Robot is turning and/or driving toward the detected person.
+     *         Centering pulses and forward pulses are both active here. */
     APPROACH,
+
+    /** @brief Robot is at the correct distance and offset, accumulating
+     *         confirmation samples (`kHumanInteractionSettleSamples` = 3)
+     *         before committing to interaction. */
     SETTLE,
+
+    /** @brief Interaction session is active.  Base is stationary.
+     *         Arm mimicry commands are forwarded from the camera.
+     *         Duration is `kHumanInteractionDurationSeconds` (30 s). */
     INTERACTION,
+
+    /** @brief Camera briefly lost the person or is in grace-period reacquisition.
+     *         Robot holds still and waits up to `kHumanLostTimeout` (1.5 s)
+     *         before returning to DVD exploration. */
     RECOVERY
 };
 
@@ -236,18 +373,51 @@ static rclcpp::Time g_human_turn_cycle_start;
 static bool g_human_forward_cycle_initialised = false;
 static rclcpp::Time g_human_forward_cycle_start;
 
+/**
+ * @brief Categories of voice lines used by the voice playback system.
+ *
+ * Each group maps to a sub-folder inside the `resources/` directory.
+ * Audio files are pre-loaded at startup into phrase groups (groups of
+ * variations on the same phrase).  `playVoiceLine()` cycles through
+ * phrase groups in order and picks a random variation within each group,
+ * so the robot does not repeat the exact same audio file back-to-back.
+ *
+ * New audio files can be added by dropping `.mp3` / `.wav` files into
+ * the matching sub-folder — no code changes required.
+ */
 enum class VoiceGroup
 {
+    /** @brief Played during DVD-bounce exploration (every 30 s). */
     AUTONOMOUS,
+
+    /** @brief Played once when the camera first locks onto a person. */
     PERSON_DETECTED,
+
+    /** @brief Played once when the camera loses a person. */
     PERSON_LOST,
+
+    /** @brief Played while the camera is in grace-period reacquisition. */
     GRACE_PERIOD,
+
+    /** @brief Played while the robot is re-centering on the person during approach. */
     CENTERING,
+
+    /** @brief Played when an unexpected object enters the safety zone. */
     SAFETY_ZONE,
+
+    /** @brief Random mimicry line played during the interaction session. */
     MIMICRY_RANDOM,
+
+    /** @brief Triggered when the right arm classifies a "salute" pose. */
     MIMICRY_ATTEN_HUT,
+
+    /** @brief Triggered when the arm classifies an "arm_90_up" or "straight_arm" pose. */
     MIMICRY_STRONG,
+
+    /** @brief First part of the handshake greeting sequence. */
     MIMICRY_HANDSHAKE_GREETING,
+
+    /** @brief Second part of the handshake greeting ("My name is MECHelangelo"). */
     MIMICRY_HANDSHAKE_NAME
 };
 
@@ -262,6 +432,14 @@ static bool g_voice_playing = false;
 static std::string g_last_right_mimicry_voice_pose;
 static std::string g_last_left_mimicry_voice_pose;
 
+/**
+ * @brief Wrap a string in POSIX single-quotes, escaping any embedded
+ *        single-quote characters, so the result is safe to embed in a
+ *        shell command string passed to `std::system()`.
+ *
+ * @param value  The string to quote (typically a file path).
+ * @return       The quoted string, e.g. `hello 'world'` → `'hello '\''world'\'''`.
+ */
 static std::string shellQuote(const std::string &value)
 {
     std::string quoted = "'";
@@ -280,6 +458,21 @@ static std::string shellQuote(const std::string &value)
     return quoted;
 }
 
+/**
+ * @brief Return the absolute path to the `resources/` folder inside the
+ *        installed `mechelangelo_behaviour` package share directory.
+ *
+ * @details
+ * Tries `ament_index_cpp::get_package_share_directory()` first (works after
+ * `colcon build` and sourcing the workspace).  Falls back to a hard-coded
+ * path relative to `$HOME` and then an absolute fallback for development
+ * environments where the package is not installed.
+ *
+ * The resources folder contains sub-folders of audio files for each
+ * `VoiceGroup`, e.g. `resources/autonomous/`, `resources/person detected/`.
+ *
+ * @return Absolute path to the `resources/` directory as a std::string.
+ */
 static std::string behaviourResourceDirectory()
 {
     try
@@ -877,6 +1070,22 @@ static const char *humanMotionPhaseName(HumanMotionPhase phase)
     }
 }
 
+/**
+ * @brief Publish the rest-pose name to both arm topics at most once every
+ *        `kArmDownRepublishPeriod` seconds (or immediately if `force` is true).
+ *
+ * @details
+ * This is called continuously during exploration, approach, and settle so
+ * that the arm controller always has a fresh target even if messages are
+ * dropped.  The rate limit avoids flooding the arm topic while still
+ * guaranteeing a fresh command every 500 ms.
+ *
+ * The rest-pose name is set from the `approach_arm_pose_name` ROS parameter
+ * (default: `"arm_down"`).
+ *
+ * @param now    Current ROS time (used to check the republish interval).
+ * @param force  If `true`, publish immediately regardless of the interval.
+ */
 static void publishArmsDown(const rclcpp::Time &now, bool force = false)
 {
     if (!g_right_arm_pose_publisher || !g_left_arm_pose_publisher)
@@ -901,6 +1110,24 @@ static void publishArmsDown(const rclcpp::Time &now, bool force = false)
     g_arm_down_publish_time_initialised = true;
 }
 
+/**
+ * @brief Publish the `/interaction_active` gate topic, rate-limited to
+ *        once every 500 ms unless the value changes or `force` is true.
+ *
+ * @details
+ * The `/interaction_active` topic is published with
+ * `rclcpp::QoS(1).reliable().transient_local()` (latched), so new
+ * subscribers always receive the current value on first connect.  The
+ * 500 ms keepalive is still needed for nodes that miss the initial latched
+ * message due to start-up timing.
+ *
+ * `true` = mimicry session is active → perception camera may forward arm poses.
+ * `false` = arms should be in the rest pose.
+ *
+ * @param now     Current ROS time.
+ * @param active  The value to publish.
+ * @param force   If `true`, publish immediately regardless of rate limit.
+ */
 static void publishInteractionActive(
     const rclcpp::Time &now,
     bool active,
@@ -930,6 +1157,19 @@ static void publishInteractionActive(
     g_last_interaction_active_value = active;
 }
 
+/**
+ * @brief Reset all file-scope human-approach sub-state to its initial values.
+ *
+ * @details
+ * Called when:
+ * - A new human detection begins (rising edge on `/human_detected` or
+ *   `/human_tracking`).
+ * - An interaction session ends (time limit reached or person lost).
+ * - The robot abandons an approach due to `kHumanFailedStopTimeoutSeconds`.
+ *
+ * Does NOT reset `g_interaction_session_active` or cooldown state — those
+ * are managed separately by the callers.
+ */
 static void resetHumanMotionController()
 {
     g_human_motion_phase = HumanMotionPhase::APPROACH;
